@@ -25,6 +25,13 @@ requirements:
   run:
     - python
     - ecoscope-workflows-core
+    - ecoscope
+    - ecoscope-workflows-ext-ecoscope
+    - ecoscope-workflows-ext-custom
+    - geopandas
+    - shapely
+    - python-igraph
+    - earthengine-api
 
 about:
   license: BSD-3-Clause
