@@ -1,0 +1,107 @@
+id: aerial_survey_lines
+
+requirements:
+  - name: ecoscope-workflows-core
+    version: "*"
+    channel: https://repo.prefix.dev/ecoscope-workflows/
+  - name: ecoscope-workflows-ext-ste
+    version: "*"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
+
+workflow:
+  - name: Initialize Workflow Metadata
+    id: initialize_workflow_metadata
+    task: set_workflow_details
+
+
+  # define workflow time range
+  - name: Define Time Range
+    id: define_time_range
+    task: set_time_range
+    partial:
+      time_format: "%d %b %Y %H:%M:%S %Z"
+
+
+  # configure dynamic grouping strategy --> [], column value, or temporal
+  - name: Configure Grouping Strategy
+    id: configure_grouping_strategy
+    task: set_groupers
+
+  # define base map layers
+  - name: Configure Base Map Layers
+    id: configure_base_maps
+    task: set_base_maps
+
+
+  - name: Download Region of Interest (ROI)
+    id: fetch_roi_layer
+    task: download_roi
+
+
+  - name: Draw Aerial Survey Lines
+    id: draw_survey_lines
+    task: generate_survey_lines
+    partial:
+      gdf: ${{ workflow.fetch_roi_layer.return }}
+
+  - name: Persist Aerial Survey as Geopackage
+    id: persist_aerial_gdf
+    task: persist_df
+    partial:
+      df: ${{ workflow.draw_survey_lines.return }}
+      filetype: "gpkg"
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+  - name: Persist Aerial Survey as Geoparquet
+    id: persist_aerial_geoparquet
+    task: persist_df
+    partial:
+      df: ${{ workflow.draw_survey_lines.return }}
+      filetype: "geoparquet"
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+    
+  - name: Create Aerial Survey Lines
+    id: aerial_survey_polylines
+    task: create_polyline_layer
+    partial:
+      layer_style: 
+        get_width: 2
+        width_unit: pixels
+      geodataframe: ${{ workflow.draw_survey_lines.return }}
+
+  - name: Draw Aerial Survey Lines Ecomap
+    id: draw_aerial_survey_lines_ecomap
+    task: draw_ecomap
+    partial:
+      tile_layers: ${{ workflow.configure_base_maps.return }}
+      static: false
+      max_zoom: 12
+      north_arrow_style:
+        placement: top-left
+      legend_style:
+        placement: bottom-right
+      geo_layers: ${{ workflow.aerial_survey_polylines.return }}
+
+  - name: Persist Ecomaps
+    id: persist_ecomaps
+    task: persist_text
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      text: ${{ workflow.draw_aerial_survey_lines_ecomap.return }}
+  
+  - name: Create Ecomap Widgets
+    id: create_aerial_widgets
+    task : create_map_widget_single_view
+    partial: 
+      title: "Aerial Survey Lines"
+      data: ${{ workflow.persist_ecomaps.return }}
+
+  - name: Create Dashboard with Patrol Map Widgets 
+    id: patrol_dashboard
+    task: gather_dashboard
+    partial:
+      details: ${{ workflow.initialize_workflow_metadata.return }}
+      widgets: ${{ workflow.create_aerial_widgets.return }}
+      time_range: ${{ workflow.define_time_range.return }}
+      groupers: ${{ workflow.configure_grouping_strategy.return }}

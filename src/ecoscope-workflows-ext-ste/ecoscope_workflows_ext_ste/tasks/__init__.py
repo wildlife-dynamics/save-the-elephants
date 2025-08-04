@@ -1,5 +1,4 @@
-from ._example import add_one_thousand
-
+from ._generate_aerial_survey_lines import generate_survey_lines
 __all__ = [
-    "add_one_thousand",
+    "generate_survey_lines"
 ]

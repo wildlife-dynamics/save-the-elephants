@@ -25,6 +25,9 @@ requirements:
   run:
     - python
     - ecoscope-workflows-core
+    - ecoscope-workflows-ext-ecoscope
+    - geopandas
+    - shapely
 
 about:
   license: BSD-3-Clause
