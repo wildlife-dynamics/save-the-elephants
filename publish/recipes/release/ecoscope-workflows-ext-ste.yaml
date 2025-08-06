@@ -32,7 +32,7 @@ requirements:
     - shapely
     - python-igraph
     - earthengine-api
-    - pre-commit
+    
 about:
   license: BSD-3-Clause
 
