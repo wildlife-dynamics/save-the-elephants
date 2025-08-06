@@ -339,7 +339,7 @@ workflow:
         placement: bottom-right
       static: false
       title: null
-      max_zoom: 10
+      max_zoom: 20
     mapvalues:
       argnames: geo_layers
       argvalues: ${{ workflow.combine_landdx_speed_layers.return }}
@@ -451,7 +451,7 @@ workflow:
         placement: bottom-right
       static: false
       title: null
-      max_zoom: 10
+      max_zoom: 20
     mapvalues:
       argnames: geo_layers
       argvalues: ${{ workflow.combine_landdx_dn_ecomap_layers.return }}
@@ -566,7 +566,7 @@ workflow:
         placement: bottom-right
       static: false
       title: null
-      max_zoom: 10
+      max_zoom: 20
     mapvalues:
       argnames: geo_layers
       argvalues: ${{ workflow.combine_quarter_ecomap_layers.return }}
@@ -694,7 +694,7 @@ workflow:
         placement: bottom-right
       static: false
       title: null
-      max_zoom: 10
+      max_zoom: 20
     mapvalues:
       argnames: geo_layers
       argvalues: ${{ workflow.combine_landdx_hr_ecomap_layers.return }}
@@ -860,7 +860,7 @@ workflow:
         placement: bottom-right
       static: false
       title: null
-      max_zoom: 10
+      max_zoom: 20
     mapvalues:
       argnames: geo_layers
       argvalues: ${{ workflow.combine_seasonal_raster_layers.return }}
@@ -955,7 +955,7 @@ workflow:
         placement: bottom-right
       static: false
       title: null
-      max_zoom: 10
+      max_zoom: 20
     
     mapvalues:
       argnames: geo_layers
