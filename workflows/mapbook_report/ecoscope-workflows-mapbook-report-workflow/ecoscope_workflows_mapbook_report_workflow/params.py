@@ -332,7 +332,7 @@ class AutoScaleOrCustom(str, Enum):
 class AutoScaleGridCellSize(BaseModel):
     auto_scale_or_custom: Literal["Auto-scale"] = Field(
         "Auto-scale",
-        description="Define the resolution of the raster grid (in meters per pixel). Auto-scale for an optimized grid based on the data, or Customize to set a specific resolution.",
+        description="Define the resolution of the raster grid (in meters per pixel).",
         title=" ",
     )
 
@@ -344,7 +344,7 @@ class AutoScaleOrCustom1(str, Enum):
 class CustomGridCellSize(BaseModel):
     auto_scale_or_custom: Literal["Customize"] = Field(
         "Customize",
-        description="Define the resolution of the raster grid (in meters per pixel). Auto-scale for an optimized grid based on the data, or Customize to set a specific resolution.",
+        description="Define the resolution of the raster grid (in meters per pixel).",
         title=" ",
     )
     grid_cell_size: Optional[confloat(lt=10000.0, gt=0.0)] = Field(
@@ -442,12 +442,12 @@ class GenerateEtd(BaseModel):
     )
     max_speed_factor: Optional[float] = Field(
         1.05,
-        description="An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
+        description="An estimate of the subject's maximum speed.",
         title="Max Speed Factor (Kilometers per Hour)",
     )
     expansion_factor: Optional[float] = Field(
-        1.05,
-        description="Controls how far time density values spread across the grid, affecting the smoothness of the output.",
+        1.3,
+        description="Controls how far time density values spread across the grid.",
         title="Shape Buffer Expansion Factor",
     )
 

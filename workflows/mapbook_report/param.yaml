@@ -16,7 +16,7 @@ er_client_name:
 # Connect to EarthEngine
 gee_project_name:
   data_source:
-    name: "ecoscope-poc"
+    name: "ecoscope_poc"
     
 
 # Value grouper /temporal grouper
