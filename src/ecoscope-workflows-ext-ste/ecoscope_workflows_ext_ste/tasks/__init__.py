@@ -22,6 +22,7 @@ from ._ste_utils import (
     generate_speed_raster,
     create_seasonal_labels,
     split_gdf_by_column,
+    calculate_etd_by_groups
 )
 
 __all__ = [
@@ -40,6 +41,7 @@ __all__ = [
     "generate_density_grid",
     "create_layer_from_gdf",
     "create_seasonal_labels",
+    "calculate_etd_by_groups",
     "build_landdx_style_config",
     "create_view_state_from_gdf",
     "check_shapefile_geometry_type",
