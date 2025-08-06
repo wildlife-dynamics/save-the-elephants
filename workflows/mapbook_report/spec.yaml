@@ -7,7 +7,7 @@ requirements:
     version: "0.0.2.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
-  - name: ecoscope-workflows-ext-ste
+  - name: ecoscope-workflows-ext-mapbook
     version: "*"
     channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
 
@@ -193,36 +193,46 @@ workflow:
       trajectory_gdf: ${{ workflow.label_trajectory_quarters.return }}
 
   # determine wet/dry season windows based on NDVI or ROI
-  #- name: Determine Seasonal Windows
-  #  id: determine_seasonal_windows
-  #  task: determine_season_windows
-  #  partial:
-  #    client: ${{ workflow.gee_project_name.return }}
-  #    roi: ${{ workflow.generate_seasonal_etd.return }}
-  #    time_range: ${{ workflow.define_time_range.return }}
-
-  # inspect seasonal windows GeoDataFrame
-  #- name: Inspect Seasonal Windows DataFrame
-  #  id: inspect_seasonal_windows
-  #  task: view_df
-  #  partial:
-  #    name: 'seasonal-windows-df'
-  #    gdf: ${{ workflow.determine_seasonal_windows.return }}
+  - name: Determine Seasonal Windows
+    id: determine_seasonal_windows
+    task: determine_season_windows
+    partial:
+      client: ${{ workflow.gee_project_name.return }}
+      roi: ${{ workflow.generate_seasonal_etd.return }}
+      time_range: ${{ workflow.define_time_range.return }}
 
   # create seasons column 
-  #- name: Generate Seasonal labels 
-  #  id: add_season_labels
-  #  task: create_seasonal_label
-  #  partial:
-  #    traj: ${{ workflow.classify_quarter_temporal_trajs.return }}
-  #    total_percentiles: ${{ workflow.seasonal_etd.return }}
+  - name: Generate Seasonal labels 
+    id: add_season_labels
+    task: create_seasonal_labels
+    partial:
+      traj: ${{ workflow.label_trajectory_quarters.return }}
+      total_percentiles: ${{ workflow.determine_seasonal_windows.return }}
+  
+  # persist trajs
+  - name: Persist Trajectories as GPKG
+    id: persist_traj_df
+    task: persist_df 
+    partial:
+      df: ${{ workflow.add_season_labels.return }}
+      filetype: "gpkg"
+      root_path: ${{ workflow.create_output_directory.return }}
+
+  # persist relocations
+  - name: Persist Relocations as GPKG
+    id: persist_relocs_df
+    task: persist_df
+    partial:
+      df: ${{ workflow.annotate_day_night.return }}
+      filetype: "gpkg"
+      root_path: ${{ workflow.create_output_directory.return }}
 
   # split subject trajectories into groups based on grouping strategy
   - name: Split Trajectories by Group
     id: split_trajectories_by_group
     task: split_groups
     partial:
-      df: ${{ workflow.label_trajectory_quarters.return }}
+      df: ${{ workflow.add_season_labels.return }}
       groupers: ${{ workflow.configure_grouping_strategy.return }}
 
   # sort grouped trajectories by speed classification
@@ -599,7 +609,7 @@ workflow:
   # generate elliptical time density (ETD) home range maps per subject group
   - name: Generate Home Range Ecomaps
     id: generate_etd
-    task: calculate_elliptical_time_density
+    task: calculate_etd_by_groups #calculate_elliptical_time_density
     partial:
       crs: ESRI:53042
       percentiles:
@@ -612,10 +622,22 @@ workflow:
         - 99.0
       nodata_value: nan
       band_count: 1
+      include_groups: true
+      groupby_cols:
+        - season
+
     mapvalues:
       argnames: trajectory_gdf
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
 
+  - name: inspect HR gdf
+    id: inspect_hr_df
+    task: view_df
+    partial:
+      name: 'subject-HR-etd'
+    mapvalues:
+      argnames: gdf
+      argvalues: ${{ workflow.generate_etd.return }}
   # apply colormap to ETD home range percentiles
   - name: Apply Colormap to Home Range Percentiles
     id: apply_etd_percentile_colormap
@@ -877,6 +899,98 @@ workflow:
       widgets: ${{ workflow.speed_raster_ecomap_widgets.return }}
 
 
+  # Seasons
+  - name: Time Density colormap
+    id: season_colormap
+    task: apply_color_map
+    partial:
+      input_column_name: season
+      output_column_name: season_colormap
+      colormap: 
+        - '#f57c00' 
+        - '#4cf3f7' 
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.generate_etd.return }}
+
+  - name: Create map layers from Seasons
+    id: season_etd_map_layer
+    task: create_polygon_layer
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
+    partial:
+      layer_style:
+        fill_color_column: season_colormap
+        opacity: 0.650000
+      
+      legend:
+        label_column:  season
+        color_column: season_colormap
+      
+      tooltip_columns:
+        - percentile
+    mapvalues:
+      argnames: geodataframe
+      argvalues: ${{ workflow.season_colormap.return }}
+
+  - name: Combine Map Layers
+    id: comb_season_map_layers
+    task: combine_map_layers
+    partial:
+      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+    mapvalues:
+      argnames: grouped_layers
+      argvalues: ${{ workflow.season_etd_map_layer.return }}
+
+  - name: Draw Season Ecomap 
+    id: seasonal_ecomap
+    task: draw_ecomap
+    partial:
+      tile_layers: ${{ workflow.configure_base_maps.return }}
+      north_arrow_style:
+        placement: top-left
+      legend_style:
+        placement: bottom-right
+      static: false
+      title: null
+      max_zoom: 10
+    
+    mapvalues:
+      argnames: geo_layers
+      argvalues: ${{ workflow.comb_season_map_layers.return }}
+
+  - name: Perist HR ecomap as text
+    id: season_etd_ecomap_html_url
+    task: persist_text
+    partial:
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+    mapvalues:
+      argnames: text 
+      argvalues: ${{ workflow.seasonal_ecomap.return }}
+
+  - name: Create Map Widgets for Trajectories
+    id: season_etd_widgets_single_view
+    task: create_map_widget_single_view
+    skipif:
+      conditions: 
+        - never
+    partial:
+      title: Subject Group Home Range Map (Seasons)
+    map:
+      argnames:
+        - view 
+        - data
+      
+      argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}
+
+  - name: Merge Ecomap Widgets 
+    id: season_grouped_map_widget
+    task: merge_widget_views
+    partial:
+      widgets: ${{ workflow.season_etd_widgets_single_view.return }}
 
   - name: Mapbook Dashboard
     id: mapbook_dashboard
@@ -889,6 +1003,7 @@ workflow:
         - ${{ workflow.merge_quarter_ecomap_widgets.return }} #prev-current quarter movement widgets
         - ${{ workflow.merge_hr_ecomap_widgets.return }} # etd hr widgets
         - ${{ workflow.speedraster_ecomap_widgets.return }} # speedraster widgets
+        - ${{ workflow.season_grouped_map_widget.return }} # seasons 
 
       time_range: ${{ workflow.define_time_range.return }}
       groupers: ${{ workflow.configure_grouping_strategy.return }}
