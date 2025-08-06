@@ -34,6 +34,7 @@ ENTRYPOINT = "pixi run -e default ecoscope-workflows-mapbook-report-workflow"
 MATCHSPEC_OVERRIDE = "ecoscope-workflows-mapbook-report-workflow"
 IO_TASKS_IMPORTABLE_REFERENCES = [
     "ecoscope_workflows_ext_ecoscope.tasks.io.get_subjectgroup_observations",
+    "ecoscope_workflows_ext_ecoscope.tasks.io.determine_season_windows",
 ]
 
 yaml = ruamel.yaml.YAML(typ="safe")

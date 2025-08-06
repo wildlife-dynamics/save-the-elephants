@@ -43,6 +43,13 @@ from ecoscope_workflows_ext_ste.tasks import label_quarter_status
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density,
 )
+
+determine_season_windows = create_task_magicmock(  # 🧪
+    anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
+    func_name="determine_season_windows",  # 🧪
+)  # 🧪
+from ecoscope_workflows_ext_ste.tasks import create_seasonal_labels
+from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
 from ecoscope_workflows_core.tasks.groupby import split_groups
 from ecoscope_workflows_core.tasks.transformation import sort_values
 from ecoscope_workflows_ext_ecoscope.tasks.transformation import apply_color_map
@@ -56,6 +63,8 @@ from ecoscope_workflows_core.tasks.io import persist_text
 from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
 from ecoscope_workflows_core.tasks.skip import never
 from ecoscope_workflows_core.tasks.results import merge_widget_views
+from ecoscope_workflows_ext_ste.tasks import calculate_etd_by_groups
+from ecoscope_workflows_ext_ste.tasks import view_df
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polygon_layer
 from ecoscope_workflows_ext_ste.tasks import generate_speed_raster
 from ecoscope_workflows_ext_ste.tasks import retrieve_feature_gdf
@@ -93,8 +102,19 @@ def main(params: Params):
         "classify_trajectory_speed_bins": ["add_temporal_index_to_traj"],
         "label_trajectory_quarters": ["classify_trajectory_speed_bins"],
         "generate_seasonal_etd": ["label_trajectory_quarters"],
-        "split_trajectories_by_group": [
+        "determine_seasonal_windows": [
+            "gee_project_name",
+            "generate_seasonal_etd",
+            "define_time_range",
+        ],
+        "add_season_labels": [
             "label_trajectory_quarters",
+            "determine_seasonal_windows",
+        ],
+        "persist_traj_df": ["add_season_labels", "create_output_directory"],
+        "persist_relocs_df": ["annotate_day_night", "create_output_directory"],
+        "split_trajectories_by_group": [
+            "add_season_labels",
             "configure_grouping_strategy",
         ],
         "sort_trajectories_by_speed": ["split_trajectories_by_group"],
@@ -139,6 +159,7 @@ def main(params: Params):
         "create_quarter_ecomap_widgets": ["persist_quarter_ecomap_urls"],
         "merge_quarter_ecomap_widgets": ["create_quarter_ecomap_widgets"],
         "generate_etd": ["split_trajectories_by_group"],
+        "inspect_hr_df": ["generate_etd"],
         "apply_etd_percentile_colormap": ["generate_etd"],
         "generate_etd_ecomap_layers": ["apply_etd_percentile_colormap"],
         "combine_landdx_hr_ecomap_layers": [
@@ -170,6 +191,16 @@ def main(params: Params):
         "speed_raster_ecomap_urls": ["draw_speed_raster_ecomaps"],
         "speed_raster_ecomap_widgets": ["speed_raster_ecomap_urls"],
         "speedraster_ecomap_widgets": ["speed_raster_ecomap_widgets"],
+        "season_colormap": ["generate_etd"],
+        "season_etd_map_layer": ["season_colormap"],
+        "comb_season_map_layers": [
+            "create_styled_landdx_layers",
+            "season_etd_map_layer",
+        ],
+        "seasonal_ecomap": ["configure_base_maps", "comb_season_map_layers"],
+        "season_etd_ecomap_html_url": ["seasonal_ecomap"],
+        "season_etd_widgets_single_view": ["season_etd_ecomap_html_url"],
+        "season_grouped_map_widget": ["season_etd_widgets_single_view"],
         "mapbook_dashboard": [
             "initialize_workflow_metadata",
             "merge_speed_ecomap_widgets",
@@ -177,6 +208,7 @@ def main(params: Params):
             "merge_quarter_ecomap_widgets",
             "merge_hr_ecomap_widgets",
             "speedraster_ecomap_widgets",
+            "season_grouped_map_widget",
             "define_time_range",
             "configure_grouping_strategy",
         ],
@@ -398,12 +430,59 @@ def main(params: Params):
             | (params_dict.get("generate_seasonal_etd") or {}),
             method="call",
         ),
+        "determine_seasonal_windows": Node(
+            async_task=determine_season_windows.validate()
+            .handle_errors(task_instance_id="determine_seasonal_windows")
+            .set_executor("lithops"),
+            partial={
+                "client": DependsOn("gee_project_name"),
+                "roi": DependsOn("generate_seasonal_etd"),
+                "time_range": DependsOn("define_time_range"),
+            }
+            | (params_dict.get("determine_seasonal_windows") or {}),
+            method="call",
+        ),
+        "add_season_labels": Node(
+            async_task=create_seasonal_labels.validate()
+            .handle_errors(task_instance_id="add_season_labels")
+            .set_executor("lithops"),
+            partial={
+                "traj": DependsOn("label_trajectory_quarters"),
+                "total_percentiles": DependsOn("determine_seasonal_windows"),
+            }
+            | (params_dict.get("add_season_labels") or {}),
+            method="call",
+        ),
+        "persist_traj_df": Node(
+            async_task=persist_df.validate()
+            .handle_errors(task_instance_id="persist_traj_df")
+            .set_executor("lithops"),
+            partial={
+                "df": DependsOn("add_season_labels"),
+                "filetype": "gpkg",
+                "root_path": DependsOn("create_output_directory"),
+            }
+            | (params_dict.get("persist_traj_df") or {}),
+            method="call",
+        ),
+        "persist_relocs_df": Node(
+            async_task=persist_df.validate()
+            .handle_errors(task_instance_id="persist_relocs_df")
+            .set_executor("lithops"),
+            partial={
+                "df": DependsOn("annotate_day_night"),
+                "filetype": "gpkg",
+                "root_path": DependsOn("create_output_directory"),
+            }
+            | (params_dict.get("persist_relocs_df") or {}),
+            method="call",
+        ),
         "split_trajectories_by_group": Node(
             async_task=split_groups.validate()
             .handle_errors(task_instance_id="split_trajectories_by_group")
             .set_executor("lithops"),
             partial={
-                "df": DependsOn("label_trajectory_quarters"),
+                "df": DependsOn("add_season_labels"),
                 "groupers": DependsOn("configure_grouping_strategy"),
             }
             | (params_dict.get("split_trajectories_by_group") or {}),
@@ -540,7 +619,7 @@ def main(params: Params):
                 "legend_style": {"placement": "bottom-right"},
                 "static": False,
                 "title": None,
-                "max_zoom": 10,
+                "max_zoom": 20,
             }
             | (params_dict.get("draw_speed_ecomaps") or {}),
             method="mapvalues",
@@ -675,7 +754,7 @@ def main(params: Params):
                 "legend_style": {"placement": "bottom-right"},
                 "static": False,
                 "title": None,
-                "max_zoom": 10,
+                "max_zoom": 20,
             }
             | (params_dict.get("draw_day_night_ecomaps") or {}),
             method="mapvalues",
@@ -816,7 +895,7 @@ def main(params: Params):
                 "legend_style": {"placement": "bottom-right"},
                 "static": False,
                 "title": None,
-                "max_zoom": 10,
+                "max_zoom": 20,
             }
             | (params_dict.get("draw_quarter_status_ecomaps") or {}),
             method="mapvalues",
@@ -870,7 +949,7 @@ def main(params: Params):
             method="call",
         ),
         "generate_etd": Node(
-            async_task=calculate_elliptical_time_density.validate()
+            async_task=calculate_etd_by_groups.validate()
             .handle_errors(task_instance_id="generate_etd")
             .set_executor("lithops"),
             partial={
@@ -878,12 +957,28 @@ def main(params: Params):
                 "percentiles": [50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.0],
                 "nodata_value": "nan",
                 "band_count": 1,
+                "include_groups": True,
+                "groupby_cols": ["season"],
             }
             | (params_dict.get("generate_etd") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["trajectory_gdf"],
                 "argvalues": DependsOn("split_trajectories_by_group"),
+            },
+        ),
+        "inspect_hr_df": Node(
+            async_task=view_df.validate()
+            .handle_errors(task_instance_id="inspect_hr_df")
+            .set_executor("lithops"),
+            partial={
+                "name": "subject-HR-etd",
+            }
+            | (params_dict.get("inspect_hr_df") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("generate_etd"),
             },
         ),
         "apply_etd_percentile_colormap": Node(
@@ -955,7 +1050,7 @@ def main(params: Params):
                 "legend_style": {"placement": "bottom-right"},
                 "static": False,
                 "title": None,
-                "max_zoom": 10,
+                "max_zoom": 20,
             }
             | (params_dict.get("draw_hr_ecomaps") or {}),
             method="mapvalues",
@@ -1160,7 +1255,7 @@ def main(params: Params):
                 "legend_style": {"placement": "bottom-right"},
                 "static": False,
                 "title": None,
-                "max_zoom": 10,
+                "max_zoom": 20,
             }
             | (params_dict.get("draw_speed_raster_ecomaps") or {}),
             method="mapvalues",
@@ -1213,6 +1308,125 @@ def main(params: Params):
             | (params_dict.get("speedraster_ecomap_widgets") or {}),
             method="call",
         ),
+        "season_colormap": Node(
+            async_task=apply_color_map.validate()
+            .handle_errors(task_instance_id="season_colormap")
+            .set_executor("lithops"),
+            partial={
+                "input_column_name": "season",
+                "output_column_name": "season_colormap",
+                "colormap": ["#f57c00", "#4cf3f7"],
+            }
+            | (params_dict.get("season_colormap") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("generate_etd"),
+            },
+        ),
+        "season_etd_map_layer": Node(
+            async_task=create_polygon_layer.validate()
+            .handle_errors(task_instance_id="season_etd_map_layer")
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "layer_style": {
+                    "fill_color_column": "season_colormap",
+                    "opacity": 0.65,
+                },
+                "legend": {"label_column": "season", "color_column": "season_colormap"},
+                "tooltip_columns": ["percentile"],
+            }
+            | (params_dict.get("season_etd_map_layer") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["geodataframe"],
+                "argvalues": DependsOn("season_colormap"),
+            },
+        ),
+        "comb_season_map_layers": Node(
+            async_task=combine_map_layers.validate()
+            .handle_errors(task_instance_id="comb_season_map_layers")
+            .set_executor("lithops"),
+            partial={
+                "static_layers": DependsOn("create_styled_landdx_layers"),
+            }
+            | (params_dict.get("comb_season_map_layers") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["grouped_layers"],
+                "argvalues": DependsOn("season_etd_map_layer"),
+            },
+        ),
+        "seasonal_ecomap": Node(
+            async_task=draw_ecomap.validate()
+            .handle_errors(task_instance_id="seasonal_ecomap")
+            .set_executor("lithops"),
+            partial={
+                "tile_layers": DependsOn("configure_base_maps"),
+                "north_arrow_style": {"placement": "top-left"},
+                "legend_style": {"placement": "bottom-right"},
+                "static": False,
+                "title": None,
+                "max_zoom": 20,
+            }
+            | (params_dict.get("seasonal_ecomap") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["geo_layers"],
+                "argvalues": DependsOn("comb_season_map_layers"),
+            },
+        ),
+        "season_etd_ecomap_html_url": Node(
+            async_task=persist_text.validate()
+            .handle_errors(task_instance_id="season_etd_ecomap_html_url")
+            .set_executor("lithops"),
+            partial={
+                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            }
+            | (params_dict.get("season_etd_ecomap_html_url") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["text"],
+                "argvalues": DependsOn("seasonal_ecomap"),
+            },
+        ),
+        "season_etd_widgets_single_view": Node(
+            async_task=create_map_widget_single_view.validate()
+            .handle_errors(task_instance_id="season_etd_widgets_single_view")
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "title": "Subject Group Home Range Map (Seasons)",
+            }
+            | (params_dict.get("season_etd_widgets_single_view") or {}),
+            method="map",
+            kwargs={
+                "argnames": ["view", "data"],
+                "argvalues": DependsOn("season_etd_ecomap_html_url"),
+            },
+        ),
+        "season_grouped_map_widget": Node(
+            async_task=merge_widget_views.validate()
+            .handle_errors(task_instance_id="season_grouped_map_widget")
+            .set_executor("lithops"),
+            partial={
+                "widgets": DependsOn("season_etd_widgets_single_view"),
+            }
+            | (params_dict.get("season_grouped_map_widget") or {}),
+            method="call",
+        ),
         "mapbook_dashboard": Node(
             async_task=gather_dashboard.validate()
             .handle_errors(task_instance_id="mapbook_dashboard")
@@ -1226,6 +1440,7 @@ def main(params: Params):
                         DependsOn("merge_quarter_ecomap_widgets"),
                         DependsOn("merge_hr_ecomap_widgets"),
                         DependsOn("speedraster_ecomap_widgets"),
+                        DependsOn("season_grouped_map_widget"),
                     ],
                 ),
                 "time_range": DependsOn("define_time_range"),

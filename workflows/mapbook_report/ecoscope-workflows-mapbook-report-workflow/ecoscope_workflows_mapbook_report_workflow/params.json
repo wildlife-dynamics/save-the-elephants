@@ -485,14 +485,14 @@
           "default": 1.05,
           "title": "Max Speed Factor (Kilometers per Hour)",
           "type": "number",
-          "description": "An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
+          "description": "An estimate of the subject's maximum speed.",
           "ecoscope:advanced": true
         },
         "expansion_factor": {
-          "default": 1.05,
+          "default": 1.3,
           "title": "Shape Buffer Expansion Factor",
           "type": "number",
-          "description": "Controls how far time density values spread across the grid, affecting the smoothness of the output.",
+          "description": "Controls how far time density values spread across the grid.",
           "ecoscope:advanced": true
         }
       },
@@ -704,7 +704,7 @@
         "auto_scale_or_custom": {
           "const": "Auto-scale",
           "default": "Auto-scale",
-          "description": "Define the resolution of the raster grid (in meters per pixel). Auto-scale for an optimized grid based on the data, or Customize to set a specific resolution.",
+          "description": "Define the resolution of the raster grid (in meters per pixel).",
           "ecoscope:advanced": true,
           "enum": [
             "Auto-scale"
@@ -721,7 +721,7 @@
         "auto_scale_or_custom": {
           "const": "Customize",
           "default": "Customize",
-          "description": "Define the resolution of the raster grid (in meters per pixel). Auto-scale for an optimized grid based on the data, or Customize to set a specific resolution.",
+          "description": "Define the resolution of the raster grid (in meters per pixel).",
           "ecoscope:advanced": true,
           "enum": [
             "Customize"
