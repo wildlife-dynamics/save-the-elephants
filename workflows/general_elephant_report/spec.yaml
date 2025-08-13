@@ -1,0 +1,1785 @@
+  id: general_elephant_report
+  requirements:
+    - name: ecoscope-workflows-core
+      version: "*"
+      channel: https://repo.prefix.dev/ecoscope-workflows/
+    - name: ecoscope-workflows-ext-custom
+      version: "0.0.2.*"
+      channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+    - name: ecoscope-workflows-ext-ste
+      version: "*"
+      channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
+
+
+  workflow:
+  # set workflow metadata
+    - name: Initialize Workflow Metadata
+      id: initialize_workflow_metadata
+      task: set_workflow_details
+
+    # define workflow time range
+    - name: Define Time Range
+      id: define_time_range
+      task: set_time_range
+      partial:
+        time_format: "%d %b %Y %H:%M:%S %Z"
+
+
+    # configure dynamic grouping strategy --> [], column value, or temporal
+    - name: Configure Grouping Strategy
+      id: configure_grouping_strategy
+      task: set_groupers
+
+    # define base map layers
+    - name: Configure Base Map Layers
+      id: configure_base_maps
+      task: set_base_maps
+
+    # create output directory to persist workflow files
+    - name: Create Output Directory
+      id: create_output_directory
+      task: create_directory
+
+    # download LandDx database, unzip, and save to output directory
+    - name: Retrieve and Unpack LandDx Database
+      id: retrieve_landdx_database
+      task: download_land_dx
+      partial:
+        path: ${{ workflow.create_output_directory.return }}
+
+
+    # Load AOI from LandDx 
+    - name: Load AOI from landDx
+      id: load_aoi
+      task: load_landdx_aoi
+      partial:
+        map_path: ${{ workflow.retrieve_landdx_database.return }}
+
+    # split LandDx AOI features by 'type' column
+    - name: Split LandDx Layers by Type
+      id: split_landdx_by_type
+      task: split_gdf_by_column
+      partial:
+        gdf: ${{ workflow.load_aoi.return }}
+        column: type
+
+    # annotate each LandDx AOI layer with its geometry type
+    - name: Annotate Geometry Types
+      id: annotate_geometry_types
+      task: annotate_gdf_dict_with_geometry_type
+      partial:
+        gdf_dict: ${{ workflow.split_landdx_by_type.return }}
+
+    # create styled map layers for LandDx features
+    - name: Style LandDx Map Layers
+      id: create_styled_landdx_layers
+      task: create_map_layers_from_annotated_dict
+      partial:
+        annotated_dict: ${{ workflow.annotate_geometry_types.return }}
+
+    # Connect to ER
+    - name: Connect to EarthRanger Instance
+      id: er_client_name
+      task: set_er_connection
+    
+    #Connect to EE
+    - name: Connect to EE
+      id: gee_project_name
+      task: set_gee_connection
+
+    # Retrieve observations from ER
+    - name: Get subject Group Observations from ER
+      id: subject_observations
+      task: get_subjectgroup_observations
+      partial:
+        client: ${{ workflow.er_client_name.return }}
+        time_range: ${{ workflow.define_time_range.return }}
+        raise_on_empty: false
+        include_details: false
+        include_subjectsource_details: false
+    
+    - name: Transform Observations to Relocations
+      id: subject_reloc
+      task: process_relocations
+      partial:
+        observations: ${{ workflow.subject_observations.return }}
+        relocs_columns:
+          - fixtime
+          - geometry
+          - groupby_col
+          - junk_status 
+          - extra__created_at
+          - extra__subject__sex
+          - extra__subject__hex
+          - extra__subject__name
+          - extra__subject__subject_subtype
+
+        filter_point_coords:
+          - x: 180.000000
+            y: 90.000000
+          - x: 0.000000
+            y: 0.000000
+          - x: 1.000000
+            y: 1.000000
+
+    # classify relocations as day or night
+    - name: Annotate Relocations with Day/Night Labels
+      id: annotate_day_night
+      task: classify_is_night
+      partial:
+        relocations: ${{ workflow.subject_reloc.return }}
+    
+    # add day/night column on relocs 
+    - name: Label day-night columns 
+      id: day_night_column
+      task: add_day_night_column
+      partial:
+        source_col: is_night
+        df: ${{ workflow.annotate_day_night.return }}
+
+    # convert subject relocations to movement trajectories
+    - name: Convert Relocations to Trajectories
+      id: convert_to_trajectories
+      task: relocations_to_trajectory
+      partial:
+        relocations: ${{ workflow.day_night_column.return }}
+
+    # add temporal index to subject trajectories using segment_start
+    - name: Add Temporal Index to Trajectories
+      id: add_temporal_index_to_traj
+      task: add_temporal_index
+      partial:
+        df: ${{ workflow.convert_to_trajectories.return }}
+        time_col: segment_start
+        groupers: ${{ workflow.configure_grouping_strategy.return }}
+        cast_to_datetime: true
+        format: mixed
+
+    # classify trajectories into speed bins
+    - name: Classify Trajectories by Speed
+      id: classify_trajectory_speed_bins
+      task: apply_classification
+      partial:
+        df: ${{ workflow.add_temporal_index_to_traj.return }}
+        input_column_name: speed_kmhr
+        output_column_name: speed_bins
+        classification_options:
+          scheme: equal_interval
+          k: 6
+        label_options:
+          label_ranges: false  # try true and set label options later
+          label_decimals: 1
+
+    # generate seasonal home range ETD (up to 99th percentile)
+    - name: Generate Seasonal Home Range ETD
+      id: generate_seasonal_etd
+      task: calculate_elliptical_time_density
+      partial:
+        crs: ESRI:53042
+        percentiles:
+          - 50.0
+          - 60.0
+          - 70.0
+          - 80.0
+          - 90.0
+          - 95.0
+          - 99.0
+        nodata_value: nan
+        band_count: 1
+        trajectory_gdf: ${{ workflow.classify_trajectory_speed_bins.return }}
+
+    # determine wet/dry season windows based on NDVI or ROI
+    - name: Determine Seasonal Windows
+      id: determine_seasonal_windows
+      task: determine_season_windows
+      partial:
+        client: ${{ workflow.gee_project_name.return }}
+        roi: ${{ workflow.generate_seasonal_etd.return }}
+        time_range: ${{ workflow.define_time_range.return }}
+
+    # create seasons column 
+    - name: Generate Seasonal labels 
+      id: add_season_labels
+      task: create_seasonal_labels
+      partial:
+        traj: ${{ workflow.classify_trajectory_speed_bins.return }}
+        total_percentiles: ${{ workflow.determine_seasonal_windows.return }}
+
+    - name: Convert subject hex colors to rgba 
+      id: convert_hex_rgba
+      task: convert_col_to_rgba
+      partial:
+        df: ${{ workflow.add_season_labels.return }}
+        col: extra__hex
+        new_col: hex_colors
+
+    - name: Create day night meshgrid
+      id: create_dn_meshgrid
+      task: create_meshgrid
+      partial:
+        intersecting_only: false
+        crs: EPSG:3857
+        aoi: ${{ workflow.day_night_column.return}}
+
+    # persist trajs
+    - name: Persist Trajectories as GPKG
+      id: persist_traj_df
+      task: persist_df 
+      partial:
+        df: ${{ workflow.convert_hex_rgba.return }}
+        filetype: "gpkg"
+        root_path: ${{ workflow.create_output_directory.return }}
+
+    # persist relocations
+    - name: Persist Relocations as GPKG
+      id: persist_relocs_df
+      task: persist_df
+      partial:
+        df: ${{ workflow.day_night_column.return }}
+        filetype: "gpkg"
+        root_path: ${{ workflow.create_output_directory.return }}
+    
+    - name: Assign column to trajs
+      id: assign_cols
+      task: assign_column
+      partial: 
+        column_name: area_status
+        value: unprotected
+        df: ${{ workflow.convert_hex_rgba.return }}
+
+    - name: Join protected areas and trajectories
+      id: join_traj_landdx
+      task: spatial_join
+      partial:
+        how: inner
+        predicate: intersects
+        local_gdf: ${{ workflow.load_aoi.return }}
+        trajs_gdf: ${{ workflow.assign_cols.return }}
+
+    - name: Assign value by index
+      id: assign_protected_values
+      task: assign_value_by_index
+      partial:
+        df: ${{ workflow.assign_cols.return }}
+        subset_df: ${{ workflow.join_traj_landdx.return }}
+        column_name: area_status
+        value: protected
+
+    - name: view spatial gdf
+      id: view_joined_gdf
+      task: view_df
+      partial:
+        name: 'joined_df'
+        gdf: ${{ workflow.assign_protected_values.return }}
+
+    # split subject trajectories into groups based on grouping strategy
+    - name: Split Trajectories by Group
+      id: split_trajectories_by_group
+      task: split_groups
+      partial:
+        df: ${{ workflow.assign_protected_values.return }}
+        groupers: ${{ workflow.configure_grouping_strategy.return }}
+
+
+    # Split relocations into groups based on grouping strategy
+    - name: Split Relocations by Group
+      id: split_relocations_by_group
+      task: split_groups
+      partial:
+        df: ${{ workflow.day_night_column.return }}
+        groupers: ${{ workflow.configure_grouping_strategy.return }}
+
+    # 02. Tracks Styled by subject 
+    - name: Create Subject Styled Ecomap Layers
+      id: generate_substyled_layers
+      task: create_polyline_layer
+      skipif:
+        conditions:
+          - any_is_empty_df
+          - any_dependency_skipped
+      partial:
+        layer_style:
+          color_column: hex_colors
+          auto_highlight: true #false
+          pickable: true
+          get_width: 3.00
+          width_unit: pixels
+          cap_rounded: true
+          opacity: 0.35
+        legend:
+          label_column: extra__name
+          color_column: extra__hex
+        tooltip_columns:
+          - extra__hex
+          - extra__name
+          - extra__sex
+      mapvalues:
+        argnames: geodataframe
+        argvalues: ${{ workflow.split_trajectories_by_group.return }}
+    
+    # combine static LandDx layers 
+    - name: Combine LandDx and subject-styled ecomap layers
+      id: combine_substyled_layers
+      task: combine_map_layers
+      partial:
+        static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      mapvalues:
+        argnames: grouped_layers
+        argvalues: ${{ workflow.generate_substyled_layers.return }}
+
+    # draw subject-styled ecomaps
+    - name: Draw subject-styled ecomaps
+      id: draw_substyled_ecomaps
+      task: draw_ecomap
+      partial:
+        tile_layers: ${{ workflow.configure_base_maps.return }}
+        north_arrow_style:
+          placement: top-left
+        legend_style:
+          placement: bottom-right
+          title: Subject Tracks
+        static: false
+        title: null
+        max_zoom: 20
+      mapvalues:
+        argnames: geo_layers
+        argvalues: ${{ workflow.combine_substyled_layers.return }}
+
+    # persist HTML URLs
+    - name: Persist subject-styled ecomap HTML paths
+      id: persist_substyled_urls
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text
+        argvalues: ${{ workflow.draw_substyled_ecomaps.return }}
+
+    # create single-view map widgets
+    - name: Create subject-styled ecomap widgets
+      id: create_substyled_ecomap_widgets
+      task: create_map_widget_single_view
+      skipif:
+        conditions:
+          - never
+      partial:
+        title: Combined subject tracks ecomap
+      map:
+        argnames:
+          - view
+          - data
+        argvalues: ${{ workflow.persist_substyled_urls.return }}
+
+    # merge subject-styled widgets
+    - name: Merge subject-styled widgets
+      id: merge_substyled_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.create_substyled_ecomap_widgets.return }}
+
+    # 03 Home Range 
+    - name: Generate Home Range
+      id: generate_etd
+      task: calculate_elliptical_time_density
+      partial:
+        crs: ESRI:53042
+        percentiles:
+          - 50.0
+          - 60.0
+          - 70.0
+          - 80.0
+          - 90.0
+          - 95.0
+          - 99.0
+        nodata_value: nan
+        band_count: 1
+      mapvalues:
+        argnames: trajectory_gdf
+        argvalues: ${{ workflow.split_trajectories_by_group.return }}
+    
+    - name: Time Density Colormap
+      id: td_colormap
+      task: apply_color_map
+      partial:
+        input_column_name: percentile
+        colormap: RdYlGn
+        output_column_name: percentile_colormap
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.generate_etd.return }}
+
+
+    # create polygon map layers from ETD (home range) percentiles
+    - name: Create Home Range Ecomap Layers
+      id: generate_etd_ecomap_layers
+      task: create_polygon_layer
+      skipif:
+        conditions:
+          - any_is_empty_df
+          - any_dependency_skipped
+      partial:
+        layer_style:
+          fill_color_column: percentile_colormap
+          opacity: 0.35
+          stroked: false
+        legend:
+          label_column: percentile
+          color_column: percentile_colormap
+        tooltip_columns:
+          - percentile
+      mapvalues:
+        argnames: geodataframe
+        argvalues: ${{ workflow.td_colormap.return }}
+
+    # combine static LandDx layers with home range (ETD) ecomap layers
+    - name: Combine LandDx and Home Range Ecomap Layers
+      id: combine_landdx_hr_ecomap_layers
+      task: combine_map_layers
+      partial:
+        static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      mapvalues:
+        argnames: grouped_layers
+        argvalues: ${{ workflow.generate_etd_ecomap_layers.return }}
+
+
+    # draw home range (ETD) ecomaps for each subject group
+    - name: Draw Home Range Ecomaps by Group
+      id: draw_hr_ecomaps
+      task: draw_ecomap
+      partial:
+        tile_layers: ${{ workflow.configure_base_maps.return }}
+        north_arrow_style:
+          placement: top-left
+        legend_style:
+          placement: bottom-right
+          title: Home Range Metrics
+        static: false
+        title: null
+        max_zoom: 20
+      mapvalues:
+        argnames: geo_layers
+        argvalues: ${{ workflow.combine_landdx_hr_ecomap_layers.return }}
+
+    # persist HTML URLs of home range ecomaps as text files
+    - name: Persist Home Range Ecomap HTML Paths
+      id: persist_hr_ecomap_urls
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text 
+        argvalues: ${{ workflow.draw_hr_ecomaps.return }}
+
+
+    # create single-view map widgets for home range ecomaps
+    - name: Create Home Range Ecomap Widgets
+      id: create_hr_ecomap_widgets
+      task: create_map_widget_single_view
+      skipif:
+        conditions: 
+          - never
+      partial:
+        title: Home range ecomap
+      map:
+        argnames:
+          - view 
+          - data
+        argvalues: ${{ workflow.persist_hr_ecomap_urls.return }}
+
+
+    # merge home range ecomap widgets into a grouped view
+    - name: Merge Home Range Ecomap Widgets
+      id: merge_hr_ecomap_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.create_hr_ecomap_widgets.return }}
+
+
+    # 04. 99th Percentile HR
+    - name: Filter out 99th percentile
+      id: custom_hr
+      task: filter_column_values
+      partial:
+        column: percentile
+        values:
+          - 99.0
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.generate_etd.return }}
+
+    - name: 99th percentile time density colormap
+      id: custom_td_colormap
+      task: apply_color_map
+      partial:
+        input_column_name: percentile
+        colormap:
+          - '#d2691e'
+        output_column_name: percentile_colormap
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.custom_hr.return }}
+
+    - name: Create 99th HR Ecomap layers
+      id: generate_cetd_ecomap_layers
+      task: create_polygon_layer
+      skipif:
+        conditions:
+          - any_is_empty_df
+          - any_dependency_skipped
+      partial:
+        layer_style:
+          fill_color_column: percentile_colormap
+          opacity: 0.35
+          stroked: false
+        legend:
+          label_column: percentile
+          color_column: percentile_colormap
+        tooltip_columns:
+          - percentile
+      mapvalues:
+        argnames: geodataframe
+        argvalues: ${{ workflow.custom_td_colormap.return }}
+    
+    - name: Combine LandDx and Custom HR ecomap layers
+      id: combine_landdx_custom_hr_layers
+      task: combine_map_layers
+      partial:
+        static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      mapvalues:
+        argnames: grouped_layers
+        argvalues: ${{ workflow.generate_cetd_ecomap_layers.return }}
+    
+    - name: Draw 99th percentile hr ecomap
+      id: draw_custom_hr_ecomaps
+      task: draw_ecomap
+      partial:
+        tile_layers: ${{ workflow.configure_base_maps.return }}
+        north_arrow_style:
+          placement: top-left
+        legend_style: 
+          placement: bottom-right
+          title: Home Range Metrics
+        static: false
+        title: null
+        max_zoom: 20
+      mapvalues:
+        argnames: geo_layers
+        argvalues: ${{ workflow.combine_landdx_custom_hr_layers.return }}
+    
+    - name: Persist custom hr ecomap html paths
+      id: persist_custom_hr_ecomap_urls
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text
+        argvalues: ${{ workflow.draw_custom_hr_ecomaps.return }}
+    
+    - name: Create Custom HR Ecomap widgets
+      id: create_custom_hr_ecomap_widgets
+      task: create_map_widget_single_view
+      skipif:
+        conditions:
+          - never
+      partial:
+        title: 99th percentile home range ecomap
+      map:
+        argnames:
+          - view
+          - data
+        argvalues: ${{ workflow.persist_custom_hr_ecomap_urls.return }}
+    
+    - name: Merge Custom HR Ecomap widgets
+      id: merge_custom_hr_ecomap_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.create_custom_hr_ecomap_widgets.return }}
+
+    # 05. Seasonal Ecomap 
+    - name: Generate Seasonal Ecomap
+      id: generate_season_etd
+      task: calculate_etd_by_groups
+      partial:
+        crs: ESRI:53042
+        percentiles:
+          - 50.0
+          - 60.0
+          - 70.0
+          - 80.0
+          - 90.0
+          - 99.0
+        nodata_value: nan
+        band_count: 1
+        include_groups: true
+        groupby_cols:
+          - season
+      mapvalues:
+        argnames: trajectory_gdf
+        argvalues: ${{ workflow.split_trajectories_by_group.return }}
+    
+    - name: Sort values by seasons values
+      id: sort_season_etd_color
+      task: sort_values
+      partial:
+        column_name: season
+        ascending: false
+        na_position: last
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.generate_season_etd.return }}
+
+    - name: Apply colormap to season HR
+      id: apply_season_etd_colormap
+      task: apply_color_map
+      partial:
+        input_column_name: season
+        colormap:
+          - '#483d8b'
+          - '#deb887'
+
+        output_column_name: season_colormap
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.sort_season_etd_color.return }}
+
+    - name: Create Season Ecomap layers
+      id: generate_season_ecomap_layers
+      task: create_polygon_layer
+      skipif:
+        conditions:
+          - any_is_empty_df
+          - any_dependency_skipped
+      partial:
+        layer_style:
+          fill_color_column: season_colormap
+          opacity: 0.35
+          stroked: false
+        legend:
+          label_column: season
+          color_column: season_colormap
+        tooltip_columns:
+          - season
+      mapvalues:
+        argnames: geodataframe
+        argvalues: ${{ workflow.apply_season_etd_colormap.return }}
+
+    - name: Combine LandDx and Season ecomap layers
+      id: combine_landdx_season_layers
+      task: combine_map_layers
+      partial:
+        static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      mapvalues:
+        argnames: grouped_layers
+        argvalues: ${{ workflow.generate_season_ecomap_layers.return }}
+
+
+    - name: Draw season hr ecomap
+      id: draw_season_ecomaps
+      task: draw_ecomap
+      partial:
+        tile_layers: ${{ workflow.configure_base_maps.return }}
+        north_arrow_style:
+          placement: top-left
+        legend_style: 
+          placement: bottom-right
+          title: Seasons 
+        static: false
+        title: null
+        max_zoom: 20
+      mapvalues:
+        argnames: geo_layers
+        argvalues: ${{ workflow.combine_landdx_season_layers.return }}
+    
+    - name: Persist season ecomap html paths
+      id: persist_season_ecomap_urls
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text
+        argvalues: ${{ workflow.draw_season_ecomaps.return }}
+    
+    - name: Create Season Ecomap widgets
+      id: create_season_ecomap_widgets
+      task: create_map_widget_single_view
+      skipif:
+        conditions:
+          - never
+      partial:
+        title: Seasonal ecomap
+      map:
+        argnames:
+          - view
+          - data
+        argvalues: ${{ workflow.persist_season_ecomap_urls.return }}
+
+    - name: Merge Season Ecomap widgets
+      id: merge_season_ecomap_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.create_season_ecomap_widgets.return }}
+
+    # 06. Day/Night Dominance
+    - name: Compute day-night fixes
+      id: time_dominance
+      task: compute_fix_density_and_night_class
+      partial:
+        mode: dominance
+        grid: ${{ workflow.create_dn_meshgrid.return }}
+        geometry_type: point 
+      mapvalues:
+        argnames: selection
+        argvalues: ${{ workflow.split_relocations_by_group.return }}
+
+    - name: relevant time dominance values
+      id: filter_dominance_values
+      task: filter_time_dominance
+      partial:
+        valid_dominance:
+          - day 
+          - night
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.time_dominance.return }}
+
+    - name: sort values by day-night 
+      id: sort_dominance_values
+      task: sort_values
+      partial:
+        column_name: time_dominance
+        ascending: false
+        na_position: last
+      
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.filter_dominance_values.return }}
+    
+    - name: Apply colormap to day-night dominance
+      id: apply_dn_dom_colormap
+      task: apply_color_map
+      partial:
+        input_column_name: time_dominance
+        colormap:
+          - "#a52a2a" 
+          - "#ffd700"
+        output_column_name: time_dominance_colormap
+
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.sort_dominance_values.return }}
+    
+    - name: Create time dominance ecomap layers
+      id: generate_td_ecomap_layers
+      task: create_polygon_layer
+      skipif:
+        conditions:
+          - any_is_empty_df
+          - any_dependency_skipped
+      partial:
+        layer_style:
+          fill_color_column: time_dominance_colormap
+          opacity: 0.35
+          stroked: true 
+
+        legend: 
+          label_column: time_dominance
+          color_column: time_dominance_colormap
+        tooltip_columns:
+          - density
+          - time_dominance
+      mapvalues:
+        argnames: geodataframe
+        argvalues: ${{ workflow.apply_dn_dom_colormap.return }}
+
+    - name: Combine LandDx and Season ecomap layers
+      id: combine_landdx_td_layers
+      task: combine_map_layers
+      partial:
+        static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      mapvalues:
+        argnames: grouped_layers
+        argvalues: ${{ workflow.generate_td_ecomap_layers.return }}
+
+    - name: Draw time dominance ecomap
+      id: draw_tdominance_ecomaps
+      task: draw_ecomap
+      partial:
+        tile_layers: ${{ workflow.configure_base_maps.return }}
+        north_arrow_style:
+          placement: top-left
+        legend_style: 
+          placement: bottom-right
+          title: Time of Day Dominance
+        static: false
+        title: null
+        max_zoom: 20
+      mapvalues:
+        argnames: geo_layers
+        argvalues: ${{ workflow.combine_landdx_td_layers.return }}
+
+    - name: Persist time dominance ecomap html paths
+      id: persist_tdominance_ecomap_urls
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text
+        argvalues: ${{ workflow.draw_tdominance_ecomaps.return }}
+
+    - name: Create time dominance Ecomap widgets
+      id: create_tdom_ecomap_widgets
+      task: create_map_widget_single_view
+      skipif:
+        conditions:
+          - never
+      partial:
+        title: Night day raster
+      map:
+        argnames:
+          - view
+          - data
+        argvalues: ${{ workflow.persist_tdominance_ecomap_urls.return }}
+
+
+    - name: Merge time dominance Ecomap widgets
+      id: merge_td_ecomap_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.create_tdom_ecomap_widgets.return }}
+
+    # 07. Proportion of Night Time Fixes
+    - name: Compute night proportion fixes
+      id: night_proportion_fixes
+      task: compute_fix_density_and_night_class
+      partial:
+        mode: proportion
+        grid: ${{ workflow.create_dn_meshgrid.return }}
+        geometry_type: point 
+        threshold: 0.65
+      mapvalues:
+        argnames: selection
+        argvalues: ${{ workflow.split_relocations_by_group.return }}
+
+    - name: sort night proportion values
+      id: sort_night_proportion_values
+      task: sort_values
+      partial:
+        column_name: night_class
+        ascending: false
+        na_position: last
+      
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.night_proportion_fixes.return }}
+
+    - name: Drop nan values
+      id: drop_nan_proportion_values
+      task: drop_nan_values_by_column
+      partial:
+        column_name: density
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.sort_night_proportion_values.return }}
+      
+    - name: Drop nan  threshold values
+      id: drop_nan_threshold_values
+      task: drop_missing_values_by_column
+      partial:
+        column_name: night_class
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.drop_nan_proportion_values.return }}
+      
+    - name: Apply colormap to nightime dominance
+      id: apply_nightpr_colormap
+      task: apply_color_map
+      partial:
+        input_column_name: night_class
+        colormap:
+          - "#6495ed"
+          - "#00008b"
+        output_column_name: night_class_colormap
+
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.drop_nan_threshold_values.return }}
+
+    - name: Create night-time proportion ecomap layers
+      id: generate_nightpr_ecomap_layers
+      task: create_polygon_layer
+      skipif:
+        conditions:
+          - any_is_empty_df
+          - any_dependency_skipped
+      partial:
+        layer_style:
+          fill_color_column: night_class_colormap
+          opacity: 0.35
+          stroked: true 
+
+        legend: 
+          label_column: night_class
+          color_column: night_class_colormap
+        tooltip_columns:
+          - density
+          - night_class
+          - night_class_colormap
+      mapvalues:
+        argnames: geodataframe
+        argvalues: ${{ workflow.apply_nightpr_colormap.return }}
+        
+    - name: Combine LandDx and night-time  ecomap layers
+      id: combine_landdx_np_layers
+      task: combine_map_layers
+      partial:
+        static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      mapvalues:
+        argnames: grouped_layers
+        argvalues: ${{ workflow.generate_nightpr_ecomap_layers.return }}
+
+    - name: Draw night proportion ecomap
+      id: draw_nightpr_ecomaps
+      task: draw_ecomap
+      partial:
+        tile_layers: ${{ workflow.configure_base_maps.return }}
+        north_arrow_style:
+          placement: top-left
+        legend_style: 
+          placement: bottom-right
+          title: Night Time Fixes 
+        static: false
+        title: null
+        max_zoom: 20
+      mapvalues:
+        argnames: geo_layers
+        argvalues: ${{ workflow.combine_landdx_np_layers.return }}
+
+    - name: Persist night-proportion ecomap html paths
+      id: persist_nightpr_ecomap_urls
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text
+        argvalues: ${{ workflow.draw_nightpr_ecomaps.return }}
+
+    - name: Create night-proportion Ecomap widgets
+      id: create_nightpr_ecomap_widgets
+      task: create_map_widget_single_view
+      skipif:
+        conditions:
+          - never
+      partial:
+        title: Proportion of night time fixes
+      map:
+        argnames:
+          - view
+          - data
+        argvalues: ${{ workflow.persist_nightpr_ecomap_urls.return }}
+
+    - name: Merge night-time proportion Ecomap widgets
+      id: merge_npr_ecomap_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.create_nightpr_ecomap_widgets.return }}
+
+    # 07. Dry Speed Raster 
+    - name: Split dry season trajectories
+      id: filter_dry_trajs
+      task: filter_column_values
+      partial:
+        column: season
+        values:
+          - dry 
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.split_trajectories_by_group.return }}
+
+    - name: Generate Speed Rasters
+      id: generate_dry_speed_rasters
+      task: generate_ecograph_raster
+      partial:
+        dist_col: dist_meters
+        output_dir: ${{ workflow.create_output_directory.return }}
+        interpolation: mean
+        movement_covariate: speed
+      mapvalues:
+        argnames: gdf 
+        argvalues: ${{ workflow.filter_dry_trajs.return }}
+
+    - name: Extract Features from Dry Speed Raster TIFFs
+      id: extract_dry_speed_rasters
+      task: retrieve_feature_gdf
+      mapvalues:
+        argnames: file_path
+        argvalues: ${{ workflow.generate_dry_speed_rasters.return }}
+
+    - name: Sort Speed Features by Value
+      id: sort_dry_speed_features
+      task: sort_values
+      partial:
+        column_name: value
+        na_position: last
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.extract_dry_speed_rasters.return }}
+        
+    - name: Classify Speed Feature GeoDataFrames
+      id: classify_dry_speed_features
+      task: apply_classification
+      partial:
+        input_column_name: value
+        output_column_name: bins
+        classification_options:
+          scheme: natural_breaks
+          k: 6
+        label_options:
+          label_ranges: false  # try true and set label options later
+          label_decimals: 1
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.sort_dry_speed_features.return }}
+
+    - name: Apply Colormap to Speed Raster Bins
+      id: apply_dry_speed_colormap
+      task: apply_color_map
+      partial:
+        input_column_name: bins
+        output_column_name: speedraster_bins_colors
+        colormap:
+          - '#1a9850'
+          - '#91cf60'
+          - '#d9ef8b'
+          - '#fee08b'
+          - '#fc8d59'
+          - '#d73027'
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.classify_dry_speed_features.return }}
+
+    - name: Format Speed Raster Bin Labels
+      id: format_dry_raster_labels
+      task: map_values_with_unit
+      partial:
+        input_column_name: bins
+        output_column_name: bins_formatted
+        original_unit: km/h
+        new_unit: km/h
+        decimal_places: 1
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.apply_dry_speed_colormap.return }}
+    
+    - name: Create Speed Raster Map Layers
+      id: generate_dry_raster_layers
+      task: create_polygon_layer
+      skipif:
+        conditions:
+          - any_is_empty_df
+          - any_dependency_skipped
+      partial:
+        layer_style: 
+          fill_color_column: speedraster_bins_colors
+          opacity: 0.35
+          stroked: true
+        legend:
+          label_column: bins_formatted
+          color_column: speedraster_bins_colors
+        tooltip_columns:
+            - value
+            - bins
+            - speedraster_bins_colors
+
+      mapvalues:
+        argnames: geodataframe
+        argvalues: ${{ workflow.format_dry_raster_labels.return }}
+
+    - name: Combine LandDx and SpeedRaster Map Layers
+      id: combine_dry_seasonal_layers
+      task: combine_map_layers
+      partial:
+        static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      mapvalues:
+        argnames: grouped_layers
+        argvalues: ${{ workflow.generate_dry_raster_layers.return }}
+
+    - name: Draw Speed Raster Ecomaps by Group
+      id: draw_dry_speed_ecomaps
+      task: draw_ecomap
+      partial:
+        tile_layers: ${{ workflow.configure_base_maps.return }}
+        north_arrow_style:
+          placement: top-left
+        legend_style:
+          placement: bottom-right
+          title: Raster Value(Km/h)
+        static: false
+        title: null
+        max_zoom: 20
+      mapvalues:
+        argnames: geo_layers
+        argvalues: ${{ workflow.combine_dry_seasonal_layers.return }}
+
+    - name: Persist Dry Speed Raster Ecomap HTML Paths
+      id: dry_raster_ecomap_urls
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text
+        argvalues: ${{ workflow.draw_dry_speed_ecomaps.return }}
+
+    - name: Create Dry Speed Raster Ecomap Widgets
+      id: dry_single_ecomap_widgets
+      task: create_map_widget_single_view
+      skipif:
+        conditions:
+          - never
+      partial: 
+        title: Dry Speed Raster Ecomap 
+      map:
+        argnames:
+          - view
+          - data
+        argvalues: ${{ workflow.dry_raster_ecomap_urls.return }}
+
+    - name: Merge Dry Speed Raster Ecomap Widgets
+      id: dry_raster_ecomap_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.dry_single_ecomap_widgets.return }}
+
+    # 08 Wet Speed raster
+    - name: Split wet season trajectories
+      id: filter_wet_trajs
+      task: filter_column_values
+      partial:
+        column: season
+        values:
+          - wet 
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.split_trajectories_by_group.return }}
+
+    - name: Generate Speed Rasters
+      id: generate_wet_speed_rasters
+      task: generate_ecograph_raster
+      partial:
+        dist_col: dist_meters
+        output_dir: ${{ workflow.create_output_directory.return }}
+        interpolation: mean
+        movement_covariate: speed
+      mapvalues:
+        argnames: gdf 
+        argvalues: ${{ workflow.filter_wet_trajs.return }}
+
+    - name: Extract Features from Wet Speed Raster TIFFs
+      id: extract_wet_speed_rasters
+      task: retrieve_feature_gdf
+      mapvalues:
+        argnames: file_path
+        argvalues: ${{ workflow.generate_wet_speed_rasters.return }}
+
+    - name: Sort Speed Features by Value
+      id: sort_wet_speed_features
+      task: sort_values
+      partial:
+        column_name: value
+        na_position: last
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.extract_wet_speed_rasters.return }}
+        
+    - name: Classify Speed Feature GeoDataFrames
+      id: classify_wet_speed_features
+      task: apply_classification
+      partial:
+        input_column_name: value
+        output_column_name: bins
+        classification_options:
+          scheme: natural_breaks
+          k: 6
+        label_options:
+          label_ranges: false  # try true and set label options later
+          label_decimals: 1
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.sort_wet_speed_features.return }}
+
+    - name: Apply Colormap to Speed Raster Bins
+      id: apply_wet_speed_colormap
+      task: apply_color_map
+      partial:
+        input_column_name: bins
+        output_column_name: speedraster_bins_colors
+        colormap:
+          - '#1a9850'
+          - '#91cf60'
+          - '#d9ef8b'
+          - '#fee08b'
+          - '#fc8d59'
+          - '#d73027'
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.classify_wet_speed_features.return }}
+
+    - name: Format Speed Raster Bin Labels
+      id: format_wet_raster_labels
+      task: map_values_with_unit
+      partial:
+        input_column_name: bins
+        output_column_name: bins_formatted
+        original_unit: km/h
+        new_unit: km/h
+        decimal_places: 1
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.apply_wet_speed_colormap.return }}
+    
+    - name: Create Speed Raster Map Layers
+      id: generate_wet_raster_layers
+      task: create_polygon_layer
+      skipif:
+        conditions:
+          - any_is_empty_df
+          - any_dependency_skipped
+      partial:
+        layer_style: 
+          fill_color_column: speedraster_bins_colors
+          opacity: 0.35
+          stroked: true
+        legend:
+          label_column: bins_formatted
+          color_column: speedraster_bins_colors
+        tooltip_columns:
+            - value
+            - bins
+            - speedraster_bins_colors
+
+      mapvalues:
+        argnames: geodataframe
+        argvalues: ${{ workflow.format_wet_raster_labels.return }}
+
+    - name: Combine LandDx and SpeedRaster Map Layers
+      id: combine_wet_seasonal_layers
+      task: combine_map_layers
+      partial:
+        static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      mapvalues:
+        argnames: grouped_layers
+        argvalues: ${{ workflow.generate_wet_raster_layers.return }}
+
+
+    - name: Draw Speed Raster Ecomaps by Group
+      id: draw_wet_speed_ecomaps
+      task: draw_ecomap
+      partial:
+        tile_layers: ${{ workflow.configure_base_maps.return }}
+        north_arrow_style:
+          placement: top-left
+        legend_style:
+          placement: bottom-right
+          title: Raster Value(Km/h)
+        static: false
+        title: null
+        max_zoom: 20
+      mapvalues:
+        argnames: geo_layers
+        argvalues: ${{ workflow.combine_wet_seasonal_layers.return }}
+
+    - name: Persist Wet Speed Raster Ecomap HTML Paths
+      id: wet_raster_ecomap_urls
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text
+        argvalues: ${{ workflow.draw_wet_speed_ecomaps.return }}
+
+    - name: Create Wet Speed Raster Ecomap Widgets
+      id: wet_single_ecomap_widgets
+      task: create_map_widget_single_view
+      skipif:
+        conditions:
+          - never
+      partial: 
+        title: Wet Speed Raster Ecomap 
+      map:
+        argnames:
+          - view
+          - data
+        argvalues: ${{ workflow.wet_raster_ecomap_urls.return }}
+
+    - name: Merge Wet Speed Raster Ecomap Widgets
+      id: wet_raster_ecomap_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.wet_single_ecomap_widgets.return }}
+
+    # 09 Recursion events 
+    - name: Generate Recursion Events Rasters
+      id: generate_recursion_rasters
+      task: generate_ecograph_raster
+      partial:
+        dist_col: dist_meters
+        output_dir: ${{ workflow.create_output_directory.return }}
+        interpolation: mean
+        network_metric: weight
+      mapvalues:
+        argnames: gdf
+        argvalues: ${{ workflow.split_trajectories_by_group.return }}
+
+    - name: Extract recursion rasters
+      id: extract_recursion_rasters
+      task: retrieve_feature_gdf
+      mapvalues:
+        argnames: file_path
+        argvalues: ${{ workflow.generate_recursion_rasters.return }}
+
+    - name: Sort Speed Features by Value
+      id: sort_recursion_features
+      task: sort_values
+      partial:
+        column_name: value
+        na_position: last
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.extract_recursion_rasters.return }}
+
+    - name: Classify Recursion GeoDataFrames
+      id: classify_recursion_features
+      task: apply_classification
+      partial:
+        input_column_name: value
+        output_column_name: bins
+        classification_options:
+          scheme: natural_breaks
+          k: 6
+        label_options:
+          label_ranges: false  # try true and set label options later
+          label_decimals: 1
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.sort_recursion_features.return }}
+
+    - name: Apply Colormap to Recursion Bins
+      id: apply_recursion_colormap
+      task: apply_color_map
+      partial:
+        input_column_name: bins
+        output_column_name: recursion_bins_colors
+        colormap:
+          - '#1a9850'
+          - '#91cf60'
+          - '#d9ef8b'
+          - '#fee08b'
+          - '#fc8d59'
+          - '#d73027'
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.classify_recursion_features.return }}
+
+    - name: Create Recursion Raster Map Layers
+      id: generate_recursion_layers
+      task: create_polygon_layer
+      skipif:
+        conditions:
+          - any_is_empty_df
+          - any_dependency_skipped
+      partial:
+        layer_style: 
+          fill_color_column: recursion_bins_colors
+          opacity: 0.35
+          stroked: true
+        legend:
+          label_column: bins
+          color_column: recursion_bins_colors
+        tooltip_columns:
+            - value
+            - bins
+            - recursion_bins_colors
+
+      mapvalues:
+        argnames: geodataframe
+        argvalues: ${{ workflow.apply_recursion_colormap.return }}
+
+    - name: Combine LandDx and Recursion Raster Map Layers
+      id: combine_recursion_layers
+      task: combine_map_layers
+      partial:
+        static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      mapvalues:
+        argnames: grouped_layers
+        argvalues: ${{ workflow.generate_recursion_layers.return }}
+
+    - name: Draw Recursion Raster Ecomaps by Group
+      id: draw_recursion_ecomaps
+      task: draw_ecomap
+      partial:
+        tile_layers: ${{ workflow.configure_base_maps.return }}
+        north_arrow_style:
+          placement: top-left
+        legend_style:
+          placement: bottom-right
+          title: Recursion Events
+        static: false
+        title: null
+        max_zoom: 20
+      mapvalues:
+        argnames: geo_layers
+        argvalues: ${{ workflow.combine_recursion_layers.return }}
+
+    - name: Persist Recursion Raster Ecomap HTML Paths
+      id: recursion_ecomap_urls
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text
+        argvalues: ${{ workflow.draw_recursion_ecomaps.return }}
+
+    - name: Create Recursion Raster Ecomap Widgets
+      id: recursion_ecomap_widgets
+      task: create_map_widget_single_view
+      skipif:
+        conditions:
+          - never
+      partial: 
+        title: Recursion Events Raster Ecomap 
+      map:
+        argnames:
+          - view
+          - data
+        argvalues: ${{ workflow.recursion_ecomap_urls.return }}
+
+    - name: Merge Recursion Raster Ecomap Widgets
+      id: reraster_ecomap_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.recursion_ecomap_widgets.return }}
+
+    # 11. Split protected and unprotected areas
+    - name: Split protected trajectories
+      id: filter_protected_trajs
+      task: filter_column_values
+      partial:
+        column: area_status
+        values:
+          - protected
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.split_trajectories_by_group.return }}
+    
+    - name: Generate Home Range
+      id: generate_protected_etd
+      task: calculate_elliptical_time_density
+      partial:
+        crs: ESRI:53042
+        percentiles:
+          - 50.0
+          - 60.0
+          - 70.0
+          - 80.0
+          - 90.0
+          - 95.0
+          - 99.0
+        nodata_value: nan
+        band_count: 1
+      mapvalues:
+        argnames: trajectory_gdf
+        argvalues: ${{ workflow.filter_protected_trajs.return }}
+
+    - name: Time Density Colormap
+      id: td_protected_colormap
+      task: apply_color_map
+      partial:
+        input_column_name: percentile
+        colormap: RdYlGn
+        output_column_name: percentile_colormap
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.generate_protected_etd.return }}
+
+    - name: Create Home Range Ecomap Layers
+      id: generate_etd_protected_layers
+      task: create_polygon_layer
+      skipif:
+        conditions:
+          - any_is_empty_df
+          - any_dependency_skipped
+      partial:
+        layer_style:
+          fill_color_column: percentile_colormap
+          opacity: 0.35
+          stroked: false
+        legend:
+          label_column: percentile
+          color_column: percentile_colormap
+        tooltip_columns:
+          - percentile
+      mapvalues:
+        argnames: geodataframe
+        argvalues: ${{ workflow.td_protected_colormap.return }}
+
+    - name: Combine LandDx and Home Range Ecomap Layers
+      id: combine_ldx_protected_layers
+      task: combine_map_layers
+      partial:
+        static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      mapvalues:
+        argnames: grouped_layers
+        argvalues: ${{ workflow.generate_etd_protected_layers.return }}
+
+    - name: Draw Home Range Ecomaps by Group
+      id: draw_protected_ecomaps
+      task: draw_ecomap
+      partial:
+        tile_layers: ${{ workflow.configure_base_maps.return }}
+        north_arrow_style:
+          placement: top-left
+        legend_style:
+          placement: bottom-right
+          title: Home Range Metrics
+        static: false
+        title: null
+        max_zoom: 20
+      mapvalues:
+        argnames: geo_layers
+        argvalues: ${{ workflow.combine_ldx_protected_layers.return }}
+
+    - name: Persist Home Range Ecomap HTML Paths
+      id: persist_protected_urls
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text 
+        argvalues: ${{ workflow.draw_protected_ecomaps.return }}
+
+    - name: Create Home Range Ecomap Widgets
+      id: create_protected_widgets
+      task: create_map_widget_single_view
+      skipif:
+        conditions: 
+          - never
+      partial:
+        title: Protected home range ecomap
+      map:
+        argnames:
+          - view 
+          - data
+        argvalues: ${{ workflow.persist_protected_urls.return }}
+
+    - name: Merge Home Range Ecomap Widgets
+      id: merge_protected_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.create_protected_widgets.return }}
+
+    # 12. Split unprotected and unprotected areas
+    - name: Split unprotected trajectories
+      id: filter_unprotected_trajs
+      task: filter_column_values
+      partial:
+        column: area_status
+        values:
+          - unprotected
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.split_trajectories_by_group.return }}
+    
+    - name: Generate Home Range
+      id: generate_unprotected_etd
+      task: calculate_elliptical_time_density
+      partial:
+        crs: ESRI:53042
+        percentiles:
+          - 50.0
+          - 60.0
+          - 70.0
+          - 80.0
+          - 90.0
+          - 95.0
+          - 99.0
+        nodata_value: nan
+        band_count: 1
+      mapvalues:
+        argnames: trajectory_gdf
+        argvalues: ${{ workflow.filter_unprotected_trajs.return }}
+
+    - name: Time Density Colormap
+      id: td_unprotected_colormap
+      task: apply_color_map
+      partial:
+        input_column_name: percentile
+        colormap: RdYlGn
+        output_column_name: percentile_colormap
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.generate_unprotected_etd.return }}
+
+    - name: Create Home Range Ecomap Layers
+      id: generate_unprotected_layers
+      task: create_polygon_layer
+      skipif:
+        conditions:
+          - any_is_empty_df
+          - any_dependency_skipped
+      partial:
+        layer_style:
+          fill_color_column: percentile_colormap
+          opacity: 0.35
+          stroked: false
+        legend:
+          label_column: percentile
+          color_column: percentile_colormap
+        tooltip_columns:
+          - percentile
+      mapvalues:
+        argnames: geodataframe
+        argvalues: ${{ workflow.td_unprotected_colormap.return }}
+
+    - name: Combine LandDx and Home Range Ecomap Layers
+      id: combine_ldx_unprotected_layers
+      task: combine_map_layers
+      partial:
+        static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      mapvalues:
+        argnames: grouped_layers
+        argvalues: ${{ workflow.generate_unprotected_layers.return }}
+
+    - name: Draw Home Range Ecomaps by Group
+      id: draw_unprotected_ecomaps
+      task: draw_ecomap
+      partial:
+        tile_layers: ${{ workflow.configure_base_maps.return }}
+        north_arrow_style:
+          placement: top-left
+        legend_style:
+          placement: bottom-right
+          title: Home Range Metrics
+        static: false
+        title: null
+        max_zoom: 20
+      mapvalues:
+        argnames: geo_layers
+        argvalues: ${{ workflow.combine_ldx_unprotected_layers.return }}
+
+    - name: Persist Home Range Ecomap HTML Paths
+      id: persist_unprotected_urls
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text 
+        argvalues: ${{ workflow.draw_unprotected_ecomaps.return }}
+
+    - name: Create Home Range Ecomap Widgets
+      id: create_unprotected_widgets
+      task: create_map_widget_single_view
+      skipif:
+        conditions: 
+          - never
+      partial:
+        title: Unprotected home range ecomap
+      map:
+        argnames:
+          - view 
+          - data
+        argvalues: ${{ workflow.persist_unprotected_urls.return }}
+
+    - name: Merge Home Range Ecomap Widgets
+      id: merge_unprotected_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.create_unprotected_widgets.return }}
+
+    # category summary 
+    - name: Protected-unprotected summary table
+      id: unpr_category_summary
+      task: category_summary 
+      partial:
+        group_cols:
+          - extra__name
+          - season
+        category_col: area_status
+        pct_for:
+          - protected 
+          - unprotected
+      mapvalues:
+        argnames: df
+        argvalues: ${{ workflow.split_trajectories_by_group.return }}
+    
+    # plot protected-unprotected chart
+    - name: plot protected-unprotected areas
+      id: plot_prot_unprot
+      task: plot_protected_fix_proportions
+      partial:
+        title: proportion
+      mapvalues:
+        argnames: summary
+        argvalues: ${{ workflow.unpr_category_summary.return }}
+
+    # persist 
+    - name: persist protected-unprotected chart
+      id: persist_pr_chart
+      task: persist_text
+      partial:
+        root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      mapvalues:
+        argnames: text
+        argvalues: ${{ workflow.plot_prot_unprot.return }}
+
+    # create single view widget
+    - name : create plot widget
+      id: create_single_prot_widget
+      task: create_plot_widget_single_view
+      skipif:
+        conditions: 
+          - never
+      partial:
+        title: Proportion of Fixes
+      map:
+        argnames:
+          - view 
+          - data
+        argvalues: ${{ workflow.persist_pr_chart.return }}
+
+    - name: Merge plot widgets
+      id: merge_prot_widgets
+      task: merge_widget_views
+      partial:
+        widgets: ${{ workflow.create_single_prot_widget.return }}
+
+    # view summary table
+    - name: view table 
+      id: view_prot_df
+      task: view_df
+      partial:
+        name: 'summary-table-df'
+      mapvalues:
+        argnames: gdf
+        argvalues: ${{ workflow.unpr_category_summary.return }}
+
+    - name: Mapbook Dashboard
+      id: mapbook_dashboard
+      task: gather_dashboard
+      partial:
+        details: ${{ workflow.initialize_workflow_metadata.return }}
+        widgets:
+          - ${{ workflow.merge_substyled_widgets.return }} #subject-styled widgets 02
+          - ${{ workflow.merge_hr_ecomap_widgets.return }} # home-range widgets 03
+          - ${{ workflow.merge_custom_hr_ecomap_widgets.return }} # 99th HR widgets 04
+          - ${{ workflow.merge_season_ecomap_widgets.return }} # season widgets 05
+          - ${{ workflow.merge_td_ecomap_widgets.return }} # day-night dominance widgets 06
+          - ${{ workflow.merge_npr_ecomap_widgets.return }} # night-proportion widgets 07
+          - ${{ workflow.dry_raster_ecomap_widgets.return }} # dry speed raster widgets 08 
+          - ${{ workflow.wet_raster_ecomap_widgets.return }} # dry speed raster widgets 09
+          - ${{ workflow.reraster_ecomap_widgets.return }} # recursion events widgets 10
+          - ${{ workflow.merge_protected_widgets.return }} # protected hr widgets 11
+          - ${{ workflow.merge_unprotected_widgets.return }} # unprotected hr widgets 12
+          - ${{ workflow.merge_prot_widgets.return }} # plot protected maps
+
+        time_range: ${{ workflow.define_time_range.return }}
+        groupers: ${{ workflow.configure_grouping_strategy.return }}
