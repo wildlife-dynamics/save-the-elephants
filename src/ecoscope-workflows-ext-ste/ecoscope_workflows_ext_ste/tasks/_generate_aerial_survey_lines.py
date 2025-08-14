@@ -5,6 +5,7 @@ from shapely.geometry import LineString, MultiPolygon
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame
 
+
 @task
 def generate_survey_lines(
     gdf: AnyGeoDataFrame,
