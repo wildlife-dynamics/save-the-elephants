@@ -62,6 +62,9 @@ py-rattler = ">=0.7.0,<0.8"
 ruff = "*"
 tomli-w = "*"
 ecoscope-workflows-core = ">=0.6.0"
+geopandas="*"
+shapely = "*"
+ecoscope-workflows-ext-ecoscope=">=0.6.0"
 
 # additional dependencies added by this extension
 
