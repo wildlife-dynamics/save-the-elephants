@@ -1,21 +1,21 @@
+from ._file_ import create_directory
+from ._example import add_one_thousand
+from ._zip import zip_grouped_by_key
 from ._map_utils import (
+    load_map_files,
     load_landdx_aoi,
     download_land_dx,
     create_map_layers,
     clean_geodataframe,
     combine_map_layers,
     generate_density_grid,
+    create_layer_from_gdf,
     build_landdx_style_config,
     create_view_state_from_gdf,
     check_shapefile_geometry_type,
     annotate_gdf_dict_with_geometry_type,
     create_map_layers_from_annotated_dict,
-    load_map_files,
-    create_layer_from_gdf,
 )
-
-from ._file_ import create_directory
-from ._inspect import view_df  # testing purposes only
 
 from ._ste_utils import (
     spatial_join,
@@ -38,7 +38,7 @@ from ._ste_utils import (
 )
 
 __all__ = [
-    "view_df",
+    "add_one_thousand",
     "assign_column",
     "spatial_join",
     "load_map_files",
@@ -53,6 +53,7 @@ __all__ = [
     "label_quarter_status",
     "retrieve_feature_gdf",
     "assign_value_by_index",
+    "zip_grouped_by_key",
     "generate_ecograph_raster",
     "generate_density_grid",
     "create_layer_from_gdf",

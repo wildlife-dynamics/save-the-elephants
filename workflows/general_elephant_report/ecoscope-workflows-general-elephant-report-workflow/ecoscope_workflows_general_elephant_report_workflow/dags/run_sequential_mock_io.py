@@ -53,12 +53,13 @@ from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
 from ecoscope_workflows_ext_ste.tasks import assign_column
 from ecoscope_workflows_ext_ste.tasks import spatial_join
 from ecoscope_workflows_ext_ste.tasks import assign_value_by_index
-from ecoscope_workflows_ext_ste.tasks import view_df
 from ecoscope_workflows_core.tasks.groupby import split_groups
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polyline_layer
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df
 from ecoscope_workflows_core.tasks.skip import any_dependency_skipped
 from ecoscope_workflows_ext_ste.tasks import combine_map_layers
+from ecoscope_workflows_ext_ste.tasks import create_view_state_from_gdf
+from ecoscope_workflows_ext_ste.tasks import zip_grouped_by_key
 from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap
 from ecoscope_workflows_core.tasks.io import persist_text
 from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
@@ -414,17 +415,6 @@ def main(params: Params):
         .call()
     )
 
-    view_joined_gdf = (
-        view_df.validate()
-        .handle_errors(task_instance_id="view_joined_gdf")
-        .partial(
-            name="joined_df",
-            gdf=assign_protected_values,
-            **(params_dict.get("view_joined_gdf") or {}),
-        )
-        .call()
-    )
-
     split_trajectories_by_group = (
         split_groups.validate()
         .handle_errors(task_instance_id="split_trajectories_by_group")
@@ -465,7 +455,7 @@ def main(params: Params):
                 "get_width": 3.0,
                 "width_unit": "pixels",
                 "cap_rounded": True,
-                "opacity": 0.35,
+                "opacity": 0.25,
             },
             legend={"label_column": "extra__name", "color_column": "extra__hex"},
             tooltip_columns=["extra__hex", "extra__name", "extra__sex"],
@@ -484,6 +474,24 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_substyled_layers)
     )
 
+    zoom_traj_view = (
+        create_view_state_from_gdf.validate()
+        .handle_errors(task_instance_id="zoom_traj_view")
+        .partial(pitch=0, bearing=0, **(params_dict.get("zoom_traj_view") or {}))
+        .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)
+    )
+
+    substyled_view_zip = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="substyled_view_zip")
+        .partial(
+            left=combine_substyled_layers,
+            right=zoom_traj_view,
+            **(params_dict.get("substyled_view_zip") or {}),
+        )
+        .call()
+    )
+
     draw_substyled_ecomaps = (
         draw_ecomap.validate()
         .handle_errors(task_instance_id="draw_substyled_ecomaps")
@@ -496,7 +504,7 @@ def main(params: Params):
             max_zoom=20,
             **(params_dict.get("draw_substyled_ecomaps") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=combine_substyled_layers)
+        .mapvalues(argnames=["geo_layers", "view_state"], argvalues=substyled_view_zip)
     )
 
     persist_substyled_urls = (
@@ -519,7 +527,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Combined subject tracks ecomap",
+            title="Subject Tracks Ecomaps",
             **(params_dict.get("create_substyled_ecomap_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=persist_substyled_urls)
@@ -573,7 +581,7 @@ def main(params: Params):
         .partial(
             layer_style={
                 "fill_color_column": "percentile_colormap",
-                "opacity": 0.35,
+                "opacity": 0.25,
                 "stroked": False,
             },
             legend={
@@ -596,6 +604,17 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_etd_ecomap_layers)
     )
 
+    hr_view_zip = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="hr_view_zip")
+        .partial(
+            left=combine_landdx_hr_ecomap_layers,
+            right=zoom_traj_view,
+            **(params_dict.get("hr_view_zip") or {}),
+        )
+        .call()
+    )
+
     draw_hr_ecomaps = (
         draw_ecomap.validate()
         .handle_errors(task_instance_id="draw_hr_ecomaps")
@@ -608,7 +627,7 @@ def main(params: Params):
             max_zoom=20,
             **(params_dict.get("draw_hr_ecomaps") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_hr_ecomap_layers)
+        .mapvalues(argnames=["geo_layers", "view_state"], argvalues=hr_view_zip)
     )
 
     persist_hr_ecomap_urls = (
@@ -631,7 +650,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Home range ecomap",
+            title="Home Range Ecomap",
             **(params_dict.get("create_hr_ecomap_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=persist_hr_ecomap_urls)
@@ -681,7 +700,7 @@ def main(params: Params):
         .partial(
             layer_style={
                 "fill_color_column": "percentile_colormap",
-                "opacity": 0.35,
+                "opacity": 0.25,
                 "stroked": False,
             },
             legend={
@@ -704,6 +723,17 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_cetd_ecomap_layers)
     )
 
+    custom_hr_view_zip = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="custom_hr_view_zip")
+        .partial(
+            left=combine_landdx_custom_hr_layers,
+            right=zoom_traj_view,
+            **(params_dict.get("custom_hr_view_zip") or {}),
+        )
+        .call()
+    )
+
     draw_custom_hr_ecomaps = (
         draw_ecomap.validate()
         .handle_errors(task_instance_id="draw_custom_hr_ecomaps")
@@ -716,7 +746,7 @@ def main(params: Params):
             max_zoom=20,
             **(params_dict.get("draw_custom_hr_ecomaps") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_custom_hr_layers)
+        .mapvalues(argnames=["geo_layers", "view_state"], argvalues=custom_hr_view_zip)
     )
 
     persist_custom_hr_ecomap_urls = (
@@ -739,7 +769,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="99th percentile home range ecomap",
+            title="99th Percentile Home Range Ecomap",
             **(params_dict.get("create_custom_hr_ecomap_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=persist_custom_hr_ecomap_urls)
@@ -807,7 +837,7 @@ def main(params: Params):
         .partial(
             layer_style={
                 "fill_color_column": "season_colormap",
-                "opacity": 0.35,
+                "opacity": 0.25,
                 "stroked": False,
             },
             legend={"label_column": "season", "color_column": "season_colormap"},
@@ -827,6 +857,17 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_season_ecomap_layers)
     )
 
+    season_view_zip = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="season_view_zip")
+        .partial(
+            left=combine_landdx_season_layers,
+            right=zoom_traj_view,
+            **(params_dict.get("season_view_zip") or {}),
+        )
+        .call()
+    )
+
     draw_season_ecomaps = (
         draw_ecomap.validate()
         .handle_errors(task_instance_id="draw_season_ecomaps")
@@ -839,7 +880,7 @@ def main(params: Params):
             max_zoom=20,
             **(params_dict.get("draw_season_ecomaps") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_season_layers)
+        .mapvalues(argnames=["geo_layers", "view_state"], argvalues=season_view_zip)
     )
 
     persist_season_ecomap_urls = (
@@ -862,7 +903,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Seasonal ecomap",
+            title="Seasonal Ecomap",
             **(params_dict.get("create_season_ecomap_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=persist_season_ecomap_urls)
@@ -937,7 +978,7 @@ def main(params: Params):
         .partial(
             layer_style={
                 "fill_color_column": "time_dominance_colormap",
-                "opacity": 0.35,
+                "opacity": 0.25,
                 "stroked": True,
             },
             legend={
@@ -960,6 +1001,17 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_td_ecomap_layers)
     )
 
+    td_view_zip = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="td_view_zip")
+        .partial(
+            left=combine_landdx_td_layers,
+            right=zoom_traj_view,
+            **(params_dict.get("td_view_zip") or {}),
+        )
+        .call()
+    )
+
     draw_tdominance_ecomaps = (
         draw_ecomap.validate()
         .handle_errors(task_instance_id="draw_tdominance_ecomaps")
@@ -975,7 +1027,7 @@ def main(params: Params):
             max_zoom=20,
             **(params_dict.get("draw_tdominance_ecomaps") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_td_layers)
+        .mapvalues(argnames=["geo_layers", "view_state"], argvalues=td_view_zip)
     )
 
     persist_tdominance_ecomap_urls = (
@@ -998,7 +1050,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Night day raster",
+            title="Day/Night Ecomap",
             **(params_dict.get("create_tdom_ecomap_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=persist_tdominance_ecomap_urls)
@@ -1084,7 +1136,7 @@ def main(params: Params):
         .partial(
             layer_style={
                 "fill_color_column": "night_class_colormap",
-                "opacity": 0.35,
+                "opacity": 0.25,
                 "stroked": True,
             },
             legend={
@@ -1109,6 +1161,17 @@ def main(params: Params):
         )
     )
 
+    np_view_zip = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="np_view_zip")
+        .partial(
+            left=combine_landdx_np_layers,
+            right=zoom_traj_view,
+            **(params_dict.get("np_view_zip") or {}),
+        )
+        .call()
+    )
+
     draw_nightpr_ecomaps = (
         draw_ecomap.validate()
         .handle_errors(task_instance_id="draw_nightpr_ecomaps")
@@ -1121,7 +1184,7 @@ def main(params: Params):
             max_zoom=20,
             **(params_dict.get("draw_nightpr_ecomaps") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_np_layers)
+        .mapvalues(argnames=["geo_layers", "view_state"], argvalues=np_view_zip)
     )
 
     persist_nightpr_ecomap_urls = (
@@ -1254,7 +1317,7 @@ def main(params: Params):
         .partial(
             layer_style={
                 "fill_color_column": "speedraster_bins_colors",
-                "opacity": 0.35,
+                "opacity": 0.25,
                 "stroked": True,
             },
             legend={
@@ -1277,6 +1340,17 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_dry_raster_layers)
     )
 
+    dry_view_zip = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="dry_view_zip")
+        .partial(
+            left=combine_dry_seasonal_layers,
+            right=zoom_traj_view,
+            **(params_dict.get("dry_view_zip") or {}),
+        )
+        .call()
+    )
+
     draw_dry_speed_ecomaps = (
         draw_ecomap.validate()
         .handle_errors(task_instance_id="draw_dry_speed_ecomaps")
@@ -1289,7 +1363,7 @@ def main(params: Params):
             max_zoom=20,
             **(params_dict.get("draw_dry_speed_ecomaps") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=combine_dry_seasonal_layers)
+        .mapvalues(argnames=["geo_layers", "view_state"], argvalues=dry_view_zip)
     )
 
     dry_raster_ecomap_urls = (
@@ -1422,7 +1496,7 @@ def main(params: Params):
         .partial(
             layer_style={
                 "fill_color_column": "speedraster_bins_colors",
-                "opacity": 0.35,
+                "opacity": 0.25,
                 "stroked": True,
             },
             legend={
@@ -1445,6 +1519,17 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_wet_raster_layers)
     )
 
+    wets_view_zip = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="wets_view_zip")
+        .partial(
+            left=combine_wet_seasonal_layers,
+            right=zoom_traj_view,
+            **(params_dict.get("wets_view_zip") or {}),
+        )
+        .call()
+    )
+
     draw_wet_speed_ecomaps = (
         draw_ecomap.validate()
         .handle_errors(task_instance_id="draw_wet_speed_ecomaps")
@@ -1457,7 +1542,7 @@ def main(params: Params):
             max_zoom=20,
             **(params_dict.get("draw_wet_speed_ecomaps") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=combine_wet_seasonal_layers)
+        .mapvalues(argnames=["geo_layers", "view_state"], argvalues=wets_view_zip)
     )
 
     wet_raster_ecomap_urls = (
@@ -1565,7 +1650,7 @@ def main(params: Params):
         .partial(
             layer_style={
                 "fill_color_column": "recursion_bins_colors",
-                "opacity": 0.35,
+                "opacity": 0.25,
                 "stroked": True,
             },
             legend={"label_column": "bins", "color_column": "recursion_bins_colors"},
@@ -1585,6 +1670,17 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_recursion_layers)
     )
 
+    recursion_view_zip = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="recursion_view_zip")
+        .partial(
+            left=combine_landdx_np_layers,
+            right=zoom_traj_view,
+            **(params_dict.get("recursion_view_zip") or {}),
+        )
+        .call()
+    )
+
     draw_recursion_ecomaps = (
         draw_ecomap.validate()
         .handle_errors(task_instance_id="draw_recursion_ecomaps")
@@ -1597,7 +1693,7 @@ def main(params: Params):
             max_zoom=20,
             **(params_dict.get("draw_recursion_ecomaps") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=combine_recursion_layers)
+        .mapvalues(argnames=["geo_layers", "view_state"], argvalues=recursion_view_zip)
     )
 
     recursion_ecomap_urls = (
@@ -1685,7 +1781,7 @@ def main(params: Params):
         .partial(
             layer_style={
                 "fill_color_column": "percentile_colormap",
-                "opacity": 0.35,
+                "opacity": 0.25,
                 "stroked": False,
             },
             legend={
@@ -1708,6 +1804,17 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_etd_protected_layers)
     )
 
+    prot_view_zip = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="prot_view_zip")
+        .partial(
+            left=combine_ldx_protected_layers,
+            right=zoom_traj_view,
+            **(params_dict.get("prot_view_zip") or {}),
+        )
+        .call()
+    )
+
     draw_protected_ecomaps = (
         draw_ecomap.validate()
         .handle_errors(task_instance_id="draw_protected_ecomaps")
@@ -1720,7 +1827,7 @@ def main(params: Params):
             max_zoom=20,
             **(params_dict.get("draw_protected_ecomaps") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=combine_ldx_protected_layers)
+        .mapvalues(argnames=["geo_layers", "view_state"], argvalues=prot_view_zip)
     )
 
     persist_protected_urls = (
@@ -1743,7 +1850,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Protected home range ecomap",
+            title="Protected Home Range Ecomap",
             **(params_dict.get("create_protected_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=persist_protected_urls)
@@ -1808,7 +1915,7 @@ def main(params: Params):
         .partial(
             layer_style={
                 "fill_color_column": "percentile_colormap",
-                "opacity": 0.35,
+                "opacity": 0.25,
                 "stroked": False,
             },
             legend={
@@ -1831,6 +1938,17 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_unprotected_layers)
     )
 
+    unprot_view_zip = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="unprot_view_zip")
+        .partial(
+            left=combine_landdx_np_layers,
+            right=zoom_traj_view,
+            **(params_dict.get("unprot_view_zip") or {}),
+        )
+        .call()
+    )
+
     draw_unprotected_ecomaps = (
         draw_ecomap.validate()
         .handle_errors(task_instance_id="draw_unprotected_ecomaps")
@@ -1843,7 +1961,7 @@ def main(params: Params):
             max_zoom=20,
             **(params_dict.get("draw_unprotected_ecomaps") or {}),
         )
-        .mapvalues(argnames=["geo_layers"], argvalues=combine_ldx_unprotected_layers)
+        .mapvalues(argnames=["geo_layers", "view_state"], argvalues=unprot_view_zip)
     )
 
     persist_unprotected_urls = (
@@ -1866,7 +1984,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Unprotected home range ecomap",
+            title="Unprotected Home Range Ecomap",
             **(params_dict.get("create_unprotected_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=persist_unprotected_urls)
@@ -1935,13 +2053,6 @@ def main(params: Params):
             **(params_dict.get("merge_prot_widgets") or {}),
         )
         .call()
-    )
-
-    view_prot_df = (
-        view_df.validate()
-        .handle_errors(task_instance_id="view_prot_df")
-        .partial(name="summary-table-df", **(params_dict.get("view_prot_df") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=unpr_category_summary)
     )
 
     mapbook_dashboard = (

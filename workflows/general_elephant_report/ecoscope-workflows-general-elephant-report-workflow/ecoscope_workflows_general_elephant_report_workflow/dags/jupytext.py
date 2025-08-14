@@ -43,12 +43,13 @@ from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
 from ecoscope_workflows_ext_ste.tasks import assign_column
 from ecoscope_workflows_ext_ste.tasks import spatial_join
 from ecoscope_workflows_ext_ste.tasks import assign_value_by_index
-from ecoscope_workflows_ext_ste.tasks import view_df
 from ecoscope_workflows_core.tasks.groupby import split_groups
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polyline_layer
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df
 from ecoscope_workflows_core.tasks.skip import any_dependency_skipped
 from ecoscope_workflows_ext_ste.tasks import combine_map_layers
+from ecoscope_workflows_ext_ste.tasks import create_view_state_from_gdf
+from ecoscope_workflows_ext_ste.tasks import zip_grouped_by_key
 from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap
 from ecoscope_workflows_core.tasks.io import persist_text
 from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
@@ -74,7 +75,7 @@ from ecoscope_workflows_core.tasks.results import create_plot_widget_single_view
 from ecoscope_workflows_core.tasks.results import gather_dashboard
 
 # %% [markdown]
-# ## Initialize Workflow Metadata
+# ## Initialize workflow metadata
 
 # %%
 # parameters
@@ -97,7 +98,7 @@ initialize_workflow_metadata = (
 
 
 # %% [markdown]
-# ## Define Time Range
+# ## Define time range
 
 # %%
 # parameters
@@ -119,7 +120,7 @@ define_time_range = (
 
 
 # %% [markdown]
-# ## Configure Grouping Strategy
+# ## Configure grouping strategy
 
 # %%
 # parameters
@@ -140,7 +141,7 @@ configure_grouping_strategy = (
 
 
 # %% [markdown]
-# ## Configure Base Map Layers
+# ## Configure base map layers
 
 # %%
 # parameters
@@ -161,7 +162,7 @@ configure_base_maps = (
 
 
 # %% [markdown]
-# ## Create Output Directory
+# ## Create output directory
 
 # %%
 # parameters
@@ -182,7 +183,7 @@ create_output_directory = (
 
 
 # %% [markdown]
-# ## Retrieve and Unpack LandDx Database
+# ## Retrieve and Unpack LandDx db
 
 # %%
 # parameters
@@ -205,7 +206,7 @@ retrieve_landdx_database = (
 
 
 # %% [markdown]
-# ## Load AOI from landDx
+# ## Filter area of interest from LandDx db
 
 # %%
 # parameters
@@ -245,7 +246,7 @@ split_landdx_by_type = (
 
 
 # %% [markdown]
-# ## Annotate Geometry Types
+# ## Annotate LandDx Geometry Types
 
 # %%
 # parameters
@@ -291,7 +292,7 @@ create_styled_landdx_layers = (
 
 
 # %% [markdown]
-# ## Connect to EarthRanger Instance
+# ## Connect to EarthRanger
 
 # %%
 # parameters
@@ -645,7 +646,7 @@ create_dn_meshgrid = (
 
 
 # %% [markdown]
-# ## Persist Trajectories as GPKG
+# ## Persist trajectories as gpkg
 
 # %%
 # parameters
@@ -671,7 +672,7 @@ persist_traj_df = (
 
 
 # %% [markdown]
-# ## Persist Relocations as GPKG
+# ## Persist Relocations as gpkg
 
 # %%
 # parameters
@@ -775,25 +776,6 @@ assign_protected_values = (
 
 
 # %% [markdown]
-# ## view spatial gdf
-
-# %%
-# parameters
-
-view_joined_gdf_params = dict()
-
-# %%
-# call the task
-
-
-view_joined_gdf = (
-    view_df.handle_errors(task_instance_id="view_joined_gdf")
-    .partial(name="joined_df", gdf=assign_protected_values, **view_joined_gdf_params)
-    .call()
-)
-
-
-# %% [markdown]
 # ## Split Trajectories by Group
 
 # %%
@@ -840,7 +822,7 @@ split_relocations_by_group = (
 
 
 # %% [markdown]
-# ## Create Subject Styled Ecomap Layers
+# ## Create subject tracks
 
 # %%
 # parameters
@@ -870,7 +852,7 @@ generate_substyled_layers = (
             "get_width": 3.0,
             "width_unit": "pixels",
             "cap_rounded": True,
-            "opacity": 0.35,
+            "opacity": 0.25,
         },
         legend={"label_column": "extra__name", "color_column": "extra__hex"},
         tooltip_columns=["extra__hex", "extra__name", "extra__sex"],
@@ -881,7 +863,7 @@ generate_substyled_layers = (
 
 
 # %% [markdown]
-# ## Combine LandDx and subject-styled ecomap layers
+# ## Combine LandDx and track layers
 
 # %%
 # parameters
@@ -902,14 +884,52 @@ combine_substyled_layers = (
 
 
 # %% [markdown]
+# ## Zoom by view state
+
+# %%
+# parameters
+
+zoom_traj_view_params = dict()
+
+# %%
+# call the task
+
+
+zoom_traj_view = (
+    create_view_state_from_gdf.handle_errors(task_instance_id="zoom_traj_view")
+    .partial(pitch=0, bearing=0, **zoom_traj_view_params)
+    .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)
+)
+
+
+# %% [markdown]
+# ## Zip layers and viewstate
+
+# %%
+# parameters
+
+substyled_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+substyled_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="substyled_view_zip")
+    .partial(
+        left=combine_substyled_layers, right=zoom_traj_view, **substyled_view_zip_params
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw subject-styled ecomaps
 
 # %%
 # parameters
 
-draw_substyled_ecomaps_params = dict(
-    view_state=...,
-)
+draw_substyled_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -926,12 +946,12 @@ draw_substyled_ecomaps = (
         max_zoom=20,
         **draw_substyled_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_substyled_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=substyled_view_zip)
 )
 
 
 # %% [markdown]
-# ## Persist subject-styled ecomap HTML paths
+# ## Persist track ecomaps
 
 # %%
 # parameters
@@ -955,7 +975,7 @@ persist_substyled_urls = (
 
 
 # %% [markdown]
-# ## Create subject-styled ecomap widgets
+# ## Create track ecomap widgets
 
 # %%
 # parameters
@@ -976,15 +996,13 @@ create_substyled_ecomap_widgets = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        title="Combined subject tracks ecomap", **create_substyled_ecomap_widgets_params
-    )
+    .partial(title="Subject Tracks Ecomaps", **create_substyled_ecomap_widgets_params)
     .map(argnames=["view", "data"], argvalues=persist_substyled_urls)
 )
 
 
 # %% [markdown]
-# ## Merge subject-styled widgets
+# ## Merge track widgets
 
 # %%
 # parameters
@@ -1003,7 +1021,7 @@ merge_substyled_widgets = (
 
 
 # %% [markdown]
-# ## Generate Home Range
+# ## Generate home range
 
 # %%
 # parameters
@@ -1032,7 +1050,7 @@ generate_etd = (
 
 
 # %% [markdown]
-# ## Time Density Colormap
+# ## Time density colormap
 
 # %%
 # parameters
@@ -1056,7 +1074,7 @@ td_colormap = (
 
 
 # %% [markdown]
-# ## Create Home Range Ecomap Layers
+# ## Create hr layers
 
 # %%
 # parameters
@@ -1081,7 +1099,7 @@ generate_etd_ecomap_layers = (
     .partial(
         layer_style={
             "fill_color_column": "percentile_colormap",
-            "opacity": 0.35,
+            "opacity": 0.25,
             "stroked": False,
         },
         legend={"label_column": "percentile", "color_column": "percentile_colormap"},
@@ -1093,7 +1111,7 @@ generate_etd_ecomap_layers = (
 
 
 # %% [markdown]
-# ## Combine LandDx and Home Range Ecomap Layers
+# ## Combine LandDx and hr layer
 
 # %%
 # parameters
@@ -1115,14 +1133,33 @@ combine_landdx_hr_ecomap_layers = (
 
 
 # %% [markdown]
-# ## Draw Home Range Ecomaps by Group
+# ## Zip layers and viewstate
 
 # %%
 # parameters
 
-draw_hr_ecomaps_params = dict(
-    view_state=...,
+hr_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+hr_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="hr_view_zip")
+    .partial(
+        left=combine_landdx_hr_ecomap_layers, right=zoom_traj_view, **hr_view_zip_params
+    )
+    .call()
 )
+
+
+# %% [markdown]
+# ## Draw home range ecomap
+
+# %%
+# parameters
+
+draw_hr_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -1139,12 +1176,12 @@ draw_hr_ecomaps = (
         max_zoom=20,
         **draw_hr_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_hr_ecomap_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=hr_view_zip)
 )
 
 
 # %% [markdown]
-# ## Persist Home Range Ecomap HTML Paths
+# ## Persist home range ecomap
 
 # %%
 # parameters
@@ -1168,7 +1205,7 @@ persist_hr_ecomap_urls = (
 
 
 # %% [markdown]
-# ## Create Home Range Ecomap Widgets
+# ## Create home range ecomap widgets
 
 # %%
 # parameters
@@ -1189,13 +1226,13 @@ create_hr_ecomap_widgets = (
         ],
         unpack_depth=1,
     )
-    .partial(title="Home range ecomap", **create_hr_ecomap_widgets_params)
+    .partial(title="Home Range Ecomap", **create_hr_ecomap_widgets_params)
     .map(argnames=["view", "data"], argvalues=persist_hr_ecomap_urls)
 )
 
 
 # %% [markdown]
-# ## Merge Home Range Ecomap Widgets
+# ## Merge home range ecomap widgets
 
 # %%
 # parameters
@@ -1259,7 +1296,7 @@ custom_td_colormap = (
 
 
 # %% [markdown]
-# ## Create 99th HR Ecomap layers
+# ## Create 99th hr ecomap layers
 
 # %%
 # parameters
@@ -1284,7 +1321,7 @@ generate_cetd_ecomap_layers = (
     .partial(
         layer_style={
             "fill_color_column": "percentile_colormap",
-            "opacity": 0.35,
+            "opacity": 0.25,
             "stroked": False,
         },
         legend={"label_column": "percentile", "color_column": "percentile_colormap"},
@@ -1318,14 +1355,35 @@ combine_landdx_custom_hr_layers = (
 
 
 # %% [markdown]
+# ## Zip layers and viewstate
+
+# %%
+# parameters
+
+custom_hr_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+custom_hr_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="custom_hr_view_zip")
+    .partial(
+        left=combine_landdx_custom_hr_layers,
+        right=zoom_traj_view,
+        **custom_hr_view_zip_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw 99th percentile hr ecomap
 
 # %%
 # parameters
 
-draw_custom_hr_ecomaps_params = dict(
-    view_state=...,
-)
+draw_custom_hr_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -1342,12 +1400,12 @@ draw_custom_hr_ecomaps = (
         max_zoom=20,
         **draw_custom_hr_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_custom_hr_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=custom_hr_view_zip)
 )
 
 
 # %% [markdown]
-# ## Persist custom hr ecomap html paths
+# ## Persist custom hr ecomap
 
 # %%
 # parameters
@@ -1371,7 +1429,7 @@ persist_custom_hr_ecomap_urls = (
 
 
 # %% [markdown]
-# ## Create Custom HR Ecomap widgets
+# ## Create custom hr ecomap widgets
 
 # %%
 # parameters
@@ -1393,7 +1451,7 @@ create_custom_hr_ecomap_widgets = (
         unpack_depth=1,
     )
     .partial(
-        title="99th percentile home range ecomap",
+        title="99th Percentile Home Range Ecomap",
         **create_custom_hr_ecomap_widgets_params,
     )
     .map(argnames=["view", "data"], argvalues=persist_custom_hr_ecomap_urls)
@@ -1422,7 +1480,7 @@ merge_custom_hr_ecomap_widgets = (
 
 
 # %% [markdown]
-# ## Generate Seasonal Ecomap
+# ## Generate seasonal etd
 
 # %%
 # parameters
@@ -1477,7 +1535,7 @@ sort_season_etd_color = (
 
 
 # %% [markdown]
-# ## Apply colormap to season HR
+# ## Apply colormap to season hr
 
 # %%
 # parameters
@@ -1501,7 +1559,7 @@ apply_season_etd_colormap = (
 
 
 # %% [markdown]
-# ## Create Season Ecomap layers
+# ## Create season ecomap layers
 
 # %%
 # parameters
@@ -1526,7 +1584,7 @@ generate_season_ecomap_layers = (
     .partial(
         layer_style={
             "fill_color_column": "season_colormap",
-            "opacity": 0.35,
+            "opacity": 0.25,
             "stroked": False,
         },
         legend={"label_column": "season", "color_column": "season_colormap"},
@@ -1538,7 +1596,7 @@ generate_season_ecomap_layers = (
 
 
 # %% [markdown]
-# ## Combine LandDx and Season ecomap layers
+# ## Combine LandDx and season ecomap layers
 
 # %%
 # parameters
@@ -1559,14 +1617,35 @@ combine_landdx_season_layers = (
 
 
 # %% [markdown]
+# ## Zip layers and viewstate
+
+# %%
+# parameters
+
+season_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+season_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="season_view_zip")
+    .partial(
+        left=combine_landdx_season_layers,
+        right=zoom_traj_view,
+        **season_view_zip_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw season hr ecomap
 
 # %%
 # parameters
 
-draw_season_ecomaps_params = dict(
-    view_state=...,
-)
+draw_season_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -1583,7 +1662,7 @@ draw_season_ecomaps = (
         max_zoom=20,
         **draw_season_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_season_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=season_view_zip)
 )
 
 
@@ -1612,7 +1691,7 @@ persist_season_ecomap_urls = (
 
 
 # %% [markdown]
-# ## Create Season Ecomap widgets
+# ## Create season ecomap widgets
 
 # %%
 # parameters
@@ -1633,7 +1712,7 @@ create_season_ecomap_widgets = (
         ],
         unpack_depth=1,
     )
-    .partial(title="Seasonal ecomap", **create_season_ecomap_widgets_params)
+    .partial(title="Seasonal Ecomap", **create_season_ecomap_widgets_params)
     .map(argnames=["view", "data"], argvalues=persist_season_ecomap_urls)
 )
 
@@ -1776,7 +1855,7 @@ generate_td_ecomap_layers = (
     .partial(
         layer_style={
             "fill_color_column": "time_dominance_colormap",
-            "opacity": 0.35,
+            "opacity": 0.25,
             "stroked": True,
         },
         legend={
@@ -1791,7 +1870,7 @@ generate_td_ecomap_layers = (
 
 
 # %% [markdown]
-# ## Combine LandDx and Season ecomap layers
+# ## Combine LandDx and day/night ecomaps
 
 # %%
 # parameters
@@ -1812,14 +1891,31 @@ combine_landdx_td_layers = (
 
 
 # %% [markdown]
+# ## Zip layers and viewstate
+
+# %%
+# parameters
+
+td_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+td_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="td_view_zip")
+    .partial(left=combine_landdx_td_layers, right=zoom_traj_view, **td_view_zip_params)
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw time dominance ecomap
 
 # %%
 # parameters
 
-draw_tdominance_ecomaps_params = dict(
-    view_state=...,
-)
+draw_tdominance_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -1836,7 +1932,7 @@ draw_tdominance_ecomaps = (
         max_zoom=20,
         **draw_tdominance_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_td_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=td_view_zip)
 )
 
 
@@ -1886,7 +1982,7 @@ create_tdom_ecomap_widgets = (
         ],
         unpack_depth=1,
     )
-    .partial(title="Night day raster", **create_tdom_ecomap_widgets_params)
+    .partial(title="Day/Night Ecomap", **create_tdom_ecomap_widgets_params)
     .map(argnames=["view", "data"], argvalues=persist_tdominance_ecomap_urls)
 )
 
@@ -1983,7 +2079,7 @@ drop_nan_proportion_values = (
 
 
 # %% [markdown]
-# ## Drop nan  threshold values
+# ## Drop nan threshold values
 
 # %%
 # parameters
@@ -2055,7 +2151,7 @@ generate_nightpr_ecomap_layers = (
     .partial(
         layer_style={
             "fill_color_column": "night_class_colormap",
-            "opacity": 0.35,
+            "opacity": 0.25,
             "stroked": True,
         },
         legend={"label_column": "night_class", "color_column": "night_class_colormap"},
@@ -2088,14 +2184,31 @@ combine_landdx_np_layers = (
 
 
 # %% [markdown]
+# ## Zip layers and viewstate
+
+# %%
+# parameters
+
+np_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+np_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="np_view_zip")
+    .partial(left=combine_landdx_np_layers, right=zoom_traj_view, **np_view_zip_params)
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw night proportion ecomap
 
 # %%
 # parameters
 
-draw_nightpr_ecomaps_params = dict(
-    view_state=...,
-)
+draw_nightpr_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -2112,7 +2225,7 @@ draw_nightpr_ecomaps = (
         max_zoom=20,
         **draw_nightpr_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_np_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=np_view_zip)
 )
 
 
@@ -2210,7 +2323,7 @@ filter_dry_trajs = (
 
 
 # %% [markdown]
-# ## Generate Speed Rasters
+# ## Generate speed rasters
 
 # %%
 # parameters
@@ -2244,7 +2357,7 @@ generate_dry_speed_rasters = (
 
 
 # %% [markdown]
-# ## Extract Features from Dry Speed Raster TIFFs
+# ## Extract features from dry speed raster TIFFs
 
 # %%
 # parameters
@@ -2263,7 +2376,7 @@ extract_dry_speed_rasters = (
 
 
 # %% [markdown]
-# ## Sort Speed Features by Value
+# ## Sort speed features by value
 
 # %%
 # parameters
@@ -2284,7 +2397,7 @@ sort_dry_speed_features = (
 
 
 # %% [markdown]
-# ## Classify Speed Feature GeoDataFrames
+# ## Classify speed feature gdfs
 
 # %%
 # parameters
@@ -2309,7 +2422,7 @@ classify_dry_speed_features = (
 
 
 # %% [markdown]
-# ## Apply Colormap to Speed Raster Bins
+# ## Apply colormap to speed raster bins
 
 # %%
 # parameters
@@ -2333,7 +2446,7 @@ apply_dry_speed_colormap = (
 
 
 # %% [markdown]
-# ## Format Speed Raster Bin Labels
+# ## Format speed raster bin layers
 
 # %%
 # parameters
@@ -2359,7 +2472,7 @@ format_dry_raster_labels = (
 
 
 # %% [markdown]
-# ## Create Speed Raster Map Layers
+# ## Create speed raster map layers
 
 # %%
 # parameters
@@ -2384,7 +2497,7 @@ generate_dry_raster_layers = (
     .partial(
         layer_style={
             "fill_color_column": "speedraster_bins_colors",
-            "opacity": 0.35,
+            "opacity": 0.25,
             "stroked": True,
         },
         legend={
@@ -2399,7 +2512,7 @@ generate_dry_raster_layers = (
 
 
 # %% [markdown]
-# ## Combine LandDx and SpeedRaster Map Layers
+# ## Combine LandDx and speedraster layers
 
 # %%
 # parameters
@@ -2420,14 +2533,33 @@ combine_dry_seasonal_layers = (
 
 
 # %% [markdown]
-# ## Draw Speed Raster Ecomaps by Group
+# ## Zip layers and viewstate
 
 # %%
 # parameters
 
-draw_dry_speed_ecomaps_params = dict(
-    view_state=...,
+dry_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+dry_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="dry_view_zip")
+    .partial(
+        left=combine_dry_seasonal_layers, right=zoom_traj_view, **dry_view_zip_params
+    )
+    .call()
 )
+
+
+# %% [markdown]
+# ## Draw speed raster ecomap
+
+# %%
+# parameters
+
+draw_dry_speed_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -2444,12 +2576,12 @@ draw_dry_speed_ecomaps = (
         max_zoom=20,
         **draw_dry_speed_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_dry_seasonal_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=dry_view_zip)
 )
 
 
 # %% [markdown]
-# ## Persist Dry Speed Raster Ecomap HTML Paths
+# ## Persist dry speed raster ecomap
 
 # %%
 # parameters
@@ -2473,7 +2605,7 @@ dry_raster_ecomap_urls = (
 
 
 # %% [markdown]
-# ## Create Dry Speed Raster Ecomap Widgets
+# ## Create dry speed raster widgets
 
 # %%
 # parameters
@@ -2500,7 +2632,7 @@ dry_single_ecomap_widgets = (
 
 
 # %% [markdown]
-# ## Merge Dry Speed Raster Ecomap Widgets
+# ## Merge dry speed raster widgets
 
 # %%
 # parameters
@@ -2540,7 +2672,7 @@ filter_wet_trajs = (
 
 
 # %% [markdown]
-# ## Generate Speed Rasters
+# ## Generate speed rasters
 
 # %%
 # parameters
@@ -2574,7 +2706,7 @@ generate_wet_speed_rasters = (
 
 
 # %% [markdown]
-# ## Extract Features from Wet Speed Raster TIFFs
+# ## Extract features from wet speed raster TIFFs
 
 # %%
 # parameters
@@ -2593,7 +2725,7 @@ extract_wet_speed_rasters = (
 
 
 # %% [markdown]
-# ## Sort Speed Features by Value
+# ## Sort speed features by value
 
 # %%
 # parameters
@@ -2614,7 +2746,7 @@ sort_wet_speed_features = (
 
 
 # %% [markdown]
-# ## Classify Speed Feature GeoDataFrames
+# ## Classify speed feature gdfs
 
 # %%
 # parameters
@@ -2639,7 +2771,7 @@ classify_wet_speed_features = (
 
 
 # %% [markdown]
-# ## Apply Colormap to Speed Raster Bins
+# ## Apply colormap to speed raster bins
 
 # %%
 # parameters
@@ -2663,7 +2795,7 @@ apply_wet_speed_colormap = (
 
 
 # %% [markdown]
-# ## Format Speed Raster Bin Labels
+# ## Format speed raster bin labels
 
 # %%
 # parameters
@@ -2689,7 +2821,7 @@ format_wet_raster_labels = (
 
 
 # %% [markdown]
-# ## Create Speed Raster Map Layers
+# ## Create speed raster map layers
 
 # %%
 # parameters
@@ -2714,7 +2846,7 @@ generate_wet_raster_layers = (
     .partial(
         layer_style={
             "fill_color_column": "speedraster_bins_colors",
-            "opacity": 0.35,
+            "opacity": 0.25,
             "stroked": True,
         },
         legend={
@@ -2729,7 +2861,7 @@ generate_wet_raster_layers = (
 
 
 # %% [markdown]
-# ## Combine LandDx and SpeedRaster Map Layers
+# ## Combine LandDx and speedraster map layers
 
 # %%
 # parameters
@@ -2750,14 +2882,33 @@ combine_wet_seasonal_layers = (
 
 
 # %% [markdown]
-# ## Draw Speed Raster Ecomaps by Group
+# ## Zip layers and viewstate
 
 # %%
 # parameters
 
-draw_wet_speed_ecomaps_params = dict(
-    view_state=...,
+wets_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+wets_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="wets_view_zip")
+    .partial(
+        left=combine_wet_seasonal_layers, right=zoom_traj_view, **wets_view_zip_params
+    )
+    .call()
 )
+
+
+# %% [markdown]
+# ## Draw speed raster ecomaps
+
+# %%
+# parameters
+
+draw_wet_speed_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -2774,12 +2925,12 @@ draw_wet_speed_ecomaps = (
         max_zoom=20,
         **draw_wet_speed_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_wet_seasonal_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=wets_view_zip)
 )
 
 
 # %% [markdown]
-# ## Persist Wet Speed Raster Ecomap HTML Paths
+# ## Persist wet speed raster ecomap
 
 # %%
 # parameters
@@ -2803,7 +2954,7 @@ wet_raster_ecomap_urls = (
 
 
 # %% [markdown]
-# ## Create Wet Speed Raster Ecomap Widgets
+# ## Create wet speed raster ecomap widgets
 
 # %%
 # parameters
@@ -2830,7 +2981,7 @@ wet_single_ecomap_widgets = (
 
 
 # %% [markdown]
-# ## Merge Wet Speed Raster Ecomap Widgets
+# ## Merge wet speed raster ecomap widgets
 
 # %%
 # parameters
@@ -2849,7 +3000,7 @@ wet_raster_ecomap_widgets = (
 
 
 # %% [markdown]
-# ## Generate Recursion Events Rasters
+# ## Generate recursion events rasters
 
 # %%
 # parameters
@@ -2902,7 +3053,7 @@ extract_recursion_rasters = (
 
 
 # %% [markdown]
-# ## Sort Speed Features by Value
+# ## Sort speed features by value
 
 # %%
 # parameters
@@ -2923,7 +3074,7 @@ sort_recursion_features = (
 
 
 # %% [markdown]
-# ## Classify Recursion GeoDataFrames
+# ## Classify recursion gdfs
 
 # %%
 # parameters
@@ -2948,7 +3099,7 @@ classify_recursion_features = (
 
 
 # %% [markdown]
-# ## Apply Colormap to Recursion Bins
+# ## Apply colormap to recursion bins
 
 # %%
 # parameters
@@ -2972,7 +3123,7 @@ apply_recursion_colormap = (
 
 
 # %% [markdown]
-# ## Create Recursion Raster Map Layers
+# ## Create recursion raster map layers
 
 # %%
 # parameters
@@ -2997,7 +3148,7 @@ generate_recursion_layers = (
     .partial(
         layer_style={
             "fill_color_column": "recursion_bins_colors",
-            "opacity": 0.35,
+            "opacity": 0.25,
             "stroked": True,
         },
         legend={"label_column": "bins", "color_column": "recursion_bins_colors"},
@@ -3009,7 +3160,7 @@ generate_recursion_layers = (
 
 
 # %% [markdown]
-# ## Combine LandDx and Recursion Raster Map Layers
+# ## Combine LandDx and recursion raster map layers
 
 # %%
 # parameters
@@ -3030,14 +3181,33 @@ combine_recursion_layers = (
 
 
 # %% [markdown]
-# ## Draw Recursion Raster Ecomaps by Group
+# ## Zip layers and viewstate
 
 # %%
 # parameters
 
-draw_recursion_ecomaps_params = dict(
-    view_state=...,
+recursion_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+recursion_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="recursion_view_zip")
+    .partial(
+        left=combine_landdx_np_layers, right=zoom_traj_view, **recursion_view_zip_params
+    )
+    .call()
 )
+
+
+# %% [markdown]
+# ## Draw recursion raster ecomaps
+
+# %%
+# parameters
+
+draw_recursion_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -3054,12 +3224,12 @@ draw_recursion_ecomaps = (
         max_zoom=20,
         **draw_recursion_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_recursion_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=recursion_view_zip)
 )
 
 
 # %% [markdown]
-# ## Persist Recursion Raster Ecomap HTML Paths
+# ## Persist recursion raster ecomaps
 
 # %%
 # parameters
@@ -3083,7 +3253,7 @@ recursion_ecomap_urls = (
 
 
 # %% [markdown]
-# ## Create Recursion Raster Ecomap Widgets
+# ## Create recursion raster ecomap widgets
 
 # %%
 # parameters
@@ -3110,7 +3280,7 @@ recursion_ecomap_widgets = (
 
 
 # %% [markdown]
-# ## Merge Recursion Raster Ecomap Widgets
+# ## Merge recursion raster ecomap widgets
 
 # %%
 # parameters
@@ -3152,7 +3322,7 @@ filter_protected_trajs = (
 
 
 # %% [markdown]
-# ## Generate Home Range
+# ## Generate home range
 
 # %%
 # parameters
@@ -3183,7 +3353,7 @@ generate_protected_etd = (
 
 
 # %% [markdown]
-# ## Time Density Colormap
+# ## Time density colormap
 
 # %%
 # parameters
@@ -3207,7 +3377,7 @@ td_protected_colormap = (
 
 
 # %% [markdown]
-# ## Create Home Range Ecomap Layers
+# ## Create home range ecomap layers
 
 # %%
 # parameters
@@ -3232,7 +3402,7 @@ generate_etd_protected_layers = (
     .partial(
         layer_style={
             "fill_color_column": "percentile_colormap",
-            "opacity": 0.35,
+            "opacity": 0.25,
             "stroked": False,
         },
         legend={"label_column": "percentile", "color_column": "percentile_colormap"},
@@ -3244,7 +3414,7 @@ generate_etd_protected_layers = (
 
 
 # %% [markdown]
-# ## Combine LandDx and Home Range Ecomap Layers
+# ## Combine LandDx and hr ecomap layers
 
 # %%
 # parameters
@@ -3265,14 +3435,33 @@ combine_ldx_protected_layers = (
 
 
 # %% [markdown]
-# ## Draw Home Range Ecomaps by Group
+# ## Zip layers and viewstate
 
 # %%
 # parameters
 
-draw_protected_ecomaps_params = dict(
-    view_state=...,
+prot_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+prot_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="prot_view_zip")
+    .partial(
+        left=combine_ldx_protected_layers, right=zoom_traj_view, **prot_view_zip_params
+    )
+    .call()
 )
+
+
+# %% [markdown]
+# ## Draw hr ecomaps
+
+# %%
+# parameters
+
+draw_protected_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -3289,12 +3478,12 @@ draw_protected_ecomaps = (
         max_zoom=20,
         **draw_protected_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_ldx_protected_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=prot_view_zip)
 )
 
 
 # %% [markdown]
-# ## Persist Home Range Ecomap HTML Paths
+# ## Persist protected hr ecomaps
 
 # %%
 # parameters
@@ -3318,7 +3507,7 @@ persist_protected_urls = (
 
 
 # %% [markdown]
-# ## Create Home Range Ecomap Widgets
+# ## Create protected hr ecomap widgets
 
 # %%
 # parameters
@@ -3339,13 +3528,13 @@ create_protected_widgets = (
         ],
         unpack_depth=1,
     )
-    .partial(title="Protected home range ecomap", **create_protected_widgets_params)
+    .partial(title="Protected Home Range Ecomap", **create_protected_widgets_params)
     .map(argnames=["view", "data"], argvalues=persist_protected_urls)
 )
 
 
 # %% [markdown]
-# ## Merge Home Range Ecomap Widgets
+# ## Merge protected home range ecomap widgets
 
 # %%
 # parameters
@@ -3387,7 +3576,7 @@ filter_unprotected_trajs = (
 
 
 # %% [markdown]
-# ## Generate Home Range
+# ## Generate home range
 
 # %%
 # parameters
@@ -3418,7 +3607,7 @@ generate_unprotected_etd = (
 
 
 # %% [markdown]
-# ## Time Density Colormap
+# ## Time density colormap
 
 # %%
 # parameters
@@ -3442,7 +3631,7 @@ td_unprotected_colormap = (
 
 
 # %% [markdown]
-# ## Create Home Range Ecomap Layers
+# ## Create unprotected home range ecomap layers
 
 # %%
 # parameters
@@ -3467,7 +3656,7 @@ generate_unprotected_layers = (
     .partial(
         layer_style={
             "fill_color_column": "percentile_colormap",
-            "opacity": 0.35,
+            "opacity": 0.25,
             "stroked": False,
         },
         legend={"label_column": "percentile", "color_column": "percentile_colormap"},
@@ -3479,7 +3668,7 @@ generate_unprotected_layers = (
 
 
 # %% [markdown]
-# ## Combine LandDx and Home Range Ecomap Layers
+# ## Combine LandDx and hr ecomap layers
 
 # %%
 # parameters
@@ -3501,14 +3690,33 @@ combine_ldx_unprotected_layers = (
 
 
 # %% [markdown]
-# ## Draw Home Range Ecomaps by Group
+# ## Zip layers and viewstate
 
 # %%
 # parameters
 
-draw_unprotected_ecomaps_params = dict(
-    view_state=...,
+unprot_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+unprot_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="unprot_view_zip")
+    .partial(
+        left=combine_landdx_np_layers, right=zoom_traj_view, **unprot_view_zip_params
+    )
+    .call()
 )
+
+
+# %% [markdown]
+# ## Draw unprotected hr ecomap
+
+# %%
+# parameters
+
+draw_unprotected_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -3525,12 +3733,12 @@ draw_unprotected_ecomaps = (
         max_zoom=20,
         **draw_unprotected_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_ldx_unprotected_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=unprot_view_zip)
 )
 
 
 # %% [markdown]
-# ## Persist Home Range Ecomap HTML Paths
+# ## Persist unprotected home range ecomap
 
 # %%
 # parameters
@@ -3554,7 +3762,7 @@ persist_unprotected_urls = (
 
 
 # %% [markdown]
-# ## Create Home Range Ecomap Widgets
+# ## Create unprotected home range ecomap widgets
 
 # %%
 # parameters
@@ -3575,13 +3783,13 @@ create_unprotected_widgets = (
         ],
         unpack_depth=1,
     )
-    .partial(title="Unprotected home range ecomap", **create_unprotected_widgets_params)
+    .partial(title="Unprotected Home Range Ecomap", **create_unprotected_widgets_params)
     .map(argnames=["view", "data"], argvalues=persist_unprotected_urls)
 )
 
 
 # %% [markdown]
-# ## Merge Home Range Ecomap Widgets
+# ## Merge unprotected home range widgets
 
 # %%
 # parameters
@@ -3631,7 +3839,7 @@ unpr_category_summary = (
 
 
 # %% [markdown]
-# ## plot protected-unprotected areas
+# ## Plot protected-unprotected areas
 
 # %%
 # parameters
@@ -3650,7 +3858,7 @@ plot_prot_unprot = (
 
 
 # %% [markdown]
-# ## persist protected-unprotected chart
+# ## Persist protected-unprotected chart
 
 # %%
 # parameters
@@ -3715,25 +3923,6 @@ merge_prot_widgets = (
     merge_widget_views.handle_errors(task_instance_id="merge_prot_widgets")
     .partial(widgets=create_single_prot_widget, **merge_prot_widgets_params)
     .call()
-)
-
-
-# %% [markdown]
-# ## view table
-
-# %%
-# parameters
-
-view_prot_df_params = dict()
-
-# %%
-# call the task
-
-
-view_prot_df = (
-    view_df.handle_errors(task_instance_id="view_prot_df")
-    .partial(name="summary-table-df", **view_prot_df_params)
-    .mapvalues(argnames=["gdf"], argvalues=unpr_category_summary)
 )
 
 

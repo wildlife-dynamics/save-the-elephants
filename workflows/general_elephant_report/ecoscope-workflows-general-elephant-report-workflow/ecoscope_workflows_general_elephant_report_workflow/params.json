@@ -18,7 +18,7 @@
       ],
       "type": "object",
       "description": "Add information that will help to differentiate this workflow from another.",
-      "title": "Initialize Workflow Metadata"
+      "title": "Initialize workflow metadata"
     },
     "define_time_range": {
       "additionalProperties": false,
@@ -42,7 +42,7 @@
       ],
       "type": "object",
       "description": "Choose the period of time to analyze.",
-      "title": "Define Time Range"
+      "title": "Define time range"
     },
     "configure_grouping_strategy": {
       "additionalProperties": false,
@@ -67,7 +67,7 @@
       },
       "type": "object",
       "required": [],
-      "title": "Configure Grouping Strategy"
+      "title": "Configure grouping strategy"
     },
     "configure_base_maps": {
       "additionalProperties": false,
@@ -267,7 +267,7 @@
       },
       "type": "object",
       "required": [],
-      "title": "Configure Base Map Layers"
+      "title": "Configure base map layers"
     },
     "create_output_directory": {
       "additionalProperties": false,
@@ -281,7 +281,7 @@
       },
       "type": "object",
       "required": [],
-      "title": "Create Output Directory"
+      "title": "Create output directory"
     },
     "retrieve_landdx_database": {
       "additionalProperties": false,
@@ -308,7 +308,7 @@
         "url"
       ],
       "type": "object",
-      "title": "Retrieve and Unpack LandDx Database"
+      "title": "Retrieve and Unpack LandDx db"
     },
     "load_aoi": {
       "additionalProperties": false,
@@ -325,7 +325,7 @@
         "aoi"
       ],
       "type": "object",
-      "title": "Load AOI from landDx"
+      "title": "Filter area of interest from LandDx db"
     },
     "create_styled_landdx_layers": {
       "additionalProperties": false,
@@ -354,7 +354,7 @@
         "data_source"
       ],
       "type": "object",
-      "title": "Connect to EarthRanger Instance"
+      "title": "Connect to EarthRanger"
     },
     "gee_project_name": {
       "additionalProperties": false,
@@ -554,7 +554,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Generate Home Range"
+      "title": "Generate home range"
     },
     "custom_hr": {
       "additionalProperties": false,
@@ -604,7 +604,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Generate Seasonal Ecomap"
+      "title": "Generate seasonal etd"
     },
     "time_dominance": {
       "additionalProperties": false,
@@ -694,7 +694,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Generate Speed Rasters"
+      "title": "Generate speed rasters"
     },
     "sort_dry_speed_features": {
       "additionalProperties": false,
@@ -708,7 +708,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Sort Speed Features by Value"
+      "title": "Sort speed features by value"
     },
     "filter_wet_trajs": {
       "additionalProperties": false,
@@ -785,7 +785,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Generate Speed Rasters"
+      "title": "Generate speed rasters"
     },
     "sort_wet_speed_features": {
       "additionalProperties": false,
@@ -799,7 +799,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Sort Speed Features by Value"
+      "title": "Sort speed features by value"
     },
     "generate_recursion_rasters": {
       "additionalProperties": false,
@@ -866,7 +866,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Generate Recursion Events Rasters"
+      "title": "Generate recursion events rasters"
     },
     "sort_recursion_features": {
       "additionalProperties": false,
@@ -880,7 +880,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Sort Speed Features by Value"
+      "title": "Sort speed features by value"
     },
     "filter_protected_trajs": {
       "additionalProperties": false,
@@ -930,7 +930,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Generate Home Range"
+      "title": "Generate home range"
     },
     "filter_unprotected_trajs": {
       "additionalProperties": false,
@@ -980,7 +980,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Generate Home Range"
+      "title": "Generate home range"
     },
     "unpr_category_summary": {
       "additionalProperties": false,

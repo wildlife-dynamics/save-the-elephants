@@ -1,4 +1,5 @@
 import os
+import math
 import ecoscope
 import traceback
 from enum import Enum
@@ -180,7 +181,8 @@ def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapSt
     for filename, gdf in cleaned_files.items():
         try:
             geom_analysis = check_shapefile_geometry_type(gdf)
-            primary_type = geom_analysis["primary_type"]
+            print(f"{filename} geometry type: {geom_analysis}")
+            primary_type = geom_analysis
             layer = create_layer_from_gdf(filename, gdf, style_config, primary_type)
 
             if layer is not None:
@@ -193,49 +195,90 @@ def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapSt
     return layers
 
 
+def _zoom_from_bbox(
+    minx: float,
+    miny: float,
+    maxx: float,
+    maxy: float,
+    viewport_width_px: int = 1000,
+    viewport_height_px: int = 700,
+    padding_frac: float = 0.12,  # 12% padding around the bbox
+    tile_size: int = 512,  # 256 for classic, 512 for Mapbox/Deck default
+    min_zoom: float = 2.0,
+    max_zoom: float = 20.0,
+) -> float:
+    """
+    Compute a Web Mercator zoom level that fits the bbox into the given viewport.
+
+    padding_frac: fraction of the viewport reserved as outer padding on *each* side
+                  (e.g. 0.12 means ~24% total width is padding).
+    """
+    # Clamp/sanitize
+    padding_frac = max(0.0, min(0.3, padding_frac))
+    inner_w = max(1, int(viewport_width_px * (1.0 - 2.0 * padding_frac)))
+    inner_h = max(1, int(viewport_height_px * (1.0 - 2.0 * padding_frac)))
+
+    # Center latitude for scale (Web Mercator resolution shrinks with cos(lat))
+    center_lat = (miny + maxy) / 2.0
+    lat_span = max(1e-12, maxy - miny)
+    lon_span = max(1e-12, maxx - minx)
+
+    # Approx meters per degree (good enough for viewport fitting)
+    # 1° lat ~ 110.574 km; 1° lon ~ 111.320 km * cos(lat)
+    lat_m_per_deg = 110_574.0
+    lon_m_per_deg = 111_320.0 * math.cos(math.radians(center_lat))
+
+    width_m = lon_span * abs(lon_m_per_deg)
+    height_m = lat_span * lat_m_per_deg
+
+    # Required ground resolution (m/px) to fit bbox in inner viewport
+    req_res_x = width_m / inner_w
+    req_res_y = height_m / inner_h
+    req_res = max(req_res_x, req_res_y)  # fit both dimensions
+
+    # Web Mercator initial resolution at zoom 0 (m/px)
+    # 2πR / tile_size, R=WGS84 radius (meters)
+    R = 6_378_137.0
+    initial_res_256 = (2.0 * math.pi * R) / 256.0
+    initial_res = initial_res_256 * (256.0 / float(tile_size))  # adjust for tile size
+
+    # Resolution also scales by cos(latitude)
+    cos_lat = max(0.01, math.cos(math.radians(center_lat)))  # avoid near-pole blowups
+
+    # Solve: res(z,lat) = initial_res * cos(lat) / 2^z  =>  z = log2(initial_res * cos / req_res)
+    zoom = math.log2((initial_res * cos_lat) / req_res)
+
+    # Clamp and round a touch (floats are fine for deck.gl/mapbox)
+    return float(round(max(min_zoom, min(max_zoom, zoom)), 2))
+
+
 @task
 def create_view_state_from_gdf(gdf: AnyGeoDataFrame, pitch: int = 0, bearing: int = 0) -> ViewState:
-    """
-    Create a ViewState object centered on a GeoDataFrame's bounds.
-
-    Parameters:
-        gdf (GeoDataFrame): The input GeoDataFrame
-        pitch (int): Optional pitch angle (default: 0)
-        bearing (int): Optional bearing angle (default: 0)
-
-    Returns:
-        ViewState: Computed map view state
-    """
     if gdf.empty:
         raise ValueError("GeoDataFrame is empty. Cannot compute ViewState.")
 
     # Ensure CRS is geographic
     if gdf.crs is None or not gdf.crs.is_geographic:
-        try:
-            gdf = gdf.to_crs("EPSG:4326")
-        except Exception as e:
-            print(f"Could not convert to geographic coordinates: {e}")
-            traceback.print_exc()
+        gdf = gdf.to_crs("EPSG:4326")
 
     minx, miny, maxx, maxy = gdf.total_bounds
-    center_lon = (minx + maxx) / 2
-    center_lat = (miny + maxy) / 2
-    max_span = max(abs(maxx - minx), abs(maxy - miny))
+    center_lon = (minx + maxx) / 2.0
+    center_lat = (miny + maxy) / 2.0
 
-    # Heuristic zoom calculation
-    if max_span <= 0.01:
-        zoom = 16
-    elif max_span <= 0.1:
-        zoom = 13
-    elif max_span <= 1:
-        zoom = 10
-    elif max_span <= 5:
-        zoom = 7
-    elif max_span <= 20:
-        zoom = 5
-    else:
-        zoom = 2
+    zoom = _zoom_from_bbox(
+        minx,
+        miny,
+        maxx,
+        maxy,
+        viewport_width_px=1000,  # tweak if your map container differs
+        viewport_height_px=700,
+        padding_frac=0.12,  # increase to zoom out slightly; decrease to zoom in
+        tile_size=512,
+        min_zoom=2.0,
+        max_zoom=20.0,
+    )
 
+    print(f"View State zoom: {zoom}")
     return ViewState(longitude=center_lon, latitude=center_lat, zoom=zoom, pitch=pitch, bearing=bearing)
 
 

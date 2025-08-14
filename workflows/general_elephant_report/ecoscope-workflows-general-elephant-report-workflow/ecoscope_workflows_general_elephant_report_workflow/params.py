@@ -691,32 +691,32 @@ class Params(BaseModel):
     initialize_workflow_metadata: Optional[InitializeWorkflowMetadata] = Field(
         None,
         description="Add information that will help to differentiate this workflow from another.",
-        title="Initialize Workflow Metadata",
+        title="Initialize workflow metadata",
     )
     define_time_range: Optional[DefineTimeRange] = Field(
         None,
         description="Choose the period of time to analyze.",
-        title="Define Time Range",
+        title="Define time range",
     )
     configure_grouping_strategy: Optional[ConfigureGroupingStrategy] = Field(
-        None, title="Configure Grouping Strategy"
+        None, title="Configure grouping strategy"
     )
     configure_base_maps: Optional[ConfigureBaseMaps] = Field(
-        None, title="Configure Base Map Layers"
+        None, title="Configure base map layers"
     )
     create_output_directory: Optional[CreateOutputDirectory] = Field(
-        None, title="Create Output Directory"
+        None, title="Create output directory"
     )
     retrieve_landdx_database: Optional[RetrieveLanddxDatabase] = Field(
-        None, title="Retrieve and Unpack LandDx Database"
+        None, title="Retrieve and Unpack LandDx db"
     )
-    load_aoi: Optional[LoadAoi] = Field(None, title="Load AOI from landDx")
+    load_aoi: Optional[LoadAoi] = Field(
+        None, title="Filter area of interest from LandDx db"
+    )
     create_styled_landdx_layers: Optional[CreateStyledLanddxLayers] = Field(
         None, title="Style LandDx Map Layers"
     )
-    er_client_name: Optional[ErClientName] = Field(
-        None, title="Connect to EarthRanger Instance"
-    )
+    er_client_name: Optional[ErClientName] = Field(None, title="Connect to EarthRanger")
     gee_project_name: Optional[GeeProjectName] = Field(None, title="Connect to EE")
     subject_observations: Optional[SubjectObservations] = Field(
         None, title="Get subject Group Observations from ER"
@@ -739,10 +739,10 @@ class Params(BaseModel):
     assign_protected_values: Optional[AssignProtectedValues] = Field(
         None, title="Assign value by index"
     )
-    generate_etd: Optional[GenerateEtd] = Field(None, title="Generate Home Range")
+    generate_etd: Optional[GenerateEtd] = Field(None, title="Generate home range")
     custom_hr: Optional[CustomHr] = Field(None, title="Filter out 99th percentile")
     generate_season_etd: Optional[GenerateSeasonEtd] = Field(
-        None, title="Generate Seasonal Ecomap"
+        None, title="Generate seasonal etd"
     )
     time_dominance: Optional[TimeDominance] = Field(
         None, title="Compute day-night fixes"
@@ -751,37 +751,37 @@ class Params(BaseModel):
         None, title="Split dry season trajectories"
     )
     generate_dry_speed_rasters: Optional[GenerateDrySpeedRasters] = Field(
-        None, title="Generate Speed Rasters"
+        None, title="Generate speed rasters"
     )
     sort_dry_speed_features: Optional[SortDrySpeedFeatures] = Field(
-        None, title="Sort Speed Features by Value"
+        None, title="Sort speed features by value"
     )
     filter_wet_trajs: Optional[FilterWetTrajs] = Field(
         None, title="Split wet season trajectories"
     )
     generate_wet_speed_rasters: Optional[GenerateWetSpeedRasters] = Field(
-        None, title="Generate Speed Rasters"
+        None, title="Generate speed rasters"
     )
     sort_wet_speed_features: Optional[SortWetSpeedFeatures] = Field(
-        None, title="Sort Speed Features by Value"
+        None, title="Sort speed features by value"
     )
     generate_recursion_rasters: Optional[GenerateRecursionRasters] = Field(
-        None, title="Generate Recursion Events Rasters"
+        None, title="Generate recursion events rasters"
     )
     sort_recursion_features: Optional[SortRecursionFeatures] = Field(
-        None, title="Sort Speed Features by Value"
+        None, title="Sort speed features by value"
     )
     filter_protected_trajs: Optional[FilterProtectedTrajs] = Field(
         None, title="Split protected trajectories"
     )
     generate_protected_etd: Optional[GenerateProtectedEtd] = Field(
-        None, title="Generate Home Range"
+        None, title="Generate home range"
     )
     filter_unprotected_trajs: Optional[FilterUnprotectedTrajs] = Field(
         None, title="Split unprotected trajectories"
     )
     generate_unprotected_etd: Optional[GenerateUnprotectedEtd] = Field(
-        None, title="Generate Home Range"
+        None, title="Generate home range"
     )
     unpr_category_summary: Optional[UnprCategorySummary] = Field(
         None, title="Protected-unprotected summary table"
