@@ -1,4 +1,4 @@
-from ecoscope_workflows_ext_lion_guardians.tasks import zip_grouped_by_key
+from ecoscope_workflows_ext_ste.tasks import zip_grouped_by_key
 
 
 def test_zip_grouped_by_key_basic():
