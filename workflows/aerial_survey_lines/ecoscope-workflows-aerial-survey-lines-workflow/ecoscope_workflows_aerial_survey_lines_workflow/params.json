@@ -373,21 +373,6 @@
       "required": [],
       "type": "object",
       "title": "Create Aerial Survey Lines"
-    },
-    "draw_aerial_survey_lines_ecomap": {
-      "additionalProperties": false,
-      "properties": {
-        "title": {
-          "default": null,
-          "title": "Title",
-          "type": "string",
-          "description": "            The map title. Note this is the title drawn on the map canvas itself, and will result\n            in duplicate titles if set in the context of a dashboard in which the iframe/widget\n            container also has a title set on it.\n            ",
-          "ecoscope:advanced": true
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Draw Aerial Survey Lines Ecomap"
     }
   },
   "$defs": {
@@ -509,8 +494,7 @@
       "configure_base_maps",
       "fetch_roi_layer",
       "draw_survey_lines",
-      "aerial_survey_polylines",
-      "draw_aerial_survey_lines_ecomap"
+      "aerial_survey_polylines"
     ]
   },
   "additionalProperties": false

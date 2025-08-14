@@ -19,6 +19,7 @@ from ecoscope_workflows_ext_ecoscope.tasks.io import download_roi
 from ecoscope_workflows_ext_ste.tasks import generate_survey_lines
 from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polyline_layer
+from ecoscope_workflows_ext_ste.tasks import create_view_state_from_gdf
 from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap
 from ecoscope_workflows_core.tasks.io import persist_text
 from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
@@ -237,15 +238,31 @@ aerial_survey_polylines = (
 
 
 # %% [markdown]
+# ## zoom by view state
+
+# %%
+# parameters
+
+zoom_view_state_params = dict()
+
+# %%
+# call the task
+
+
+zoom_view_state = (
+    create_view_state_from_gdf.handle_errors(task_instance_id="zoom_view_state")
+    .partial(pitch=0, bearing=0, gdf=draw_survey_lines, **zoom_view_state_params)
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw Aerial Survey Lines Ecomap
 
 # %%
 # parameters
 
-draw_aerial_survey_lines_ecomap_params = dict(
-    title=...,
-    view_state=...,
-)
+draw_aerial_survey_lines_ecomap_params = dict()
 
 # %%
 # call the task
@@ -258,8 +275,10 @@ draw_aerial_survey_lines_ecomap = (
         static=False,
         max_zoom=12,
         north_arrow_style={"placement": "top-left"},
-        legend_style={"placement": "bottom-right"},
+        legend_style={"placement": "bottom-right", "title": "Survey Lines"},
+        title=None,
         geo_layers=aerial_survey_polylines,
+        view_state=zoom_view_state,
         **draw_aerial_survey_lines_ecomap_params,
     )
     .call()

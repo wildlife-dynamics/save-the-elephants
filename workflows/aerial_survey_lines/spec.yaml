@@ -13,14 +13,12 @@ workflow:
     id: initialize_workflow_metadata
     task: set_workflow_details
 
-
   # define workflow time range
   - name: Define Time Range
     id: define_time_range
     task: set_time_range
     partial:
       time_format: "%d %b %Y %H:%M:%S %Z"
-
 
   # configure dynamic grouping strategy --> [], column value, or temporal
   - name: Configure Grouping Strategy
@@ -32,11 +30,9 @@ workflow:
     id: configure_base_maps
     task: set_base_maps
 
-
   - name: Download Region of Interest (ROI)
     id: fetch_roi_layer
     task: download_roi
-
 
   - name: Draw Aerial Survey Lines
     id: draw_survey_lines
@@ -60,7 +56,6 @@ workflow:
       filetype: "geoparquet"
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
-    
   - name: Create Aerial Survey Lines
     id: aerial_survey_polylines
     task: create_polyline_layer
@@ -69,6 +64,15 @@ workflow:
         get_width: 2
         width_unit: pixels
       geodataframe: ${{ workflow.draw_survey_lines.return }}
+
+  # Dynamically zoom map to layer of interest
+  - name: zoom by view state
+    id: zoom_view_state
+    task: create_view_state_from_gdf
+    partial:
+      pitch: 0
+      bearing: 0
+      gdf: ${{ workflow.draw_survey_lines.return }}
 
   - name: Draw Aerial Survey Lines Ecomap
     id: draw_aerial_survey_lines_ecomap
@@ -81,7 +85,10 @@ workflow:
         placement: top-left
       legend_style:
         placement: bottom-right
+        title: Survey Lines
+      title: null
       geo_layers: ${{ workflow.aerial_survey_polylines.return }}
+      view_state: ${{ workflow.zoom_view_state.return }}
 
   - name: Persist Ecomaps
     id: persist_ecomaps

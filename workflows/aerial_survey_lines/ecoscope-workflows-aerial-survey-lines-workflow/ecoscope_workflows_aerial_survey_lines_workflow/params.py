@@ -226,17 +226,6 @@ class DrawSurveyLines(BaseModel):
     spacing: Optional[int] = Field(500, title="Spacing")
 
 
-class DrawAerialSurveyLinesEcomap(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    title: Optional[str] = Field(
-        None,
-        description="            The map title. Note this is the title drawn on the map canvas itself, and will result\n            in duplicate titles if set in the context of a dashboard in which the iframe/widget\n            container also has a title set on it.\n            ",
-        title="Title",
-    )
-
-
 class TemporalGrouper(RootModel[str]):
     root: str = Field(..., title="Time")
 
@@ -307,7 +296,4 @@ class Params(BaseModel):
     )
     aerial_survey_polylines: Optional[AerialSurveyPolylines] = Field(
         None, title="Create Aerial Survey Lines"
-    )
-    draw_aerial_survey_lines_ecomap: Optional[DrawAerialSurveyLinesEcomap] = Field(
-        None, title="Draw Aerial Survey Lines Ecomap"
     )

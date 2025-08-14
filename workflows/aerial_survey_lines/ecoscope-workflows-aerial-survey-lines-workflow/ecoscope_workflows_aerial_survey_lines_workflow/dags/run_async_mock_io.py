@@ -27,6 +27,7 @@ download_roi = create_task_magicmock(  # 🧪
 from ecoscope_workflows_ext_ste.tasks import generate_survey_lines
 from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polyline_layer
+from ecoscope_workflows_ext_ste.tasks import create_view_state_from_gdf
 from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap
 from ecoscope_workflows_core.tasks.io import persist_text
 from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
@@ -50,9 +51,11 @@ def main(params: Params):
         "persist_aerial_gdf": ["draw_survey_lines"],
         "persist_aerial_geoparquet": ["draw_survey_lines"],
         "aerial_survey_polylines": ["draw_survey_lines"],
+        "zoom_view_state": ["draw_survey_lines"],
         "draw_aerial_survey_lines_ecomap": [
             "configure_base_maps",
             "aerial_survey_polylines",
+            "zoom_view_state",
         ],
         "persist_ecomaps": ["draw_aerial_survey_lines_ecomap"],
         "create_aerial_widgets": ["persist_ecomaps"],
@@ -148,6 +151,18 @@ def main(params: Params):
             | (params_dict.get("aerial_survey_polylines") or {}),
             method="call",
         ),
+        "zoom_view_state": Node(
+            async_task=create_view_state_from_gdf.validate()
+            .handle_errors(task_instance_id="zoom_view_state")
+            .set_executor("lithops"),
+            partial={
+                "pitch": 0,
+                "bearing": 0,
+                "gdf": DependsOn("draw_survey_lines"),
+            }
+            | (params_dict.get("zoom_view_state") or {}),
+            method="call",
+        ),
         "draw_aerial_survey_lines_ecomap": Node(
             async_task=draw_ecomap.validate()
             .handle_errors(task_instance_id="draw_aerial_survey_lines_ecomap")
@@ -157,8 +172,10 @@ def main(params: Params):
                 "static": False,
                 "max_zoom": 12,
                 "north_arrow_style": {"placement": "top-left"},
-                "legend_style": {"placement": "bottom-right"},
+                "legend_style": {"placement": "bottom-right", "title": "Survey Lines"},
+                "title": None,
                 "geo_layers": DependsOn("aerial_survey_polylines"),
+                "view_state": DependsOn("zoom_view_state"),
             }
             | (params_dict.get("draw_aerial_survey_lines_ecomap") or {}),
             method="call",
