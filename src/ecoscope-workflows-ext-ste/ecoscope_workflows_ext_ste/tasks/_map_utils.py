@@ -201,7 +201,7 @@ def _zoom_from_bbox(
     maxx: float,
     maxy: float,
     viewport_width_px: int = 1000,
-    viewport_height_px: int = 700,
+    viewport_height_px: int = 1000,
     padding_frac: float = 0.12,  # 12% padding around the bbox
     tile_size: int = 512,  # 256 for classic, 512 for Mapbox/Deck default
     min_zoom: float = 2.0,
