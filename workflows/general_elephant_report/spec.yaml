@@ -1499,7 +1499,7 @@
       id: recursion_view_zip
       task: zip_grouped_by_key
       partial:
-        left:  ${{ workflow.combine_landdx_np_layers.return }}
+        left:  ${{ workflow.combine_recursion_layers.return }}
         right: ${{ workflow.zoom_traj_view.return }}
 
     - name: Draw recursion raster ecomaps
@@ -1757,7 +1757,7 @@
       id: unprot_view_zip
       task: zip_grouped_by_key
       partial:
-        left:  ${{ workflow.combine_landdx_np_layers.return }}
+        left:  ${{ workflow.combine_ldx_unprotected_layers.return }}
         right: ${{ workflow.zoom_traj_view.return }}
 
     - name: Draw unprotected hr ecomap

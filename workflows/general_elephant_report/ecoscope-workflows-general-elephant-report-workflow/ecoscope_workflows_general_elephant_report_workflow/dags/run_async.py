@@ -245,7 +245,7 @@ def main(params: Params):
             "create_styled_landdx_layers",
             "generate_recursion_layers",
         ],
-        "recursion_view_zip": ["combine_landdx_np_layers", "zoom_traj_view"],
+        "recursion_view_zip": ["combine_recursion_layers", "zoom_traj_view"],
         "draw_recursion_ecomaps": ["configure_base_maps", "recursion_view_zip"],
         "recursion_ecomap_urls": ["draw_recursion_ecomaps"],
         "recursion_ecomap_widgets": ["recursion_ecomap_urls"],
@@ -271,7 +271,7 @@ def main(params: Params):
             "create_styled_landdx_layers",
             "generate_unprotected_layers",
         ],
-        "unprot_view_zip": ["combine_landdx_np_layers", "zoom_traj_view"],
+        "unprot_view_zip": ["combine_ldx_unprotected_layers", "zoom_traj_view"],
         "draw_unprotected_ecomaps": ["configure_base_maps", "unprot_view_zip"],
         "persist_unprotected_urls": ["draw_unprotected_ecomaps"],
         "create_unprotected_widgets": ["persist_unprotected_urls"],
@@ -2244,7 +2244,7 @@ def main(params: Params):
             .handle_errors(task_instance_id="recursion_view_zip")
             .set_executor("lithops"),
             partial={
-                "left": DependsOn("combine_landdx_np_layers"),
+                "left": DependsOn("combine_recursion_layers"),
                 "right": DependsOn("zoom_traj_view"),
             }
             | (params_dict.get("recursion_view_zip") or {}),
@@ -2582,7 +2582,7 @@ def main(params: Params):
             .handle_errors(task_instance_id="unprot_view_zip")
             .set_executor("lithops"),
             partial={
-                "left": DependsOn("combine_landdx_np_layers"),
+                "left": DependsOn("combine_ldx_unprotected_layers"),
                 "right": DependsOn("zoom_traj_view"),
             }
             | (params_dict.get("unprot_view_zip") or {}),

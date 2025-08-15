@@ -3195,7 +3195,7 @@ recursion_view_zip_params = dict()
 recursion_view_zip = (
     zip_grouped_by_key.handle_errors(task_instance_id="recursion_view_zip")
     .partial(
-        left=combine_landdx_np_layers, right=zoom_traj_view, **recursion_view_zip_params
+        left=combine_recursion_layers, right=zoom_traj_view, **recursion_view_zip_params
     )
     .call()
 )
@@ -3704,7 +3704,9 @@ unprot_view_zip_params = dict()
 unprot_view_zip = (
     zip_grouped_by_key.handle_errors(task_instance_id="unprot_view_zip")
     .partial(
-        left=combine_landdx_np_layers, right=zoom_traj_view, **unprot_view_zip_params
+        left=combine_ldx_unprotected_layers,
+        right=zoom_traj_view,
+        **unprot_view_zip_params,
     )
     .call()
 )
