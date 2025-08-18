@@ -3,15 +3,16 @@ from ecoscope_workflows_core.decorators import task
 from pydantic import Field
 import os
 
+
 @task
 def create_directory(
     path_name: Annotated[
-        str, 
+        str,
         Field(
             description="Path to the directory that should be created",
-            default=os.path.join(os.path.dirname(__file__), "output")
-        )
-    ]
+            default=os.path.join(os.path.dirname(__file__), "output"),
+        ),
+    ],
 ) -> str:
     """
     Creates a directory at the specified path if it doesn't already exist.
