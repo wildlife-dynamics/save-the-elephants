@@ -684,6 +684,15 @@ workflow:
       argnames: trajectory_gdf
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
 
+  - name: Generate MCP gdf 
+    id: calculate_mcp
+    task: generate_mcp_gdf
+    partial:
+      planar_crs: ESRI:102022
+    mapvalues:
+      argnames: gdf
+      argvalues: ${{ workflow.split_trajectories_by_group.return }}
+
   # apply colormap to ETD home range percentiles
   - name: Apply Colormap to Home Range Percentiles
     id: apply_etd_percentile_colormap
@@ -717,6 +726,32 @@ workflow:
       argnames: geodataframe
       argvalues: ${{ workflow.apply_etd_percentile_colormap.return }}
 
+  # create polygon map layers for MCP
+  - name: Create MCP Polygon Layer 
+    id: generate_mcp_layers
+    task: create_polygon_layer
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
+    partial:
+      layer_style:
+        get_fill_color: '#FFFFFF00'
+        get_line_color: '#dc143c'
+        opacity: 0.55
+        stroked: true
+      legend:
+        labels: 
+          - mcp
+        colors: 
+          - '#dc143c'
+      tooltip_columns:
+        - area_km2
+      
+    mapvalues:
+      argnames: geodataframe
+      argvalues: ${{ workflow.calculate_mcp.return }}
+
   - name: Zoom hr movement by view state
     id: zoom_hr_view
     task: create_view_state_from_gdf
@@ -727,6 +762,14 @@ workflow:
       argnames: gdf
       argvalues: ${{ workflow.apply_etd_percentile_colormap.return }}
 
+  # zip layers to include both hr and mcp 
+  - name: zip mcp and hr
+    id: zip_mcp_hr
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.generate_mcp_layers.return }}
+      right: ${{ workflow.generate_etd_ecomap_layers.return }}
+
   # combine static LandDx layers with home range (ETD) ecomap layers
   - name: Combine LandDx and Home Range Ecomap Layers
     id: combine_landdx_hr_ecomap_layers
@@ -735,7 +778,7 @@ workflow:
       static_layers: ${{ workflow.create_styled_landdx_layers.return }}
     mapvalues:
       argnames: grouped_layers
-      argvalues: ${{ workflow.generate_etd_ecomap_layers.return }}
+      argvalues: ${{ workflow.zip_mcp_hr.return }}
 
   # Zip up tasks to pass them on the same mapvalues
   - name: Zip hr layers and zoom values
@@ -983,7 +1026,6 @@ workflow:
     partial:
       widgets: ${{ workflow.speed_raster_ecomap_widgets.return }}
 
-
   # Seasons
   - name: Time Density colormap
     id: season_colormap
@@ -1098,12 +1140,105 @@ workflow:
     partial:
       widgets: ${{ workflow.season_etd_widgets_single_view.return }}
 
+  - name: Calculate Total MCP Area
+    id: total_mcp_area
+    task: dataframe_column_sum
+    partial:
+      column_name: area_km2
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.calculate_mcp.return }}
+
+  - name: Calculate Total Grid Area
+    id: total_grid_area
+    task: dataframe_column_sum
+    partial:
+      column_name: area_sqkm
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.generate_etd.return }}
+
+  - name: Create Single Value Widgets for Total MCP Area Per Group
+    id: total_mcp_sv_widgets
+    task: create_single_value_widget_single_view
+    skipif:
+      conditions:
+        - never
+    partial:
+      title: Total MCP Area
+      decimal_places: 1
+    map:
+      argnames:
+        - view
+        - data
+      argvalues: ${{ workflow.total_mcp_area.return }}
+
+  - name: Merge per group Total MCP Area SV widgets
+    id: total_mcp_grouped_sv_widget
+    task: merge_widget_views
+    partial:
+      widgets: ${{ workflow.total_mcp_sv_widgets.return }}
+  
+  
+  - name: Create Single Value Widgets for Total grid Area Per Group
+    id: total_grid_sv_widgets
+    task: create_single_value_widget_single_view
+    skipif:
+      conditions:
+        - never
+    partial:
+      title: Total Grid Area
+      decimal_places: 1
+    map:
+      argnames:
+        - view
+        - data
+      argvalues: ${{ workflow.total_grid_area.return }}
+
+  - name: Merge per group Total Grid Area SV widgets
+    id: total_grid_grouped_sv_widget
+    task: merge_widget_views
+    partial:
+      widgets: ${{ workflow.total_grid_sv_widgets.return }}
+
+  - name: Determine subject gender 
+    id: subject_gender
+    task: dataframe_column_first_unique_str
+    partial:
+      column_name: extra__sex
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.split_trajectories_by_group.return }}
+
+  - name: Create Single Value Widgets for Subject Gender Per Group
+    id: gender_widgets
+    task: create_text_widget_single_view
+    skipif:
+      conditions:
+        - never
+    partial:
+      title: Gender
+    map:
+      argnames:
+        - view
+        - data
+      argvalues: ${{ workflow.subject_gender.return }}
+
+  - name: Merge per group Gender SV widgets
+    id: gender_sv_widget
+    task: merge_widget_views
+    partial:
+      widgets: ${{ workflow.gender_widgets.return }}
+
   - name: Mapbook Dashboard
     id: mapbook_dashboard
     task: gather_dashboard
     partial:
       details: ${{ workflow.initialize_workflow_metadata.return }}
       widgets:
+        - ${{ workflow.gender_sv_widget.return }} #0
+        - ${{ workflow.total_mcp_grouped_sv_widget.return }} 
+        - ${{ workflow.total_grid_grouped_sv_widget.return }}
         - ${{ workflow.merge_speed_ecomap_widgets.return }} #speedmap widgets
         - ${{ workflow.merge_day_night_ecomap_widgets.return }} # day/night widgets
         - ${{ workflow.merge_quarter_ecomap_widgets.return }} #prev-current quarter movement widgets

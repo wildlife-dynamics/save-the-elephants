@@ -6,7 +6,7 @@ initialize_workflow_metadata:
 # Desired time range
 define_time_range:
   since: "2025-01-01T00:00:00Z"
-  until: "2025-08-17T23:59:59Z"
+  until: "2025-06-30T23:59:59Z"
 
 # Connect to EarthRanger
 er_client_name:

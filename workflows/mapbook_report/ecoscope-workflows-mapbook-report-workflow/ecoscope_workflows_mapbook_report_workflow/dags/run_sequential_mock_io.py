@@ -64,9 +64,14 @@ from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
 from ecoscope_workflows_core.tasks.skip import never
 from ecoscope_workflows_core.tasks.results import merge_widget_views
 from ecoscope_workflows_ext_ste.tasks import calculate_etd_by_groups
+from ecoscope_workflows_ext_ste.tasks import generate_mcp_gdf
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polygon_layer
 from ecoscope_workflows_ext_ste.tasks import generate_ecograph_raster
 from ecoscope_workflows_ext_ste.tasks import retrieve_feature_gdf
+from ecoscope_workflows_core.tasks.analysis import dataframe_column_sum
+from ecoscope_workflows_core.tasks.results import create_single_value_widget_single_view
+from ecoscope_workflows_ext_ste.tasks import dataframe_column_first_unique_str
+from ecoscope_workflows_core.tasks.results import create_text_widget_single_view
 from ecoscope_workflows_core.tasks.results import gather_dashboard
 
 from ..params import Params
@@ -783,6 +788,13 @@ def main(params: Params):
         .mapvalues(argnames=["trajectory_gdf"], argvalues=split_trajectories_by_group)
     )
 
+    calculate_mcp = (
+        generate_mcp_gdf.validate()
+        .handle_errors(task_instance_id="calculate_mcp")
+        .partial(planar_crs="ESRI:102022", **(params_dict.get("calculate_mcp") or {}))
+        .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)
+    )
+
     apply_etd_percentile_colormap = (
         apply_color_map.validate()
         .handle_errors(task_instance_id="apply_etd_percentile_colormap")
@@ -817,11 +829,46 @@ def main(params: Params):
         .mapvalues(argnames=["geodataframe"], argvalues=apply_etd_percentile_colormap)
     )
 
+    generate_mcp_layers = (
+        create_polygon_layer.validate()
+        .handle_errors(task_instance_id="generate_mcp_layers")
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            layer_style={
+                "get_fill_color": "#FFFFFF00",
+                "get_line_color": "#dc143c",
+                "opacity": 0.55,
+                "stroked": True,
+            },
+            legend={"labels": ["mcp"], "colors": ["#dc143c"]},
+            tooltip_columns=["area_km2"],
+            **(params_dict.get("generate_mcp_layers") or {}),
+        )
+        .mapvalues(argnames=["geodataframe"], argvalues=calculate_mcp)
+    )
+
     zoom_hr_view = (
         create_view_state_from_gdf.validate()
         .handle_errors(task_instance_id="zoom_hr_view")
         .partial(pitch=0, bearing=0, **(params_dict.get("zoom_hr_view") or {}))
         .mapvalues(argnames=["gdf"], argvalues=apply_etd_percentile_colormap)
+    )
+
+    zip_mcp_hr = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="zip_mcp_hr")
+        .partial(
+            left=generate_mcp_layers,
+            right=generate_etd_ecomap_layers,
+            **(params_dict.get("zip_mcp_hr") or {}),
+        )
+        .call()
     )
 
     combine_landdx_hr_ecomap_layers = (
@@ -831,7 +878,7 @@ def main(params: Params):
             static_layers=create_styled_landdx_layers,
             **(params_dict.get("combine_landdx_hr_ecomap_layers") or {}),
         )
-        .mapvalues(argnames=["grouped_layers"], argvalues=generate_etd_ecomap_layers)
+        .mapvalues(argnames=["grouped_layers"], argvalues=zip_mcp_hr)
     )
 
     hr_view_zip = (
@@ -1182,12 +1229,110 @@ def main(params: Params):
         .call()
     )
 
+    total_mcp_area = (
+        dataframe_column_sum.validate()
+        .handle_errors(task_instance_id="total_mcp_area")
+        .partial(column_name="area_km2", **(params_dict.get("total_mcp_area") or {}))
+        .mapvalues(argnames=["df"], argvalues=calculate_mcp)
+    )
+
+    total_grid_area = (
+        dataframe_column_sum.validate()
+        .handle_errors(task_instance_id="total_grid_area")
+        .partial(column_name="area_sqkm", **(params_dict.get("total_grid_area") or {}))
+        .mapvalues(argnames=["df"], argvalues=generate_etd)
+    )
+
+    total_mcp_sv_widgets = (
+        create_single_value_widget_single_view.validate()
+        .handle_errors(task_instance_id="total_mcp_sv_widgets")
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            title="Total MCP Area",
+            decimal_places=1,
+            **(params_dict.get("total_mcp_sv_widgets") or {}),
+        )
+        .map(argnames=["view", "data"], argvalues=total_mcp_area)
+    )
+
+    total_mcp_grouped_sv_widget = (
+        merge_widget_views.validate()
+        .handle_errors(task_instance_id="total_mcp_grouped_sv_widget")
+        .partial(
+            widgets=total_mcp_sv_widgets,
+            **(params_dict.get("total_mcp_grouped_sv_widget") or {}),
+        )
+        .call()
+    )
+
+    total_grid_sv_widgets = (
+        create_single_value_widget_single_view.validate()
+        .handle_errors(task_instance_id="total_grid_sv_widgets")
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            title="Total Grid Area",
+            decimal_places=1,
+            **(params_dict.get("total_grid_sv_widgets") or {}),
+        )
+        .map(argnames=["view", "data"], argvalues=total_grid_area)
+    )
+
+    total_grid_grouped_sv_widget = (
+        merge_widget_views.validate()
+        .handle_errors(task_instance_id="total_grid_grouped_sv_widget")
+        .partial(
+            widgets=total_grid_sv_widgets,
+            **(params_dict.get("total_grid_grouped_sv_widget") or {}),
+        )
+        .call()
+    )
+
+    subject_gender = (
+        dataframe_column_first_unique_str.validate()
+        .handle_errors(task_instance_id="subject_gender")
+        .partial(column_name="extra__sex", **(params_dict.get("subject_gender") or {}))
+        .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
+    )
+
+    gender_widgets = (
+        create_text_widget_single_view.validate()
+        .handle_errors(task_instance_id="gender_widgets")
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(title="Gender", **(params_dict.get("gender_widgets") or {}))
+        .map(argnames=["view", "data"], argvalues=subject_gender)
+    )
+
+    gender_sv_widget = (
+        merge_widget_views.validate()
+        .handle_errors(task_instance_id="gender_sv_widget")
+        .partial(widgets=gender_widgets, **(params_dict.get("gender_sv_widget") or {}))
+        .call()
+    )
+
     mapbook_dashboard = (
         gather_dashboard.validate()
         .handle_errors(task_instance_id="mapbook_dashboard")
         .partial(
             details=initialize_workflow_metadata,
             widgets=[
+                gender_sv_widget,
+                total_mcp_grouped_sv_widget,
+                total_grid_grouped_sv_widget,
                 merge_speed_ecomap_widgets,
                 merge_day_night_ecomap_widgets,
                 merge_quarter_ecomap_widgets,

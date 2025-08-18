@@ -66,9 +66,14 @@ from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
 from ecoscope_workflows_core.tasks.skip import never
 from ecoscope_workflows_core.tasks.results import merge_widget_views
 from ecoscope_workflows_ext_ste.tasks import calculate_etd_by_groups
+from ecoscope_workflows_ext_ste.tasks import generate_mcp_gdf
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polygon_layer
 from ecoscope_workflows_ext_ste.tasks import generate_ecograph_raster
 from ecoscope_workflows_ext_ste.tasks import retrieve_feature_gdf
+from ecoscope_workflows_core.tasks.analysis import dataframe_column_sum
+from ecoscope_workflows_core.tasks.results import create_single_value_widget_single_view
+from ecoscope_workflows_ext_ste.tasks import dataframe_column_first_unique_str
+from ecoscope_workflows_core.tasks.results import create_text_widget_single_view
 from ecoscope_workflows_core.tasks.results import gather_dashboard
 
 from ..params import Params
@@ -160,12 +165,15 @@ def main(params: Params):
         "create_quarter_ecomap_widgets": ["persist_quarter_ecomap_urls"],
         "merge_quarter_ecomap_widgets": ["create_quarter_ecomap_widgets"],
         "generate_etd": ["split_trajectories_by_group"],
+        "calculate_mcp": ["split_trajectories_by_group"],
         "apply_etd_percentile_colormap": ["generate_etd"],
         "generate_etd_ecomap_layers": ["apply_etd_percentile_colormap"],
+        "generate_mcp_layers": ["calculate_mcp"],
         "zoom_hr_view": ["apply_etd_percentile_colormap"],
+        "zip_mcp_hr": ["generate_mcp_layers", "generate_etd_ecomap_layers"],
         "combine_landdx_hr_ecomap_layers": [
             "create_styled_landdx_layers",
-            "generate_etd_ecomap_layers",
+            "zip_mcp_hr",
         ],
         "hr_view_zip": ["combine_landdx_hr_ecomap_layers", "zoom_hr_view"],
         "draw_hr_ecomaps": ["configure_base_maps", "hr_view_zip"],
@@ -207,8 +215,20 @@ def main(params: Params):
         "season_etd_ecomap_html_url": ["seasonal_ecomap"],
         "season_etd_widgets_single_view": ["season_etd_ecomap_html_url"],
         "season_grouped_map_widget": ["season_etd_widgets_single_view"],
+        "total_mcp_area": ["calculate_mcp"],
+        "total_grid_area": ["generate_etd"],
+        "total_mcp_sv_widgets": ["total_mcp_area"],
+        "total_mcp_grouped_sv_widget": ["total_mcp_sv_widgets"],
+        "total_grid_sv_widgets": ["total_grid_area"],
+        "total_grid_grouped_sv_widget": ["total_grid_sv_widgets"],
+        "subject_gender": ["split_trajectories_by_group"],
+        "gender_widgets": ["subject_gender"],
+        "gender_sv_widget": ["gender_widgets"],
         "mapbook_dashboard": [
             "initialize_workflow_metadata",
+            "gender_sv_widget",
+            "total_mcp_grouped_sv_widget",
+            "total_grid_grouped_sv_widget",
             "merge_speed_ecomap_widgets",
             "merge_day_night_ecomap_widgets",
             "merge_quarter_ecomap_widgets",
@@ -1060,6 +1080,20 @@ def main(params: Params):
                 "argvalues": DependsOn("split_trajectories_by_group"),
             },
         ),
+        "calculate_mcp": Node(
+            async_task=generate_mcp_gdf.validate()
+            .handle_errors(task_instance_id="calculate_mcp")
+            .set_executor("lithops"),
+            partial={
+                "planar_crs": "ESRI:102022",
+            }
+            | (params_dict.get("calculate_mcp") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("split_trajectories_by_group"),
+            },
+        ),
         "apply_etd_percentile_colormap": Node(
             async_task=apply_color_map.validate()
             .handle_errors(task_instance_id="apply_etd_percentile_colormap")
@@ -1105,6 +1139,34 @@ def main(params: Params):
                 "argvalues": DependsOn("apply_etd_percentile_colormap"),
             },
         ),
+        "generate_mcp_layers": Node(
+            async_task=create_polygon_layer.validate()
+            .handle_errors(task_instance_id="generate_mcp_layers")
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "layer_style": {
+                    "get_fill_color": "#FFFFFF00",
+                    "get_line_color": "#dc143c",
+                    "opacity": 0.55,
+                    "stroked": True,
+                },
+                "legend": {"labels": ["mcp"], "colors": ["#dc143c"]},
+                "tooltip_columns": ["area_km2"],
+            }
+            | (params_dict.get("generate_mcp_layers") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["geodataframe"],
+                "argvalues": DependsOn("calculate_mcp"),
+            },
+        ),
         "zoom_hr_view": Node(
             async_task=create_view_state_from_gdf.validate()
             .handle_errors(task_instance_id="zoom_hr_view")
@@ -1120,6 +1182,17 @@ def main(params: Params):
                 "argvalues": DependsOn("apply_etd_percentile_colormap"),
             },
         ),
+        "zip_mcp_hr": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="zip_mcp_hr")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("generate_mcp_layers"),
+                "right": DependsOn("generate_etd_ecomap_layers"),
+            }
+            | (params_dict.get("zip_mcp_hr") or {}),
+            method="call",
+        ),
         "combine_landdx_hr_ecomap_layers": Node(
             async_task=combine_map_layers.validate()
             .handle_errors(task_instance_id="combine_landdx_hr_ecomap_layers")
@@ -1131,7 +1204,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["grouped_layers"],
-                "argvalues": DependsOn("generate_etd_ecomap_layers"),
+                "argvalues": DependsOn("zip_mcp_hr"),
             },
         ),
         "hr_view_zip": Node(
@@ -1592,6 +1665,140 @@ def main(params: Params):
             | (params_dict.get("season_grouped_map_widget") or {}),
             method="call",
         ),
+        "total_mcp_area": Node(
+            async_task=dataframe_column_sum.validate()
+            .handle_errors(task_instance_id="total_mcp_area")
+            .set_executor("lithops"),
+            partial={
+                "column_name": "area_km2",
+            }
+            | (params_dict.get("total_mcp_area") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("calculate_mcp"),
+            },
+        ),
+        "total_grid_area": Node(
+            async_task=dataframe_column_sum.validate()
+            .handle_errors(task_instance_id="total_grid_area")
+            .set_executor("lithops"),
+            partial={
+                "column_name": "area_sqkm",
+            }
+            | (params_dict.get("total_grid_area") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("generate_etd"),
+            },
+        ),
+        "total_mcp_sv_widgets": Node(
+            async_task=create_single_value_widget_single_view.validate()
+            .handle_errors(task_instance_id="total_mcp_sv_widgets")
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "title": "Total MCP Area",
+                "decimal_places": 1,
+            }
+            | (params_dict.get("total_mcp_sv_widgets") or {}),
+            method="map",
+            kwargs={
+                "argnames": ["view", "data"],
+                "argvalues": DependsOn("total_mcp_area"),
+            },
+        ),
+        "total_mcp_grouped_sv_widget": Node(
+            async_task=merge_widget_views.validate()
+            .handle_errors(task_instance_id="total_mcp_grouped_sv_widget")
+            .set_executor("lithops"),
+            partial={
+                "widgets": DependsOn("total_mcp_sv_widgets"),
+            }
+            | (params_dict.get("total_mcp_grouped_sv_widget") or {}),
+            method="call",
+        ),
+        "total_grid_sv_widgets": Node(
+            async_task=create_single_value_widget_single_view.validate()
+            .handle_errors(task_instance_id="total_grid_sv_widgets")
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "title": "Total Grid Area",
+                "decimal_places": 1,
+            }
+            | (params_dict.get("total_grid_sv_widgets") or {}),
+            method="map",
+            kwargs={
+                "argnames": ["view", "data"],
+                "argvalues": DependsOn("total_grid_area"),
+            },
+        ),
+        "total_grid_grouped_sv_widget": Node(
+            async_task=merge_widget_views.validate()
+            .handle_errors(task_instance_id="total_grid_grouped_sv_widget")
+            .set_executor("lithops"),
+            partial={
+                "widgets": DependsOn("total_grid_sv_widgets"),
+            }
+            | (params_dict.get("total_grid_grouped_sv_widget") or {}),
+            method="call",
+        ),
+        "subject_gender": Node(
+            async_task=dataframe_column_first_unique_str.validate()
+            .handle_errors(task_instance_id="subject_gender")
+            .set_executor("lithops"),
+            partial={
+                "column_name": "extra__sex",
+            }
+            | (params_dict.get("subject_gender") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("split_trajectories_by_group"),
+            },
+        ),
+        "gender_widgets": Node(
+            async_task=create_text_widget_single_view.validate()
+            .handle_errors(task_instance_id="gender_widgets")
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "title": "Gender",
+            }
+            | (params_dict.get("gender_widgets") or {}),
+            method="map",
+            kwargs={
+                "argnames": ["view", "data"],
+                "argvalues": DependsOn("subject_gender"),
+            },
+        ),
+        "gender_sv_widget": Node(
+            async_task=merge_widget_views.validate()
+            .handle_errors(task_instance_id="gender_sv_widget")
+            .set_executor("lithops"),
+            partial={
+                "widgets": DependsOn("gender_widgets"),
+            }
+            | (params_dict.get("gender_sv_widget") or {}),
+            method="call",
+        ),
         "mapbook_dashboard": Node(
             async_task=gather_dashboard.validate()
             .handle_errors(task_instance_id="mapbook_dashboard")
@@ -1600,6 +1807,9 @@ def main(params: Params):
                 "details": DependsOn("initialize_workflow_metadata"),
                 "widgets": DependsOnSequence(
                     [
+                        DependsOn("gender_sv_widget"),
+                        DependsOn("total_mcp_grouped_sv_widget"),
+                        DependsOn("total_grid_grouped_sv_widget"),
                         DependsOn("merge_speed_ecomap_widgets"),
                         DependsOn("merge_day_night_ecomap_widgets"),
                         DependsOn("merge_quarter_ecomap_widgets"),
