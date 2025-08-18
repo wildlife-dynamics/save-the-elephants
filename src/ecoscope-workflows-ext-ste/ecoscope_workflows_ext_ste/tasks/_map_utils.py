@@ -1,4 +1,5 @@
 import os
+import math
 import ecoscope
 import traceback
 from enum import Enum
@@ -10,7 +11,6 @@ from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import ViewState
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LayerDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PointLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LegendDefinition
-
 from typing import Union, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolygonLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_point_layer
@@ -180,7 +180,8 @@ def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapSt
     for filename, gdf in cleaned_files.items():
         try:
             geom_analysis = check_shapefile_geometry_type(gdf)
-            primary_type = geom_analysis["primary_type"]
+            print(f"{filename} geometry type: {geom_analysis}")
+            primary_type = geom_analysis
             layer = create_layer_from_gdf(filename, gdf, style_config, primary_type)
 
             if layer is not None:
@@ -195,17 +196,6 @@ def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapSt
 
 @task
 def create_view_state_from_gdf(gdf: AnyGeoDataFrame, pitch: int = 0, bearing: int = 0) -> ViewState:
-    """
-    Create a ViewState object centered on a GeoDataFrame's bounds.
-
-    Parameters:
-        gdf (GeoDataFrame): The input GeoDataFrame
-        pitch (int): Optional pitch angle (default: 0)
-        bearing (int): Optional bearing angle (default: 0)
-
-    Returns:
-        ViewState: Computed map view state
-    """
     if gdf.empty:
         raise ValueError("GeoDataFrame is empty. Cannot compute ViewState.")
 
@@ -218,24 +208,23 @@ def create_view_state_from_gdf(gdf: AnyGeoDataFrame, pitch: int = 0, bearing: in
             traceback.print_exc()
 
     minx, miny, maxx, maxy = gdf.total_bounds
-    center_lon = (minx + maxx) / 2
-    center_lat = (miny + maxy) / 2
-    max_span = max(abs(maxx - minx), abs(maxy - miny))
+    center_lon = (minx + maxx) / 2.0
+    center_lat = (miny + maxy) / 2.0
 
-    # Heuristic zoom calculation
-    if max_span <= 0.01:
-        zoom = 16
-    elif max_span <= 0.1:
-        zoom = 13
-    elif max_span <= 1:
-        zoom = 10
-    elif max_span <= 5:
-        zoom = 7
-    elif max_span <= 20:
-        zoom = 5
-    else:
-        zoom = 2
+    zoom = _zoom_from_bbox(
+        minx,
+        miny,
+        maxx,
+        maxy,
+        viewport_width_px=1000,  # tweak if your map container differs
+        viewport_height_px=700,
+        padding_frac=0.12,  # increase to zoom out slightly; decrease to zoom in
+        tile_size=512,
+        min_zoom=2.0,
+        max_zoom=20.0,
+    )
 
+    print(f"View State zoom: {zoom}")
     return ViewState(longitude=center_lon, latitude=center_lat, zoom=zoom, pitch=pitch, bearing=bearing)
 
 
@@ -378,6 +367,7 @@ def annotate_gdf_dict_with_geometry_type(gdf_dict: Dict[str, AnyGeoDataFrame]) -
     """
     result = {}
 
+    # others to be added soon
     for name, gdf in gdf_dict.items():
         unique_geom_types = gdf.geometry.geom_type.unique()
 

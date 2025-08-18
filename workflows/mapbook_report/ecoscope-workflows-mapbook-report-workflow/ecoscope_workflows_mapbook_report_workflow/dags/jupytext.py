@@ -45,16 +45,17 @@ from ecoscope_workflows_core.tasks.transformation import map_values_with_unit
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polyline_layer
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df
 from ecoscope_workflows_core.tasks.skip import any_dependency_skipped
+from ecoscope_workflows_ext_ste.tasks import create_view_state_from_gdf
 from ecoscope_workflows_ext_ste.tasks import combine_map_layers
+from ecoscope_workflows_ext_ste.tasks import zip_grouped_by_key
 from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap
 from ecoscope_workflows_core.tasks.io import persist_text
 from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
 from ecoscope_workflows_core.tasks.skip import never
 from ecoscope_workflows_core.tasks.results import merge_widget_views
 from ecoscope_workflows_ext_ste.tasks import calculate_etd_by_groups
-from ecoscope_workflows_ext_ste.tasks import view_df
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polygon_layer
-from ecoscope_workflows_ext_ste.tasks import generate_speed_raster
+from ecoscope_workflows_ext_ste.tasks import generate_ecograph_raster
 from ecoscope_workflows_ext_ste.tasks import retrieve_feature_gdf
 from ecoscope_workflows_core.tasks.results import gather_dashboard
 
@@ -800,6 +801,25 @@ generate_speed_ecomap_layers = (
 
 
 # %% [markdown]
+# ## Zoom speed trajectories by view state
+
+# %%
+# parameters
+
+zoom_traj_view_params = dict()
+
+# %%
+# call the task
+
+
+zoom_traj_view = (
+    create_view_state_from_gdf.handle_errors(task_instance_id="zoom_traj_view")
+    .partial(pitch=0, bearing=0, **zoom_traj_view_params)
+    .mapvalues(argnames=["gdf"], argvalues=format_speed_values)
+)
+
+
+# %% [markdown]
 # ## Combine LandDx and Speed Ecomap Layers
 
 # %%
@@ -821,14 +841,35 @@ combine_landdx_speed_layers = (
 
 
 # %% [markdown]
+# ## Zip speed layers and zoom values
+
+# %%
+# parameters
+
+speedvalues_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+speedvalues_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="speedvalues_view_zip")
+    .partial(
+        left=combine_landdx_speed_layers,
+        right=zoom_traj_view,
+        **speedvalues_view_zip_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw Speed Ecomaps by Group
 
 # %%
 # parameters
 
-draw_speed_ecomaps_params = dict(
-    view_state=...,
-)
+draw_speed_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -839,13 +880,13 @@ draw_speed_ecomaps = (
     .partial(
         tile_layers=configure_base_maps,
         north_arrow_style={"placement": "top-left"},
-        legend_style={"placement": "bottom-right"},
+        legend_style={"placement": "bottom-right", "title": "Speed Values(Km/h)"},
         static=False,
         title=None,
         max_zoom=20,
         **draw_speed_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_speed_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=speedvalues_view_zip)
 )
 
 
@@ -895,7 +936,7 @@ create_speed_ecomap_widgets = (
         ],
         unpack_depth=1,
     )
-    .partial(title="Speed Ecomap", **create_speed_ecomap_widgets_params)
+    .partial(title="Speedmap", **create_speed_ecomap_widgets_params)
     .map(argnames=["view", "data"], argvalues=persist_speed_ecomap_urls)
 )
 
@@ -1003,24 +1044,61 @@ generate_day_night_ecomap_layers = (
 
 
 # %% [markdown]
-# ## Combine LandDx and Day/Night Ecomap Layers
+# ## Zoom day/night trajs by view state
 
 # %%
 # parameters
 
-combine_landdx_dn_ecomap_layers_params = dict()
+zoom_dn_view_params = dict()
 
 # %%
 # call the task
 
 
-combine_landdx_dn_ecomap_layers = (
-    combine_map_layers.handle_errors(task_instance_id="combine_landdx_dn_ecomap_layers")
+zoom_dn_view = (
+    create_view_state_from_gdf.handle_errors(task_instance_id="zoom_dn_view")
+    .partial(pitch=0, bearing=0, **zoom_dn_view_params)
+    .mapvalues(argnames=["gdf"], argvalues=apply_day_night_colormap)
+)
+
+
+# %% [markdown]
+# ## Combine LandDx and Day/Night Ecomap Layers
+
+# %%
+# parameters
+
+combine_landdx_dn_layers_params = dict()
+
+# %%
+# call the task
+
+
+combine_landdx_dn_layers = (
+    combine_map_layers.handle_errors(task_instance_id="combine_landdx_dn_layers")
     .partial(
-        static_layers=create_styled_landdx_layers,
-        **combine_landdx_dn_ecomap_layers_params,
+        static_layers=create_styled_landdx_layers, **combine_landdx_dn_layers_params
     )
     .mapvalues(argnames=["grouped_layers"], argvalues=generate_day_night_ecomap_layers)
+)
+
+
+# %% [markdown]
+# ## Zip speed layers and zoom values
+
+# %%
+# parameters
+
+dn_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+dn_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="dn_view_zip")
+    .partial(left=combine_landdx_dn_layers, right=zoom_dn_view, **dn_view_zip_params)
+    .call()
 )
 
 
@@ -1030,9 +1108,7 @@ combine_landdx_dn_ecomap_layers = (
 # %%
 # parameters
 
-draw_day_night_ecomaps_params = dict(
-    view_state=...,
-)
+draw_day_night_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -1043,13 +1119,13 @@ draw_day_night_ecomaps = (
     .partial(
         tile_layers=configure_base_maps,
         north_arrow_style={"placement": "top-left"},
-        legend_style={"placement": "bottom-right"},
+        legend_style={"placement": "bottom-right", "title": "Day-Night Tracks"},
         static=False,
         title=None,
         max_zoom=20,
         **draw_day_night_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_dn_ecomap_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=dn_view_zip)
 )
 
 
@@ -1218,6 +1294,25 @@ generate_quarter_ecomap_layers = (
 
 
 # %% [markdown]
+# ## Zoom quarter movement trajectories by view state
+
+# %%
+# parameters
+
+zoom_qm_view_params = dict()
+
+# %%
+# call the task
+
+
+zoom_qm_view = (
+    create_view_state_from_gdf.handle_errors(task_instance_id="zoom_qm_view")
+    .partial(pitch=0, bearing=0, **zoom_qm_view_params)
+    .mapvalues(argnames=["gdf"], argvalues=format_speed_values)
+)
+
+
+# %% [markdown]
 # ## Combine LandDx and Quarter Status Ecomap Layers
 
 # %%
@@ -1240,14 +1335,33 @@ combine_quarter_ecomap_layers = (
 
 
 # %% [markdown]
+# ## Zip quarter movement layers and zoom values
+
+# %%
+# parameters
+
+qm_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+qm_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="qm_view_zip")
+    .partial(
+        left=combine_quarter_ecomap_layers, right=zoom_qm_view, **qm_view_zip_params
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw Quarter Status Ecomaps by Group
 
 # %%
 # parameters
 
-draw_quarter_status_ecomaps_params = dict(
-    view_state=...,
-)
+draw_quarter_status_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -1258,13 +1372,13 @@ draw_quarter_status_ecomaps = (
     .partial(
         tile_layers=configure_base_maps,
         north_arrow_style={"placement": "top-left"},
-        legend_style={"placement": "bottom-right"},
+        legend_style={"placement": "bottom-right", "title": "Quarter Movement Tracks"},
         static=False,
         title=None,
         max_zoom=20,
         **draw_quarter_status_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_quarter_ecomap_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=qm_view_zip)
 )
 
 
@@ -1375,25 +1489,6 @@ generate_etd = (
 
 
 # %% [markdown]
-# ## inspect HR gdf
-
-# %%
-# parameters
-
-inspect_hr_df_params = dict()
-
-# %%
-# call the task
-
-
-inspect_hr_df = (
-    view_df.handle_errors(task_instance_id="inspect_hr_df")
-    .partial(name="subject-HR-etd", **inspect_hr_df_params)
-    .mapvalues(argnames=["gdf"], argvalues=generate_etd)
-)
-
-
-# %% [markdown]
 # ## Apply Colormap to Home Range Percentiles
 
 # %%
@@ -1451,6 +1546,25 @@ generate_etd_ecomap_layers = (
 
 
 # %% [markdown]
+# ## Zoom hr movement by view state
+
+# %%
+# parameters
+
+zoom_hr_view_params = dict()
+
+# %%
+# call the task
+
+
+zoom_hr_view = (
+    create_view_state_from_gdf.handle_errors(task_instance_id="zoom_hr_view")
+    .partial(pitch=0, bearing=0, **zoom_hr_view_params)
+    .mapvalues(argnames=["gdf"], argvalues=apply_etd_percentile_colormap)
+)
+
+
+# %% [markdown]
 # ## Combine LandDx and Home Range Ecomap Layers
 
 # %%
@@ -1473,14 +1587,33 @@ combine_landdx_hr_ecomap_layers = (
 
 
 # %% [markdown]
+# ## Zip hr layers and zoom values
+
+# %%
+# parameters
+
+hr_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+hr_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="hr_view_zip")
+    .partial(
+        left=combine_landdx_hr_ecomap_layers, right=zoom_hr_view, **hr_view_zip_params
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw Home Range Ecomaps by Group
 
 # %%
 # parameters
 
-draw_hr_ecomaps_params = dict(
-    view_state=...,
-)
+draw_hr_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -1491,13 +1624,13 @@ draw_hr_ecomaps = (
     .partial(
         tile_layers=configure_base_maps,
         north_arrow_style={"placement": "top-left"},
-        legend_style={"placement": "bottom-right"},
+        legend_style={"placement": "bottom-right", "title": "Home Range Metrics"},
         static=False,
         title=None,
         max_zoom=20,
         **draw_hr_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_landdx_hr_ecomap_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=hr_view_zip)
 )
 
 
@@ -1577,24 +1710,27 @@ merge_hr_ecomap_widgets = (
 # %%
 # parameters
 
-generate_speed_rasters_params = dict(
+generate_speed_raster_params = dict(
     filename=...,
     resolution=...,
     radius=...,
     cutoff=...,
     tortuosity_length=...,
+    network_metric=...,
 )
 
 # %%
 # call the task
 
 
-generate_speed_rasters = (
-    generate_speed_raster.handle_errors(task_instance_id="generate_speed_rasters")
+generate_speed_raster = (
+    generate_ecograph_raster.handle_errors(task_instance_id="generate_speed_raster")
     .partial(
         dist_col="dist_meters",
+        interpolation="mean",
+        movement_covariate="speed",
         output_dir=create_output_directory,
-        **generate_speed_rasters_params,
+        **generate_speed_raster_params,
     )
     .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)
 )
@@ -1615,7 +1751,7 @@ extract_speed_rasters_params = dict()
 extract_speed_rasters = (
     retrieve_feature_gdf.handle_errors(task_instance_id="extract_speed_rasters")
     .partial(**extract_speed_rasters_params)
-    .mapvalues(argnames=["file_path"], argvalues=generate_speed_rasters)
+    .mapvalues(argnames=["file_path"], argvalues=generate_speed_raster)
 )
 
 
@@ -1754,6 +1890,25 @@ generate_raster_layers = (
 
 
 # %% [markdown]
+# ## Zoom speed rasters by view state
+
+# %%
+# parameters
+
+zoom_speedraster_view_params = dict()
+
+# %%
+# call the task
+
+
+zoom_speedraster_view = (
+    create_view_state_from_gdf.handle_errors(task_instance_id="zoom_speedraster_view")
+    .partial(pitch=0, bearing=0, **zoom_speedraster_view_params)
+    .mapvalues(argnames=["gdf"], argvalues=format_speed_raster_labels)
+)
+
+
+# %% [markdown]
 # ## Combine LandDx and SpeedRaster Map Layers
 
 # %%
@@ -1776,14 +1931,35 @@ combine_seasonal_raster_layers = (
 
 
 # %% [markdown]
+# ## Zip speedraster layers and zoom values
+
+# %%
+# parameters
+
+speedraster_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+speedraster_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="speedraster_view_zip")
+    .partial(
+        left=combine_seasonal_raster_layers,
+        right=zoom_speedraster_view,
+        **speedraster_view_zip_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw Speed Raster Ecomaps by Group
 
 # %%
 # parameters
 
-draw_speed_raster_ecomaps_params = dict(
-    view_state=...,
-)
+draw_speed_raster_ecomaps_params = dict()
 
 # %%
 # call the task
@@ -1794,13 +1970,13 @@ draw_speed_raster_ecomaps = (
     .partial(
         tile_layers=configure_base_maps,
         north_arrow_style={"placement": "top-left"},
-        legend_style={"placement": "bottom-right"},
+        legend_style={"placement": "bottom-right", "title": "Raster Value(Km/h)"},
         static=False,
         title=None,
         max_zoom=20,
         **draw_speed_raster_ecomaps_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=combine_seasonal_raster_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=speedraster_view_zip)
 )
 
 
@@ -1932,6 +2108,25 @@ season_etd_map_layer = (
 
 
 # %% [markdown]
+# ## Zoom seasons by view state
+
+# %%
+# parameters
+
+zoom_season_view_params = dict()
+
+# %%
+# call the task
+
+
+zoom_season_view = (
+    create_view_state_from_gdf.handle_errors(task_instance_id="zoom_season_view")
+    .partial(pitch=0, bearing=0, **zoom_season_view_params)
+    .mapvalues(argnames=["gdf"], argvalues=season_colormap)
+)
+
+
+# %% [markdown]
 # ## Combine Map Layers
 
 # %%
@@ -1951,14 +2146,33 @@ comb_season_map_layers = (
 
 
 # %% [markdown]
+# ## Zip seasons layers and zoom values
+
+# %%
+# parameters
+
+seasons_view_zip_params = dict()
+
+# %%
+# call the task
+
+
+seasons_view_zip = (
+    zip_grouped_by_key.handle_errors(task_instance_id="seasons_view_zip")
+    .partial(
+        left=comb_season_map_layers, right=zoom_season_view, **seasons_view_zip_params
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Draw Season Ecomap
 
 # %%
 # parameters
 
-seasonal_ecomap_params = dict(
-    view_state=...,
-)
+seasonal_ecomap_params = dict()
 
 # %%
 # call the task
@@ -1969,13 +2183,13 @@ seasonal_ecomap = (
     .partial(
         tile_layers=configure_base_maps,
         north_arrow_style={"placement": "top-left"},
-        legend_style={"placement": "bottom-right"},
+        legend_style={"placement": "bottom-right", "title": "Seasons"},
         static=False,
         title=None,
         max_zoom=20,
         **seasonal_ecomap_params,
     )
-    .mapvalues(argnames=["geo_layers"], argvalues=comb_season_map_layers)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=seasons_view_zip)
 )
 
 

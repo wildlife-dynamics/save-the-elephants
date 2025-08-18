@@ -500,7 +500,7 @@
       "type": "object",
       "title": "Generate Home Range Ecomaps"
     },
-    "generate_speed_rasters": {
+    "generate_speed_raster": {
       "additionalProperties": false,
       "properties": {
         "resolution": {
@@ -514,7 +514,7 @@
           ],
           "default": null,
           "title": "Resolution",
-          "description": "Resolution of the raster. If None, mean of dist_col is used."
+          "description": "Raster resolution; if None, uses the mean of dist_col."
         },
         "radius": {
           "default": 2,
@@ -540,6 +540,24 @@
           "title": "Tortuosity Length",
           "type": "integer",
           "description": "Length scale for tortuosity smoothing"
+        },
+        "network_metric": {
+          "anyOf": [
+            {
+              "enum": [
+                "weight",
+                "betweenness",
+                "degree",
+                "collective_influence"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Network Metric"
         }
       },
       "required": [],
@@ -778,12 +796,13 @@
         "expansion_factor"
       ]
     },
-    "generate_speed_rasters": {
+    "generate_speed_raster": {
       "ui:order": [
         "resolution",
         "radius",
         "cutoff",
-        "tortuosity_length"
+        "tortuosity_length",
+        "network_metric"
       ]
     },
     "ui:order": [
@@ -802,7 +821,7 @@
       "generate_seasonal_etd",
       "sort_trajectories_by_speed",
       "generate_etd",
-      "generate_speed_rasters",
+      "generate_speed_raster",
       "sort_speed_features_by_value"
     ]
   },
