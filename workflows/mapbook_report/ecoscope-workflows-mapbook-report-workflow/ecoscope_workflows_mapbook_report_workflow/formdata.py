@@ -252,13 +252,20 @@ class SortTrajectoriesBySpeed(BaseModel):
     )
 
 
-class GenerateSpeedRasters(BaseModel):
+class NetworkMetric(str, Enum):
+    weight = "weight"
+    betweenness = "betweenness"
+    degree = "degree"
+    collective_influence = "collective_influence"
+
+
+class GenerateSpeedRaster(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     resolution: Optional[float] = Field(
         None,
-        description="Resolution of the raster. If None, mean of dist_col is used.",
+        description="Raster resolution; if None, uses the mean of dist_col.",
         title="Resolution",
     )
     radius: Optional[int] = Field(
@@ -272,6 +279,7 @@ class GenerateSpeedRasters(BaseModel):
         description="Length scale for tortuosity smoothing",
         title="Tortuosity Length",
     )
+    network_metric: Optional[NetworkMetric] = Field(None, title="Network Metric")
 
 
 class SortSpeedFeaturesByValue(BaseModel):
@@ -501,7 +509,7 @@ class FormData(BaseModel):
     generate_etd: Optional[GenerateEtd] = Field(
         None, title="Generate Home Range Ecomaps"
     )
-    generate_speed_rasters: Optional[GenerateSpeedRasters] = Field(
+    generate_speed_raster: Optional[GenerateSpeedRaster] = Field(
         None, title="Generate Subject Speed Rasters"
     )
     sort_speed_features_by_value: Optional[SortSpeedFeaturesByValue] = Field(

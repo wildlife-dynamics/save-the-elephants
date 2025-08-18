@@ -1,9 +1,9 @@
 import os
+import math
 import ecoscope
 import traceback
 from enum import Enum
 import geopandas as gpd
-from functools import wraps
 from ecoscope_workflows_core.decorators import task
 from pydantic import BaseModel, Field, field_validator
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame
@@ -11,8 +11,7 @@ from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import ViewState
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LayerDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PointLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LegendDefinition
-
-from typing import Union, Dict, Optional, Literal, List, Annotated, TypedDict,Tuple
+from typing import Union, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolygonLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_point_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolylineLayerStyle
@@ -21,17 +20,21 @@ from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polylin
 from ecoscope_workflows_ext_ecoscope.tasks.analysis._time_density import CustomGridCellSize
 from ecoscope_workflows_ext_ecoscope.tasks.analysis._create_meshgrid import create_meshgrid
 from ecoscope_workflows_ext_ecoscope.tasks.analysis._calculate_feature_density import calculate_feature_density
-        
+
+
 class MapStyleConfig(BaseModel):
     styles: Dict[str, Dict] = Field(default_factory=dict)
     legend: Dict[str, List[str]] = Field(default_factory=dict)
+
 
 class SupportedFormat(str, Enum):
     GPKG = ".gpkg"
     GEOJSON = ".geojson"
     SHP = ".shp"
 
+
 SUPPORTED_FORMATS = [f.value for f in SupportedFormat]
+
 
 class MapProcessingConfig(BaseModel):
     path: str = Field(..., description="Directory path to load geospatial files from")
@@ -45,14 +48,17 @@ class MapProcessingConfig(BaseModel):
             raise ValueError(f"Invalid path: {v}")
         return v
 
+
 @task
 def clean_geodataframe(
     gdf: Annotated[AnyGeoDataFrame, Field(description="The geodataframe to visualize.", exclude=True)],
 ) -> AnyGeoDataFrame:
     return gdf.loc[(~gdf.geometry.isna()) & (~gdf.geometry.is_empty)]
 
+
 class GeometrySummary(TypedDict):
-    primary_type:  Literal["Polygon", "Point", "LineString", "Other", "Mixed", "Line"]
+    primary_type: Literal["Polygon", "Point", "LineString", "Other", "Mixed", "Line"]
+
 
 @task
 def check_shapefile_geometry_type(data: AnyGeoDataFrame) -> str:
@@ -70,8 +76,9 @@ def check_shapefile_geometry_type(data: AnyGeoDataFrame) -> str:
             primary_type = "Other"
     else:
         primary_type = "Mixed"
-    
+
     return primary_type
+
 
 @task
 def load_map_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFrame]:
@@ -120,6 +127,7 @@ def clean_file_keys(file_dict: dict) -> dict:
 
     return {clean_key(k): v for k, v in file_dict.items()}
 
+
 @task
 def create_layer_from_gdf(
     filename: str,
@@ -143,10 +151,10 @@ def create_layer_from_gdf(
             return create_polygon_layer(gdf, layer_style=PolygonLayerStyle(**style_params), legend=legend)
         elif primary_type == "Point":
             print(f"Creating point layer for '{filename}'")
-            return create_point_layer(gdf, layer_style=PointLayerStyle(**style_params),legend=legend)
+            return create_point_layer(gdf, layer_style=PointLayerStyle(**style_params), legend=legend)
         elif primary_type in ("Line", "LineString"):
             print(f"Creating line layer for '{filename}'")
-            return create_polyline_layer(gdf, layer_style=PolylineLayerStyle(**style_params),legend=legend)
+            return create_polyline_layer(gdf, layer_style=PolylineLayerStyle(**style_params), legend=legend)
         else:
             print(f"Unsupported geometry type '{primary_type}' for file '{filename}'")
     except Exception as e:
@@ -155,11 +163,9 @@ def create_layer_from_gdf(
 
     return None
 
+
 @task
-def create_map_layers(
-    file_dict: Dict[str, AnyGeoDataFrame], 
-    style_config: MapStyleConfig
-) -> List[LayerDefinition]:
+def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapStyleConfig) -> List[LayerDefinition]:
     """
     Create styled map layers from a dictionary of GeoDataFrames using the provided style config.
 
@@ -172,11 +178,11 @@ def create_map_layers(
     layers: List[LayerDefinition] = []
     cleaned_files = clean_file_keys(file_dict)
 
-    print(f"Checking gdf info : {gdf.head()}") # testing
     for filename, gdf in cleaned_files.items():
         try:
             geom_analysis = check_shapefile_geometry_type(gdf)
-            primary_type = geom_analysis["primary_type"]
+            print(f"{filename} geometry type: {geom_analysis}")
+            primary_type = geom_analysis
             layer = create_layer_from_gdf(filename, gdf, style_config, primary_type)
 
             if layer is not None:
@@ -188,50 +194,63 @@ def create_map_layers(
     print(f"Successfully created {len(layers)} map layers")
     return layers
 
+
+def _zoom_from_bbox(
+    minx,
+    miny,
+    maxx,
+    maxy,
+    viewport_width_px=1000,
+    viewport_height_px=1000,
+    padding_frac=0.10,
+    min_zoom=0.0,
+    max_zoom=20.0,
+    tile_size=256.0,
+):
+    padding_frac = max(0.0, min(0.3, float(padding_frac)))
+
+    usable_width = max(1, int(viewport_width_px * (1.0 - 2.0 * padding_frac)))
+    usable_height = max(1, int(viewport_height_px * (1.0 - 2.0 * padding_frac)))
+
+    lat_span = max(1e-12, maxy - miny)
+    lon_span = max(1e-12, maxx - minx)
+
+    zoom_for_width = math.log2(usable_width * 360.0 / (lon_span * tile_size))
+    zoom_for_height = math.log2(usable_height * 180.0 / (lat_span * tile_size))
+    zoom_level = min(zoom_for_width, zoom_for_height)
+
+    return round(max(min_zoom, min(max_zoom, zoom_level)), 2)
+
+
 @task
 def create_view_state_from_gdf(gdf: AnyGeoDataFrame, pitch: int = 0, bearing: int = 0) -> ViewState:
-    """
-    Create a ViewState object centered on a GeoDataFrame's bounds.
-
-    Parameters:
-        gdf (GeoDataFrame): The input GeoDataFrame
-        pitch (int): Optional pitch angle (default: 0)
-        bearing (int): Optional bearing angle (default: 0)
-
-    Returns:
-        ViewState: Computed map view state
-    """
     if gdf.empty:
         raise ValueError("GeoDataFrame is empty. Cannot compute ViewState.")
 
     # Ensure CRS is geographic
     if gdf.crs is None or not gdf.crs.is_geographic:
-        try:
-            gdf = gdf.to_crs("EPSG:4326")
-        except Exception as e:
-            print(f"Could not convert to geographic coordinates: {e}")
-            traceback.print_exc()
-            
+        gdf = gdf.to_crs("EPSG:4326")
+
     minx, miny, maxx, maxy = gdf.total_bounds
-    center_lon = (minx + maxx) / 2
-    center_lat = (miny + maxy) / 2
-    max_span = max(abs(maxx - minx), abs(maxy - miny))
+    center_lon = (minx + maxx) / 2.0
+    center_lat = (miny + maxy) / 2.0
 
-    # Heuristic zoom calculation
-    if max_span <= 0.01:
-        zoom = 16
-    elif max_span <= 0.1:
-        zoom = 13
-    elif max_span <= 1:
-        zoom = 10
-    elif max_span <= 5:
-        zoom = 7
-    elif max_span <= 20:
-        zoom = 5
-    else:
-        zoom = 2
+    zoom = _zoom_from_bbox(
+        minx,
+        miny,
+        maxx,
+        maxy,
+        viewport_width_px=1000,  # tweak if your map container differs
+        viewport_height_px=700,
+        padding_frac=0.12,  # increase to zoom out slightly; decrease to zoom in
+        tile_size=512,
+        min_zoom=2.0,
+        max_zoom=20.0,
+    )
 
+    print(f"View State zoom: {zoom}")
     return ViewState(longitude=center_lon, latitude=center_lat, zoom=zoom, pitch=pitch, bearing=bearing)
+
 
 def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     """Convert a hex color string to an RGB tuple."""
@@ -240,11 +259,10 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
         raise ValueError("Hex color must be 6 characters long.")
     return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
 
+
 @task
 def generate_density_grid(
-    features_gdf: AnyGeoDataFrame, 
-    cell_size_meters: int = 2000, 
-    geometry_type: Literal["point", "line"] = "point"
+    features_gdf: AnyGeoDataFrame, cell_size_meters: int = 2000, geometry_type: Literal["point", "line"] = "point"
 ) -> AnyGeoDataFrame:
     """
     Generates a density grid based on point or line features within a defined area of interest.
@@ -269,7 +287,7 @@ def generate_density_grid(
     return density_grid
 
 
-@task 
+@task
 def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[int, int, int]]) -> MapStyleConfig:
     """
     Build a MapStyleConfig object with styles and legends for specified AOI types.
@@ -308,8 +326,8 @@ def download_land_dx(
     url: Annotated[str, Field(description="URL to retrieve the LandDx database")],
     path: Annotated[str, Field(description="Local path to save the LandDx database copy")],
     overwrite_existing: Annotated[bool, Field(default=False, description="Overwrite the existing file if it exists")],
-    unzip: Annotated[bool, Field(default=True, description="Whether to unzip the downloaded file")]
-) ->str:
+    unzip: Annotated[bool, Field(default=True, description="Whether to unzip the downloaded file")],
+) -> str:
     """
     Downloads the LandDx database from a given URL and saves it to the specified path.
 
@@ -319,16 +337,11 @@ def download_land_dx(
         overwrite_existing (bool): Whether to overwrite an existing file. Default is False.
         unzip (bool): Whether to unzip the downloaded file. Default is True.
     """
-    ecoscope.io.utils.download_file(
-        url=url,
-        path=path,
-        overwrite_existing=overwrite_existing,
-        unzip=unzip
-    )
-    return path 
+    ecoscope.io.utils.download_file(url=url, path=path, overwrite_existing=overwrite_existing, unzip=unzip)
+    return path
 
 
-@task 
+@task
 def load_landdx_aoi(map_path: str, aoi: List[str]) -> Optional[AnyGeoDataFrame]:
     """
     Recursively search for 'landDx.gpkg' in the given path, load it, and filter by area types (AOI).
@@ -363,10 +376,9 @@ def load_landdx_aoi(map_path: str, aoi: List[str]) -> Optional[AnyGeoDataFrame]:
         print(f"Error loading or filtering landDx.gpkg: {e}")
         return None
 
+
 @task
-def annotate_gdf_dict_with_geometry_type(
-    gdf_dict: Dict[str, AnyGeoDataFrame]
-) -> Dict[str, Dict[str, object]]:
+def annotate_gdf_dict_with_geometry_type(gdf_dict: Dict[str, AnyGeoDataFrame]) -> Dict[str, Dict[str, object]]:
     """
     Annotates each GeoDataFrame in the dictionary with its primary geometry type.
 
@@ -379,6 +391,7 @@ def annotate_gdf_dict_with_geometry_type(
     """
     result = {}
 
+    # others to be added soon
     for name, gdf in gdf_dict.items():
         unique_geom_types = gdf.geometry.geom_type.unique()
 
@@ -395,17 +408,14 @@ def annotate_gdf_dict_with_geometry_type(
         else:
             primary_type = "Mixed"
 
-        result[name] = {
-            "gdf": gdf,
-            "geometry_type": primary_type
-        }
+        result[name] = {"gdf": gdf, "geometry_type": primary_type}
 
     return result
 
+
 @task
 def create_map_layers_from_annotated_dict(
-    annotated_dict: Dict[str, Dict[str, object]],
-    style_config: MapStyleConfig
+    annotated_dict: Dict[str, Dict[str, object]], style_config: MapStyleConfig
 ) -> List[LayerDefinition]:
     """
     Create styled map layers from a dictionary of {name: {gdf, geometry_type}}.
@@ -430,12 +440,7 @@ def create_map_layers_from_annotated_dict(
         geometry_type = content.get("geometry_type")
 
         try:
-            layer = create_layer_from_gdf(
-                filename=name,
-                gdf=gdf,
-                style_config=style_config,
-                primary_type=geometry_type
-            )
+            layer = create_layer_from_gdf(filename=name, gdf=gdf, style_config=style_config, primary_type=geometry_type)
 
             if layer:
                 layers.append(layer)
@@ -451,12 +456,11 @@ def create_map_layers_from_annotated_dict(
 @task
 def combine_map_layers(
     static_layers: Annotated[
-        Union[LayerDefinition, list[LayerDefinition]],
-        Field(description="Static layers from local files or base maps.")
+        Union[LayerDefinition, list[LayerDefinition]], Field(description="Static layers from local files or base maps.")
     ] = [],
     grouped_layers: Annotated[
         Union[LayerDefinition, list[LayerDefinition]],
-        Field(description="Grouped layers generated from split/grouped data.")
+        Field(description="Grouped layers generated from split/grouped data."),
     ] = [],
 ) -> list[LayerDefinition]:
     """

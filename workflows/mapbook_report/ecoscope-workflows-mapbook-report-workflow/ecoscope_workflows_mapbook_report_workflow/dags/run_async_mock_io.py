@@ -57,16 +57,17 @@ from ecoscope_workflows_core.tasks.transformation import map_values_with_unit
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polyline_layer
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df
 from ecoscope_workflows_core.tasks.skip import any_dependency_skipped
+from ecoscope_workflows_ext_ste.tasks import create_view_state_from_gdf
 from ecoscope_workflows_ext_ste.tasks import combine_map_layers
+from ecoscope_workflows_ext_ste.tasks import zip_grouped_by_key
 from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap
 from ecoscope_workflows_core.tasks.io import persist_text
 from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
 from ecoscope_workflows_core.tasks.skip import never
 from ecoscope_workflows_core.tasks.results import merge_widget_views
 from ecoscope_workflows_ext_ste.tasks import calculate_etd_by_groups
-from ecoscope_workflows_ext_ste.tasks import view_df
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polygon_layer
-from ecoscope_workflows_ext_ste.tasks import generate_speed_raster
+from ecoscope_workflows_ext_ste.tasks import generate_ecograph_raster
 from ecoscope_workflows_ext_ste.tasks import retrieve_feature_gdf
 from ecoscope_workflows_core.tasks.results import gather_dashboard
 
@@ -122,82 +123,87 @@ def main(params: Params):
         "format_speed_bin_labels": ["apply_speed_colormap"],
         "format_speed_values": ["format_speed_bin_labels"],
         "generate_speed_ecomap_layers": ["format_speed_values"],
+        "zoom_traj_view": ["format_speed_values"],
         "combine_landdx_speed_layers": [
             "create_styled_landdx_layers",
             "generate_speed_ecomap_layers",
         ],
-        "draw_speed_ecomaps": ["configure_base_maps", "combine_landdx_speed_layers"],
+        "speedvalues_view_zip": ["combine_landdx_speed_layers", "zoom_traj_view"],
+        "draw_speed_ecomaps": ["configure_base_maps", "speedvalues_view_zip"],
         "persist_speed_ecomap_urls": ["draw_speed_ecomaps"],
         "create_speed_ecomap_widgets": ["persist_speed_ecomap_urls"],
         "merge_speed_ecomap_widgets": ["create_speed_ecomap_widgets"],
         "sort_trajectories_by_day_night": ["split_trajectories_by_group"],
         "apply_day_night_colormap": ["sort_trajectories_by_day_night"],
         "generate_day_night_ecomap_layers": ["apply_day_night_colormap"],
-        "combine_landdx_dn_ecomap_layers": [
+        "zoom_dn_view": ["apply_day_night_colormap"],
+        "combine_landdx_dn_layers": [
             "create_styled_landdx_layers",
             "generate_day_night_ecomap_layers",
         ],
-        "draw_day_night_ecomaps": [
-            "configure_base_maps",
-            "combine_landdx_dn_ecomap_layers",
-        ],
+        "dn_view_zip": ["combine_landdx_dn_layers", "zoom_dn_view"],
+        "draw_day_night_ecomaps": ["configure_base_maps", "dn_view_zip"],
         "persist_day_night_ecomap_urls": ["draw_day_night_ecomaps"],
         "create_day_night_ecomap_widgets": ["persist_day_night_ecomap_urls"],
         "merge_day_night_ecomap_widgets": ["create_day_night_ecomap_widgets"],
         "sort_trajs_by_quarter_status": ["split_trajectories_by_group"],
         "apply_quarter_status_colormap": ["sort_trajs_by_quarter_status"],
         "generate_quarter_ecomap_layers": ["apply_quarter_status_colormap"],
+        "zoom_qm_view": ["format_speed_values"],
         "combine_quarter_ecomap_layers": [
             "create_styled_landdx_layers",
             "generate_quarter_ecomap_layers",
         ],
-        "draw_quarter_status_ecomaps": [
-            "configure_base_maps",
-            "combine_quarter_ecomap_layers",
-        ],
+        "qm_view_zip": ["combine_quarter_ecomap_layers", "zoom_qm_view"],
+        "draw_quarter_status_ecomaps": ["configure_base_maps", "qm_view_zip"],
         "persist_quarter_ecomap_urls": ["draw_quarter_status_ecomaps"],
         "create_quarter_ecomap_widgets": ["persist_quarter_ecomap_urls"],
         "merge_quarter_ecomap_widgets": ["create_quarter_ecomap_widgets"],
         "generate_etd": ["split_trajectories_by_group"],
-        "inspect_hr_df": ["generate_etd"],
         "apply_etd_percentile_colormap": ["generate_etd"],
         "generate_etd_ecomap_layers": ["apply_etd_percentile_colormap"],
+        "zoom_hr_view": ["apply_etd_percentile_colormap"],
         "combine_landdx_hr_ecomap_layers": [
             "create_styled_landdx_layers",
             "generate_etd_ecomap_layers",
         ],
-        "draw_hr_ecomaps": ["configure_base_maps", "combine_landdx_hr_ecomap_layers"],
+        "hr_view_zip": ["combine_landdx_hr_ecomap_layers", "zoom_hr_view"],
+        "draw_hr_ecomaps": ["configure_base_maps", "hr_view_zip"],
         "persist_hr_ecomap_urls": ["draw_hr_ecomaps"],
         "create_hr_ecomap_widgets": ["persist_hr_ecomap_urls"],
         "merge_hr_ecomap_widgets": ["create_hr_ecomap_widgets"],
-        "generate_speed_rasters": [
+        "generate_speed_raster": [
             "create_output_directory",
             "split_trajectories_by_group",
         ],
-        "extract_speed_rasters": ["generate_speed_rasters"],
+        "extract_speed_rasters": ["generate_speed_raster"],
         "sort_speed_features_by_value": ["extract_speed_rasters"],
         "classify_speed_features": ["sort_speed_features_by_value"],
         "apply_speed_raster_colormap": ["classify_speed_features"],
         "format_speed_raster_labels": ["apply_speed_raster_colormap"],
         "generate_raster_layers": ["format_speed_raster_labels"],
+        "zoom_speedraster_view": ["format_speed_raster_labels"],
         "combine_seasonal_raster_layers": [
             "create_styled_landdx_layers",
             "generate_raster_layers",
         ],
-        "draw_speed_raster_ecomaps": [
-            "configure_base_maps",
+        "speedraster_view_zip": [
             "combine_seasonal_raster_layers",
+            "zoom_speedraster_view",
         ],
+        "draw_speed_raster_ecomaps": ["configure_base_maps", "speedraster_view_zip"],
         "speed_raster_ecomap_urls": ["draw_speed_raster_ecomaps"],
         "speed_raster_ecomap_widgets": ["speed_raster_ecomap_urls"],
         "speedraster_ecomap_widgets": ["speed_raster_ecomap_widgets"],
         "season_colormap": ["generate_etd"],
         "season_etd_map_layer": ["season_colormap"],
+        "zoom_season_view": ["season_colormap"],
         "comb_season_map_layers": [
             "create_styled_landdx_layers",
             "season_etd_map_layer",
         ],
-        "seasonal_ecomap": ["configure_base_maps", "comb_season_map_layers"],
+        "seasons_view_zip": ["comb_season_map_layers", "zoom_season_view"],
+        "seasonal_ecomap": ["configure_base_maps", "seasons_view_zip"],
         "season_etd_ecomap_html_url": ["seasonal_ecomap"],
         "season_etd_widgets_single_view": ["season_etd_ecomap_html_url"],
         "season_grouped_map_widget": ["season_etd_widgets_single_view"],
@@ -595,6 +601,21 @@ def main(params: Params):
                 "argvalues": DependsOn("format_speed_values"),
             },
         ),
+        "zoom_traj_view": Node(
+            async_task=create_view_state_from_gdf.validate()
+            .handle_errors(task_instance_id="zoom_traj_view")
+            .set_executor("lithops"),
+            partial={
+                "pitch": 0,
+                "bearing": 0,
+            }
+            | (params_dict.get("zoom_traj_view") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("format_speed_values"),
+            },
+        ),
         "combine_landdx_speed_layers": Node(
             async_task=combine_map_layers.validate()
             .handle_errors(task_instance_id="combine_landdx_speed_layers")
@@ -609,6 +630,17 @@ def main(params: Params):
                 "argvalues": DependsOn("generate_speed_ecomap_layers"),
             },
         ),
+        "speedvalues_view_zip": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="speedvalues_view_zip")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("combine_landdx_speed_layers"),
+                "right": DependsOn("zoom_traj_view"),
+            }
+            | (params_dict.get("speedvalues_view_zip") or {}),
+            method="call",
+        ),
         "draw_speed_ecomaps": Node(
             async_task=draw_ecomap.validate()
             .handle_errors(task_instance_id="draw_speed_ecomaps")
@@ -616,7 +648,10 @@ def main(params: Params):
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
                 "north_arrow_style": {"placement": "top-left"},
-                "legend_style": {"placement": "bottom-right"},
+                "legend_style": {
+                    "placement": "bottom-right",
+                    "title": "Speed Values(Km/h)",
+                },
                 "static": False,
                 "title": None,
                 "max_zoom": 20,
@@ -624,8 +659,8 @@ def main(params: Params):
             | (params_dict.get("draw_speed_ecomaps") or {}),
             method="mapvalues",
             kwargs={
-                "argnames": ["geo_layers"],
-                "argvalues": DependsOn("combine_landdx_speed_layers"),
+                "argnames": ["geo_layers", "view_state"],
+                "argvalues": DependsOn("speedvalues_view_zip"),
             },
         ),
         "persist_speed_ecomap_urls": Node(
@@ -653,7 +688,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Speed Ecomap",
+                "title": "Speedmap",
             }
             | (params_dict.get("create_speed_ecomap_widgets") or {}),
             method="map",
@@ -730,19 +765,45 @@ def main(params: Params):
                 "argvalues": DependsOn("apply_day_night_colormap"),
             },
         ),
-        "combine_landdx_dn_ecomap_layers": Node(
+        "zoom_dn_view": Node(
+            async_task=create_view_state_from_gdf.validate()
+            .handle_errors(task_instance_id="zoom_dn_view")
+            .set_executor("lithops"),
+            partial={
+                "pitch": 0,
+                "bearing": 0,
+            }
+            | (params_dict.get("zoom_dn_view") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("apply_day_night_colormap"),
+            },
+        ),
+        "combine_landdx_dn_layers": Node(
             async_task=combine_map_layers.validate()
-            .handle_errors(task_instance_id="combine_landdx_dn_ecomap_layers")
+            .handle_errors(task_instance_id="combine_landdx_dn_layers")
             .set_executor("lithops"),
             partial={
                 "static_layers": DependsOn("create_styled_landdx_layers"),
             }
-            | (params_dict.get("combine_landdx_dn_ecomap_layers") or {}),
+            | (params_dict.get("combine_landdx_dn_layers") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["grouped_layers"],
                 "argvalues": DependsOn("generate_day_night_ecomap_layers"),
             },
+        ),
+        "dn_view_zip": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="dn_view_zip")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("combine_landdx_dn_layers"),
+                "right": DependsOn("zoom_dn_view"),
+            }
+            | (params_dict.get("dn_view_zip") or {}),
+            method="call",
         ),
         "draw_day_night_ecomaps": Node(
             async_task=draw_ecomap.validate()
@@ -751,7 +812,10 @@ def main(params: Params):
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
                 "north_arrow_style": {"placement": "top-left"},
-                "legend_style": {"placement": "bottom-right"},
+                "legend_style": {
+                    "placement": "bottom-right",
+                    "title": "Day-Night Tracks",
+                },
                 "static": False,
                 "title": None,
                 "max_zoom": 20,
@@ -759,8 +823,8 @@ def main(params: Params):
             | (params_dict.get("draw_day_night_ecomaps") or {}),
             method="mapvalues",
             kwargs={
-                "argnames": ["geo_layers"],
-                "argvalues": DependsOn("combine_landdx_dn_ecomap_layers"),
+                "argnames": ["geo_layers", "view_state"],
+                "argvalues": DependsOn("dn_view_zip"),
             },
         ),
         "persist_day_night_ecomap_urls": Node(
@@ -871,6 +935,21 @@ def main(params: Params):
                 "argvalues": DependsOn("apply_quarter_status_colormap"),
             },
         ),
+        "zoom_qm_view": Node(
+            async_task=create_view_state_from_gdf.validate()
+            .handle_errors(task_instance_id="zoom_qm_view")
+            .set_executor("lithops"),
+            partial={
+                "pitch": 0,
+                "bearing": 0,
+            }
+            | (params_dict.get("zoom_qm_view") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("format_speed_values"),
+            },
+        ),
         "combine_quarter_ecomap_layers": Node(
             async_task=combine_map_layers.validate()
             .handle_errors(task_instance_id="combine_quarter_ecomap_layers")
@@ -885,6 +964,17 @@ def main(params: Params):
                 "argvalues": DependsOn("generate_quarter_ecomap_layers"),
             },
         ),
+        "qm_view_zip": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="qm_view_zip")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("combine_quarter_ecomap_layers"),
+                "right": DependsOn("zoom_qm_view"),
+            }
+            | (params_dict.get("qm_view_zip") or {}),
+            method="call",
+        ),
         "draw_quarter_status_ecomaps": Node(
             async_task=draw_ecomap.validate()
             .handle_errors(task_instance_id="draw_quarter_status_ecomaps")
@@ -892,7 +982,10 @@ def main(params: Params):
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
                 "north_arrow_style": {"placement": "top-left"},
-                "legend_style": {"placement": "bottom-right"},
+                "legend_style": {
+                    "placement": "bottom-right",
+                    "title": "Quarter Movement Tracks",
+                },
                 "static": False,
                 "title": None,
                 "max_zoom": 20,
@@ -900,8 +993,8 @@ def main(params: Params):
             | (params_dict.get("draw_quarter_status_ecomaps") or {}),
             method="mapvalues",
             kwargs={
-                "argnames": ["geo_layers"],
-                "argvalues": DependsOn("combine_quarter_ecomap_layers"),
+                "argnames": ["geo_layers", "view_state"],
+                "argvalues": DependsOn("qm_view_zip"),
             },
         ),
         "persist_quarter_ecomap_urls": Node(
@@ -967,20 +1060,6 @@ def main(params: Params):
                 "argvalues": DependsOn("split_trajectories_by_group"),
             },
         ),
-        "inspect_hr_df": Node(
-            async_task=view_df.validate()
-            .handle_errors(task_instance_id="inspect_hr_df")
-            .set_executor("lithops"),
-            partial={
-                "name": "subject-HR-etd",
-            }
-            | (params_dict.get("inspect_hr_df") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["gdf"],
-                "argvalues": DependsOn("generate_etd"),
-            },
-        ),
         "apply_etd_percentile_colormap": Node(
             async_task=apply_color_map.validate()
             .handle_errors(task_instance_id="apply_etd_percentile_colormap")
@@ -1026,6 +1105,21 @@ def main(params: Params):
                 "argvalues": DependsOn("apply_etd_percentile_colormap"),
             },
         ),
+        "zoom_hr_view": Node(
+            async_task=create_view_state_from_gdf.validate()
+            .handle_errors(task_instance_id="zoom_hr_view")
+            .set_executor("lithops"),
+            partial={
+                "pitch": 0,
+                "bearing": 0,
+            }
+            | (params_dict.get("zoom_hr_view") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("apply_etd_percentile_colormap"),
+            },
+        ),
         "combine_landdx_hr_ecomap_layers": Node(
             async_task=combine_map_layers.validate()
             .handle_errors(task_instance_id="combine_landdx_hr_ecomap_layers")
@@ -1040,6 +1134,17 @@ def main(params: Params):
                 "argvalues": DependsOn("generate_etd_ecomap_layers"),
             },
         ),
+        "hr_view_zip": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="hr_view_zip")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("combine_landdx_hr_ecomap_layers"),
+                "right": DependsOn("zoom_hr_view"),
+            }
+            | (params_dict.get("hr_view_zip") or {}),
+            method="call",
+        ),
         "draw_hr_ecomaps": Node(
             async_task=draw_ecomap.validate()
             .handle_errors(task_instance_id="draw_hr_ecomaps")
@@ -1047,7 +1152,10 @@ def main(params: Params):
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
                 "north_arrow_style": {"placement": "top-left"},
-                "legend_style": {"placement": "bottom-right"},
+                "legend_style": {
+                    "placement": "bottom-right",
+                    "title": "Home Range Metrics",
+                },
                 "static": False,
                 "title": None,
                 "max_zoom": 20,
@@ -1055,8 +1163,8 @@ def main(params: Params):
             | (params_dict.get("draw_hr_ecomaps") or {}),
             method="mapvalues",
             kwargs={
-                "argnames": ["geo_layers"],
-                "argvalues": DependsOn("combine_landdx_hr_ecomap_layers"),
+                "argnames": ["geo_layers", "view_state"],
+                "argvalues": DependsOn("hr_view_zip"),
             },
         ),
         "persist_hr_ecomap_urls": Node(
@@ -1103,15 +1211,17 @@ def main(params: Params):
             | (params_dict.get("merge_hr_ecomap_widgets") or {}),
             method="call",
         ),
-        "generate_speed_rasters": Node(
-            async_task=generate_speed_raster.validate()
-            .handle_errors(task_instance_id="generate_speed_rasters")
+        "generate_speed_raster": Node(
+            async_task=generate_ecograph_raster.validate()
+            .handle_errors(task_instance_id="generate_speed_raster")
             .set_executor("lithops"),
             partial={
                 "dist_col": "dist_meters",
+                "interpolation": "mean",
+                "movement_covariate": "speed",
                 "output_dir": DependsOn("create_output_directory"),
             }
-            | (params_dict.get("generate_speed_rasters") or {}),
+            | (params_dict.get("generate_speed_raster") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["gdf"],
@@ -1126,7 +1236,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["file_path"],
-                "argvalues": DependsOn("generate_speed_rasters"),
+                "argvalues": DependsOn("generate_speed_raster"),
             },
         ),
         "sort_speed_features_by_value": Node(
@@ -1231,6 +1341,21 @@ def main(params: Params):
                 "argvalues": DependsOn("format_speed_raster_labels"),
             },
         ),
+        "zoom_speedraster_view": Node(
+            async_task=create_view_state_from_gdf.validate()
+            .handle_errors(task_instance_id="zoom_speedraster_view")
+            .set_executor("lithops"),
+            partial={
+                "pitch": 0,
+                "bearing": 0,
+            }
+            | (params_dict.get("zoom_speedraster_view") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("format_speed_raster_labels"),
+            },
+        ),
         "combine_seasonal_raster_layers": Node(
             async_task=combine_map_layers.validate()
             .handle_errors(task_instance_id="combine_seasonal_raster_layers")
@@ -1245,6 +1370,17 @@ def main(params: Params):
                 "argvalues": DependsOn("generate_raster_layers"),
             },
         ),
+        "speedraster_view_zip": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="speedraster_view_zip")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("combine_seasonal_raster_layers"),
+                "right": DependsOn("zoom_speedraster_view"),
+            }
+            | (params_dict.get("speedraster_view_zip") or {}),
+            method="call",
+        ),
         "draw_speed_raster_ecomaps": Node(
             async_task=draw_ecomap.validate()
             .handle_errors(task_instance_id="draw_speed_raster_ecomaps")
@@ -1252,7 +1388,10 @@ def main(params: Params):
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
                 "north_arrow_style": {"placement": "top-left"},
-                "legend_style": {"placement": "bottom-right"},
+                "legend_style": {
+                    "placement": "bottom-right",
+                    "title": "Raster Value(Km/h)",
+                },
                 "static": False,
                 "title": None,
                 "max_zoom": 20,
@@ -1260,8 +1399,8 @@ def main(params: Params):
             | (params_dict.get("draw_speed_raster_ecomaps") or {}),
             method="mapvalues",
             kwargs={
-                "argnames": ["geo_layers"],
-                "argvalues": DependsOn("combine_seasonal_raster_layers"),
+                "argnames": ["geo_layers", "view_state"],
+                "argvalues": DependsOn("speedraster_view_zip"),
             },
         ),
         "speed_raster_ecomap_urls": Node(
@@ -1350,6 +1489,21 @@ def main(params: Params):
                 "argvalues": DependsOn("season_colormap"),
             },
         ),
+        "zoom_season_view": Node(
+            async_task=create_view_state_from_gdf.validate()
+            .handle_errors(task_instance_id="zoom_season_view")
+            .set_executor("lithops"),
+            partial={
+                "pitch": 0,
+                "bearing": 0,
+            }
+            | (params_dict.get("zoom_season_view") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("season_colormap"),
+            },
+        ),
         "comb_season_map_layers": Node(
             async_task=combine_map_layers.validate()
             .handle_errors(task_instance_id="comb_season_map_layers")
@@ -1364,6 +1518,17 @@ def main(params: Params):
                 "argvalues": DependsOn("season_etd_map_layer"),
             },
         ),
+        "seasons_view_zip": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="seasons_view_zip")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("comb_season_map_layers"),
+                "right": DependsOn("zoom_season_view"),
+            }
+            | (params_dict.get("seasons_view_zip") or {}),
+            method="call",
+        ),
         "seasonal_ecomap": Node(
             async_task=draw_ecomap.validate()
             .handle_errors(task_instance_id="seasonal_ecomap")
@@ -1371,7 +1536,7 @@ def main(params: Params):
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
                 "north_arrow_style": {"placement": "top-left"},
-                "legend_style": {"placement": "bottom-right"},
+                "legend_style": {"placement": "bottom-right", "title": "Seasons"},
                 "static": False,
                 "title": None,
                 "max_zoom": 20,
@@ -1379,8 +1544,8 @@ def main(params: Params):
             | (params_dict.get("seasonal_ecomap") or {}),
             method="mapvalues",
             kwargs={
-                "argnames": ["geo_layers"],
-                "argvalues": DependsOn("comb_season_map_layers"),
+                "argnames": ["geo_layers", "view_state"],
+                "argvalues": DependsOn("seasons_view_zip"),
             },
         ),
         "season_etd_ecomap_html_url": Node(
