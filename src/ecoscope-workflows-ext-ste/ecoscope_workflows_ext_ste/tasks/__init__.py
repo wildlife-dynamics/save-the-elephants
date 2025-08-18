@@ -13,7 +13,7 @@ from ._map_utils import (
     load_map_files,
     create_layer_from_gdf,
 )
-
+from ._inspect import view_df
 from ._file_ import create_directory
 from ._ste_utils import (
     retrieve_feature_gdf,
@@ -23,11 +23,14 @@ from ._ste_utils import (
     split_gdf_by_column,
     calculate_etd_by_groups,
     generate_mcp_gdf,
+    dataframe_column_first_unique_str,
 )
 from ._zip import zip_grouped_by_key
+from ._example import add_one_thousand
 
 __all__ = [
     "view_df",
+    "add_one_thousand",
     "generate_mcp_gdf",
     "load_map_files",
     "load_landdx_aoi",
@@ -48,6 +51,7 @@ __all__ = [
     "build_landdx_style_config",
     "create_view_state_from_gdf",
     "check_shapefile_geometry_type",
+    "dataframe_column_first_unique_str",
     "annotate_gdf_dict_with_geometry_type",
     "create_map_layers_from_annotated_dict",
 ]

@@ -441,23 +441,23 @@ def mapbook_info(values: Dict) -> Dict:
 
 @task
 def generate_mcp_gdf(
-    points_gdf: AnyGeoDataFrame,
+    gdf: AnyGeoDataFrame,
     planar_crs: str = "ESRI:102022",  # Africa Albers Equal Area
 ) -> AnyGeoDataFrame:
     """
     Create a Minimum Convex Polygon (MCP) from input point geometries and compute its area.
     """
-    if points_gdf is None or points_gdf.empty:
+    if gdf is None or gdf.empty:
         raise ValueError("Input GeoDataFrame is empty.")
-    if points_gdf.geometry is None:
+    if gdf.geometry is None:
         raise ValueError("Input GeoDataFrame has no 'geometry' column.")
-    if points_gdf.crs is None:
+    if gdf.crs is None:
         raise ValueError("Input GeoDataFrame must have a CRS set (e.g., EPSG:4326).")
 
-    original_crs = points_gdf.crs
+    original_crs = gdf.crs
 
     # Filter out empty or null geometries
-    valid_points_gdf = points_gdf[~points_gdf.geometry.is_empty & points_gdf.geometry.notnull()].copy()
+    valid_points_gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notnull()].copy()
     if valid_points_gdf.empty:
         raise ValueError("No valid geometries in input GeoDataFrame.")
 
@@ -473,11 +473,19 @@ def generate_mcp_gdf(
     convex_hull_original_crs = gpd.GeoSeries([convex_hull], crs=planar_crs).to_crs(original_crs).iloc[0]
 
     result_gdf = gpd.GeoDataFrame(
-        {
-            "area_m2": [area_sq_meters],
-            "area_km2": [area_sq_km],
-        },
+        {"area_m2": [area_sq_meters], "area_km2": [area_sq_km], "mcp": "mcp"},
         geometry=[convex_hull_original_crs],
         crs=original_crs,
     )
     return result_gdf
+
+
+ColumnName = Annotated[str, Field(description="Column to aggregate")]
+
+
+@task
+def dataframe_column_first_unique_str(
+    df: AnyDataFrame,
+    column_name: ColumnName,
+) -> Annotated[str, Field(description="The first unique string value in the column")]:
+    return str(df[column_name].unique()[0])
