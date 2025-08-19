@@ -67,7 +67,7 @@ geopandas="*"
 shapely = "*"
 ecoscope-workflows-ext-ecoscope=">=0.6.0"
 ecoscope-workflows-ext-custom = "0.0.2.*"
-ecoscope = { extras = ["analysis"], version = "*" }
+#ecoscope = { extras = ["analysis"], version = "*" }
 earthengine-api ="*"
 
 # additional dependencies added by this extension
