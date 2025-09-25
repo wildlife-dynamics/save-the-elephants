@@ -204,7 +204,7 @@ class CreateOutputDirectory(BaseModel):
         extra="forbid",
     )
     path_name: Optional[str] = Field(
-        "/home/ttemu/ecoscope-workflows/composed-workflows/save-the-elephants/.pixi/envs/compile/lib/python3.12/site-packages/ecoscope_workflows_ext_ste/tasks/output",
+        "/home/ttemu/ecoscope-workflows/save-the-elephants/.pixi/envs/compile/lib/python3.12/site-packages/ecoscope_workflows_ext_ste/tasks/output",
         description="Path to the directory that should be created",
         title="Path Name",
     )

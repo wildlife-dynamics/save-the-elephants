@@ -273,7 +273,7 @@
       "additionalProperties": false,
       "properties": {
         "path_name": {
-          "default": "/home/ttemu/ecoscope-workflows/composed-workflows/save-the-elephants/.pixi/envs/compile/lib/python3.12/site-packages/ecoscope_workflows_ext_ste/tasks/output",
+          "default": "/home/ttemu/ecoscope-workflows/save-the-elephants/.pixi/envs/compile/lib/python3.12/site-packages/ecoscope_workflows_ext_ste/tasks/output",
           "title": "Path Name",
           "type": "string",
           "description": "Path to the directory that should be created"
