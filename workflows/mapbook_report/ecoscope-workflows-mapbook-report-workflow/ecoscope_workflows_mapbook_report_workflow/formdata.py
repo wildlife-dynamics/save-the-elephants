@@ -214,9 +214,6 @@ class RetrieveLanddxDatabase(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    url: str = Field(
-        ..., description="URL to retrieve the LandDx database", title="Url"
-    )
     overwrite_existing: Optional[bool] = Field(
         False,
         description="Overwrite the existing file if it exists",

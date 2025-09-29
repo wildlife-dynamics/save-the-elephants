@@ -41,6 +41,7 @@ from ecoscope_workflows_ext_ste.tasks import label_quarter_status
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density,
 )
+from ecoscope_workflows_ext_ste.tasks import view_df
 
 determine_season_windows = create_task_magicmock(  # 🧪
     anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
@@ -125,6 +126,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="retrieve_landdx_database")
         .partial(
             path=create_output_directory,
+            url="https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
             **(params_dict.get("retrieve_landdx_database") or {}),
         )
         .call()
@@ -286,11 +288,22 @@ def main(params: Params):
         .handle_errors(task_instance_id="generate_seasonal_etd")
         .partial(
             crs="ESRI:53042",
-            percentiles=[50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.0],
+            percentiles=[50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
             nodata_value="nan",
             band_count=1,
             trajectory_gdf=label_trajectory_quarters,
             **(params_dict.get("generate_seasonal_etd") or {}),
+        )
+        .call()
+    )
+
+    view_seasonal_etd = (
+        view_df.validate()
+        .handle_errors(task_instance_id="view_seasonal_etd")
+        .partial(
+            gdf=generate_seasonal_etd,
+            name="Seasonal ETD values",
+            **(params_dict.get("view_seasonal_etd") or {}),
         )
         .call()
     )
@@ -592,7 +605,7 @@ def main(params: Params):
         .partial(
             tile_layers=configure_base_maps,
             north_arrow_style={"placement": "top-left"},
-            legend_style={"placement": "bottom-right", "title": "Day-Night Tracks"},
+            legend_style={"placement": "bottom-right", "title": "Night Day Tracks"},
             static=False,
             title=None,
             max_zoom=20,
@@ -674,7 +687,7 @@ def main(params: Params):
         .partial(
             layer_style={"color_column": "quarter_status_colors"},
             legend={
-                "labels": ["Previous Quarter", "Current Quarter"],
+                "labels": ["Previous Quarter Movement", "Present Quarter Movement"],
                 "colors": ["#2f4f4f", "#ff8c00"],
             },
             tooltip_columns=[
@@ -725,10 +738,7 @@ def main(params: Params):
         .partial(
             tile_layers=configure_base_maps,
             north_arrow_style={"placement": "top-left"},
-            legend_style={
-                "placement": "bottom-right",
-                "title": "Quarter Movement Tracks",
-            },
+            legend_style={"placement": "bottom-right", "title": "Legend"},
             static=False,
             title=None,
             max_zoom=20,
@@ -778,7 +788,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="generate_etd")
         .partial(
             crs="ESRI:53042",
-            percentiles=[50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.0],
+            percentiles=[50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
             nodata_value="nan",
             band_count=1,
             include_groups=True,
@@ -791,7 +801,7 @@ def main(params: Params):
     calculate_mcp = (
         generate_mcp_gdf.validate()
         .handle_errors(task_instance_id="calculate_mcp")
-        .partial(planar_crs="ESRI:102022", **(params_dict.get("calculate_mcp") or {}))
+        .partial(planar_crs="ESRI:53042", **(params_dict.get("calculate_mcp") or {}))
         .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)
     )
 
@@ -927,8 +937,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Home Range Ecomap",
-            **(params_dict.get("create_hr_ecomap_widgets") or {}),
+            title="Home Range", **(params_dict.get("create_hr_ecomap_widgets") or {})
         )
         .map(argnames=["view", "data"], argvalues=persist_hr_ecomap_urls)
     )
@@ -950,6 +959,7 @@ def main(params: Params):
             dist_col="dist_meters",
             interpolation="mean",
             movement_covariate="speed",
+            step_length=2000,
             output_dir=create_output_directory,
             **(params_dict.get("generate_speed_raster") or {}),
         )
@@ -1213,8 +1223,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Subject Group Home Range Map (Seasons)",
-            **(params_dict.get("season_etd_widgets_single_view") or {}),
+            title="Seasons", **(params_dict.get("season_etd_widgets_single_view") or {})
         )
         .map(argnames=["view", "data"], argvalues=season_etd_ecomap_html_url)
     )
@@ -1253,7 +1262,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Total MCP Area",
+            title="Total MCP Area (Km2)",
             decimal_places=1,
             **(params_dict.get("total_mcp_sv_widgets") or {}),
         )
@@ -1280,7 +1289,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Total Grid Area",
+            title="Total Grid Area(Km2)",
             decimal_places=1,
             **(params_dict.get("total_grid_sv_widgets") or {}),
         )

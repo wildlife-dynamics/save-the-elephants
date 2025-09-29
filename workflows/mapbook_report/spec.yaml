@@ -45,6 +45,7 @@ workflow:
     task: download_land_dx
     partial:
       path: ${{ workflow.create_output_directory.return }}
+      url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
 
   # Load AOI from LandDx 
   - name: Load AOI from landDx
@@ -180,10 +181,17 @@ workflow:
         - 80.0
         - 90.0
         - 95.0
-        - 99.0
+        - 99.9
       nodata_value: nan
       band_count: 1
       trajectory_gdf: ${{ workflow.label_trajectory_quarters.return }}
+
+  - name: View Seasonal ETD
+    id: view_seasonal_etd
+    task: view_df
+    partial:
+      gdf: ${{ workflow.generate_seasonal_etd.return }}
+      name: Seasonal ETD values
 
   # determine wet/dry season windows based on NDVI or ROI
   - name: Determine Seasonal Windows
@@ -481,7 +489,7 @@ workflow:
         placement: top-left
       legend_style:
         placement: bottom-right
-        title: Day-Night Tracks
+        title: Night Day Tracks
       static: false
       title: null
       max_zoom: 20
@@ -563,8 +571,8 @@ workflow:
         color_column: quarter_status_colors
       legend:
         labels:
-          - Previous Quarter
-          - Current Quarter
+          - Previous Quarter Movement
+          - Present Quarter Movement
         colors:
           - '#2f4f4f'
           - '#ff8c00'
@@ -606,7 +614,6 @@ workflow:
       left:  ${{ workflow.combine_quarter_ecomap_layers.return }}
       right: ${{ workflow.zoom_qm_view.return }}
 
-
   # draw previous/current quarter movement ecomaps for each trajectory group
   - name: Draw Quarter Status Ecomaps by Group
     id: draw_quarter_status_ecomaps
@@ -617,7 +624,7 @@ workflow:
         placement: top-left
       legend_style:
         placement: bottom-right
-        title: Quarter Movement Tracks
+        title: Legend
       static: false
       title: null
       max_zoom: 20
@@ -673,7 +680,7 @@ workflow:
         - 80.0
         - 90.0
         - 95.0
-        - 99.0
+        - 99.9
       nodata_value: nan
       band_count: 1
       include_groups: true
@@ -688,7 +695,7 @@ workflow:
     id: calculate_mcp
     task: generate_mcp_gdf
     partial:
-      planar_crs: ESRI:102022
+      planar_crs: ESRI:53042
     mapvalues:
       argnames: gdf
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
@@ -826,7 +833,7 @@ workflow:
       conditions: 
         - never
     partial:
-      title: Home Range Ecomap
+      title: Home Range
     map:
       argnames:
         - view 
@@ -849,6 +856,7 @@ workflow:
       dist_col: dist_meters
       interpolation: mean
       movement_covariate: speed
+      step_length: 2000
       output_dir: ${{ workflow.create_output_directory.return }}
     mapvalues:
       argnames: gdf 
@@ -1126,7 +1134,7 @@ workflow:
       conditions: 
         - never
     partial:
-      title: Subject Group Home Range Map (Seasons)
+      title: Seasons
     map:
       argnames:
         - view 
@@ -1165,7 +1173,7 @@ workflow:
       conditions:
         - never
     partial:
-      title: Total MCP Area
+      title: Total MCP Area (Km2)
       decimal_places: 1
     map:
       argnames:
@@ -1187,7 +1195,7 @@ workflow:
       conditions:
         - never
     partial:
-      title: Total Grid Area
+      title: Total Grid Area(Km2)
       decimal_places: 1
     map:
       argnames:

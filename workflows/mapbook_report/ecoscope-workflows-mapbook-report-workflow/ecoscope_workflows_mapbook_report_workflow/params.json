@@ -286,11 +286,6 @@
     "retrieve_landdx_database": {
       "additionalProperties": false,
       "properties": {
-        "url": {
-          "title": "Url",
-          "type": "string",
-          "description": "URL to retrieve the LandDx database"
-        },
         "overwrite_existing": {
           "default": false,
           "title": "Overwrite Existing",
@@ -304,9 +299,7 @@
           "description": "Whether to unzip the downloaded file"
         }
       },
-      "required": [
-        "url"
-      ],
+      "required": [],
       "type": "object",
       "title": "Retrieve and Unpack LandDx Database"
     },
@@ -777,7 +770,6 @@
     },
     "retrieve_landdx_database": {
       "ui:order": [
-        "url",
         "overwrite_existing",
         "unzip"
       ]

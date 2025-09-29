@@ -5,8 +5,8 @@ initialize_workflow_metadata:
 
 # Desired time range
 define_time_range:
-  since: "2025-01-01T00:00:00Z"
-  until: "2025-06-30T23:59:59Z"
+  since: "2025-05-01T00:00:00Z"
+  until: "2025-08-31T23:59:59Z"
 
 # Connect to EarthRanger
 er_client_name:
@@ -44,8 +44,8 @@ create_output_directory:
 
 
 #Link to retrieve landDx db
-retrieve_landdx_database:
-  url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
+# retrieve_landdx_database:
+#   url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
 
 
 # Specific AOI to use from LandDX db

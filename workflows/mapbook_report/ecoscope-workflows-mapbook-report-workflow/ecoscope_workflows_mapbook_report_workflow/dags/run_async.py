@@ -28,6 +28,7 @@ from ecoscope_workflows_ext_ste.tasks import label_quarter_status
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density,
 )
+from ecoscope_workflows_ext_ste.tasks import view_df
 from ecoscope_workflows_ext_ecoscope.tasks.io import determine_season_windows
 from ecoscope_workflows_ext_ste.tasks import create_seasonal_labels
 from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
@@ -87,6 +88,7 @@ def main(params: Params):
         "classify_trajectory_speed_bins": ["add_temporal_index_to_traj"],
         "label_trajectory_quarters": ["classify_trajectory_speed_bins"],
         "generate_seasonal_etd": ["label_trajectory_quarters"],
+        "view_seasonal_etd": ["generate_seasonal_etd"],
         "determine_seasonal_windows": [
             "gee_project_name",
             "generate_seasonal_etd",
@@ -264,6 +266,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "path": DependsOn("create_output_directory"),
+                "url": "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
             }
             | (params_dict.get("retrieve_landdx_database") or {}),
             method="call",
@@ -427,12 +430,23 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "crs": "ESRI:53042",
-                "percentiles": [50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.0],
+                "percentiles": [50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
                 "nodata_value": "nan",
                 "band_count": 1,
                 "trajectory_gdf": DependsOn("label_trajectory_quarters"),
             }
             | (params_dict.get("generate_seasonal_etd") or {}),
+            method="call",
+        ),
+        "view_seasonal_etd": Node(
+            async_task=view_df.validate()
+            .handle_errors(task_instance_id="view_seasonal_etd")
+            .set_executor("lithops"),
+            partial={
+                "gdf": DependsOn("generate_seasonal_etd"),
+                "name": "Seasonal ETD values",
+            }
+            | (params_dict.get("view_seasonal_etd") or {}),
             method="call",
         ),
         "determine_seasonal_windows": Node(
@@ -813,7 +827,7 @@ def main(params: Params):
                 "north_arrow_style": {"placement": "top-left"},
                 "legend_style": {
                     "placement": "bottom-right",
-                    "title": "Day-Night Tracks",
+                    "title": "Night Day Tracks",
                 },
                 "static": False,
                 "title": None,
@@ -916,7 +930,7 @@ def main(params: Params):
             partial={
                 "layer_style": {"color_column": "quarter_status_colors"},
                 "legend": {
-                    "labels": ["Previous Quarter", "Current Quarter"],
+                    "labels": ["Previous Quarter Movement", "Present Quarter Movement"],
                     "colors": ["#2f4f4f", "#ff8c00"],
                 },
                 "tooltip_columns": [
@@ -981,10 +995,7 @@ def main(params: Params):
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
                 "north_arrow_style": {"placement": "top-left"},
-                "legend_style": {
-                    "placement": "bottom-right",
-                    "title": "Quarter Movement Tracks",
-                },
+                "legend_style": {"placement": "bottom-right", "title": "Legend"},
                 "static": False,
                 "title": None,
                 "max_zoom": 20,
@@ -1046,7 +1057,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "crs": "ESRI:53042",
-                "percentiles": [50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.0],
+                "percentiles": [50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
                 "nodata_value": "nan",
                 "band_count": 1,
                 "include_groups": True,
@@ -1064,7 +1075,7 @@ def main(params: Params):
             .handle_errors(task_instance_id="calculate_mcp")
             .set_executor("lithops"),
             partial={
-                "planar_crs": "ESRI:102022",
+                "planar_crs": "ESRI:53042",
             }
             | (params_dict.get("calculate_mcp") or {}),
             method="mapvalues",
@@ -1244,7 +1255,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Home Range Ecomap",
+                "title": "Home Range",
             }
             | (params_dict.get("create_hr_ecomap_widgets") or {}),
             method="map",
@@ -1271,6 +1282,7 @@ def main(params: Params):
                 "dist_col": "dist_meters",
                 "interpolation": "mean",
                 "movement_covariate": "speed",
+                "step_length": 2000,
                 "output_dir": DependsOn("create_output_directory"),
             }
             | (params_dict.get("generate_speed_raster") or {}),
@@ -1625,7 +1637,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Subject Group Home Range Map (Seasons)",
+                "title": "Seasons",
             }
             | (params_dict.get("season_etd_widgets_single_view") or {}),
             method="map",
@@ -1683,7 +1695,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Total MCP Area",
+                "title": "Total MCP Area (Km2)",
                 "decimal_places": 1,
             }
             | (params_dict.get("total_mcp_sv_widgets") or {}),
@@ -1714,7 +1726,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Total Grid Area",
+                "title": "Total Grid Area(Km2)",
                 "decimal_places": 1,
             }
             | (params_dict.get("total_grid_sv_widgets") or {}),

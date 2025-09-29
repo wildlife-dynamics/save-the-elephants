@@ -69,7 +69,7 @@ def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
     gdf["quarter_status"] = (
         gdf[timestamp_col]
         .dt.to_period("Q")
-        .apply(lambda x: "present_quarter" if x == most_recent_quarter else "previous_quarter")
+        .apply(lambda x: "Present Quarter Movement" if x == most_recent_quarter else "Previous Quarter Movement")
     )
 
     return gdf
@@ -95,7 +95,7 @@ def generate_ecograph_raster(
     cutoff: Annotated[Optional[float], Field(default=None, description="Cutoff distance for kernel")] = None,
     tortuosity_length: Annotated[int, Field(default=3, description="Length scale for tortuosity smoothing")] = 3,
     interpolation: Literal["mean", "min", "max", "median"] = "mean",
-    # Choose exactly ONE of the following two:
+    step_length: Annotated[Optional[int], Field(default=None, description="Mean step length for resolution")] = None,
     movement_covariate: Optional[
         Literal["dot_product", "step_length", "speed", "sin_time", "cos_time", "tortuosity_1", "tortuosity_2"]
     ] = None,
@@ -128,10 +128,14 @@ def generate_ecograph_raster(
         df_hash = hashlib.sha256(pd.util.hash_pandas_object(gdf, index=True).values).hexdigest()
         filename = df_hash[:7]
         print(f"No filename provided. Generated filename: {filename}")
-
-    mean_step_length = float(dist_series.mean())
-    print(f"Mean step length: {mean_step_length}")
-    res = float(resolution) if resolution is not None else mean_step_length
+    if step_length is not None:
+        print(f"Using provided mean step length: {step_length}")
+        resolution = float(step_length)
+    else:
+        print("No step length provided, calculating from step distances.")
+        step_length = float(dist_series.mean())
+        print(f"Mean step length: {step_length}")
+    res = float(resolution) if resolution is not None else step_length
     if res <= 0:
         raise ValueError(f"Computed/Provided resolution must be > 0, got {res}.")
 
