@@ -1,11 +1,11 @@
 from pydantic import Field
 from typing import Annotated
 from ecoscope_workflows_core.decorators import task
-from ecoscope_workflows_core.annotations import AnyGeoDataFrame
+from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame
 
 
 @task
-def view_df(gdf: Annotated[AnyGeoDataFrame, Field(description="A GeoDataFrame to inspect")], name: str) -> None:
+def view_df(gdf: Annotated[AnyDataFrame, Field(description="A GeoDataFrame to inspect")], name: str) -> None:
     print(f"\nDisplaying data for {name}")
     print("\n--- GeoDataFrame Summary ---")
 
@@ -15,7 +15,7 @@ def view_df(gdf: Annotated[AnyGeoDataFrame, Field(description="A GeoDataFrame to
 
     print(f"Number of rows: {gdf.shape[0]}")
     print(f"Number of columns: {gdf.shape[1]}")
-    print(f"Geometry column: {gdf.geometry.name}")
+    #print(f"Geometry column: {gdf.geometry.name}")
 
     print("\n--- Column Details ---")
     for col in gdf.columns:

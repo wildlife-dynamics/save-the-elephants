@@ -11,30 +11,26 @@ from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import ViewState
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LayerDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PointLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LegendDefinition
-from typing import Union, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolygonLayerStyle
-from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_point_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolylineLayerStyle
+from typing import Union, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
+from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_point_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polygon_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polyline_layer
 from ecoscope_workflows_ext_ecoscope.tasks.analysis._time_density import CustomGridCellSize
 from ecoscope_workflows_ext_ecoscope.tasks.analysis._create_meshgrid import create_meshgrid
 from ecoscope_workflows_ext_ecoscope.tasks.analysis._calculate_feature_density import calculate_feature_density
 
-
 class MapStyleConfig(BaseModel):
     styles: Dict[str, Dict] = Field(default_factory=dict)
     legend: Dict[str, List[str]] = Field(default_factory=dict)
-
 
 class SupportedFormat(str, Enum):
     GPKG = ".gpkg"
     GEOJSON = ".geojson"
     SHP = ".shp"
 
-
 SUPPORTED_FORMATS = [f.value for f in SupportedFormat]
-
 
 class MapProcessingConfig(BaseModel):
     path: str = Field(..., description="Directory path to load geospatial files from")
@@ -48,17 +44,14 @@ class MapProcessingConfig(BaseModel):
             raise ValueError(f"Invalid path: {v}")
         return v
 
+class GeometrySummary(TypedDict):
+    primary_type: Literal["Polygon", "Point", "LineString", "Other", "Mixed", "Line"]
 
 @task
 def clean_geodataframe(
     gdf: Annotated[AnyGeoDataFrame, Field(description="The geodataframe to visualize.", exclude=True)],
 ) -> AnyGeoDataFrame:
     return gdf.loc[(~gdf.geometry.isna()) & (~gdf.geometry.is_empty)]
-
-
-class GeometrySummary(TypedDict):
-    primary_type: Literal["Polygon", "Point", "LineString", "Other", "Mixed", "Line"]
-
 
 @task
 def check_shapefile_geometry_type(data: AnyGeoDataFrame) -> str:
@@ -76,9 +69,7 @@ def check_shapefile_geometry_type(data: AnyGeoDataFrame) -> str:
             primary_type = "Other"
     else:
         primary_type = "Mixed"
-
     return primary_type
-
 
 @task
 def load_map_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFrame]:
@@ -113,9 +104,7 @@ def load_map_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFrame]:
             except Exception as e:
                 print(f"Error processing {file}: {e}")
                 traceback.print_exc()
-
     return loaded_files
-
 
 def clean_file_keys(file_dict: dict) -> dict:
     def clean_key(key: str) -> str:
@@ -126,7 +115,6 @@ def clean_file_keys(file_dict: dict) -> dict:
         return key.replace(" and ", "_").replace(" ", "_").replace(".", "")
 
     return {clean_key(k): v for k, v in file_dict.items()}
-
 
 @task
 def create_layer_from_gdf(
@@ -160,9 +148,7 @@ def create_layer_from_gdf(
     except Exception as e:
         print(f"Error creating layer for '{filename}': {e}")
         traceback.print_exc()
-
     return None
-
 
 @task
 def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapStyleConfig) -> List[LayerDefinition]:
@@ -194,64 +180,59 @@ def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapSt
     print(f"Successfully created {len(layers)} map layers")
     return layers
 
+# https://stackoverflow.com/questions/63787612/plotly-automatic-zooming-for-mapbox-maps
+# Alternative approach using both dimensions for better fitting
+def _zoom_from_bbox(minx, miny, maxx, maxy, map_width_px=800, map_height_px=600) -> float:
+    """
+    Calculate zoom level to fit bounding box in a given map size.
+    This approach considers both dimensions for optimal fitting.
 
-def _zoom_from_bbox(
-    minx,
-    miny,
-    maxx,
-    maxy,
-    viewport_width_px=1000,
-    viewport_height_px=1000,
-    padding_frac=0.10,
-    min_zoom=0.0,
-    max_zoom=20.0,
-    tile_size=256.0,
-):
-    padding_frac = max(0.0, min(0.3, float(padding_frac)))
+    Args:
+        minx, miny, maxx, maxy (float): bounding box coordinates, must be in EPSG:4326
+        map_width_px, map_height_px (int): target map dimensions in pixels
 
-    usable_width = max(1, int(viewport_width_px * (1.0 - 2.0 * padding_frac)))
-    usable_height = max(1, int(viewport_height_px * (1.0 - 2.0 * padding_frac)))
+    Returns:
+        float: zoom level that fits the bbox in the map
+    """
+    width_deg = abs(maxx - minx)
+    height_deg = abs(maxy - miny)
+    center_lat = (miny + maxy) / 2
 
-    lat_span = max(1e-12, maxy - miny)
-    lon_span = max(1e-12, maxx - minx)
+    # Convert to km
+    height_km = height_deg * 111.0
+    width_km = width_deg * 111.0 * abs(math.cos(math.radians(center_lat)))
 
-    zoom_for_width = math.log2(usable_width * 360.0 / (lon_span * tile_size))
-    zoom_for_height = math.log2(usable_height * 180.0 / (lat_span * tile_size))
-    zoom_level = min(zoom_for_width, zoom_for_height)
+    world_width_km = 40075
+    world_height_km = 40075
 
-    return round(max(min_zoom, min(max_zoom, zoom_level)), 2)
+    zoom_for_width = math.log2(world_width_km * map_width_px / (512 * width_km))
+    zoom_for_height = math.log2(world_height_km * map_height_px / (512 * height_km))
 
+    zoom = min(zoom_for_width, zoom_for_height)
+    zoom = round(max(0, min(20, zoom)), 2)
+    return zoom
 
+# magically works
 @task
-def create_view_state_from_gdf(gdf: AnyGeoDataFrame, pitch: int = 0, bearing: int = 0) -> ViewState:
+def create_view_state_from_gdf(
+    gdf: AnyGeoDataFrame, 
+    pitch: int = 0, 
+    bearing: int = 0,
+) -> ViewState:
+
     if gdf.empty:
         raise ValueError("GeoDataFrame is empty. Cannot compute ViewState.")
 
-    # Ensure CRS is geographic
     if gdf.crs is None or not gdf.crs.is_geographic:
         gdf = gdf.to_crs("EPSG:4326")
 
     minx, miny, maxx, maxy = gdf.total_bounds
     center_lon = (minx + maxx) / 2.0
     center_lat = (miny + maxy) / 2.0
-
-    zoom = _zoom_from_bbox(
-        minx,
-        miny,
-        maxx,
-        maxy,
-        viewport_width_px=1000,  # tweak if your map container differs
-        viewport_height_px=700,
-        padding_frac=0.12,  # increase to zoom out slightly; decrease to zoom in
-        tile_size=512,
-        min_zoom=2.0,
-        max_zoom=20.0,
-    )
-
-    print(f"View State zoom: {zoom}")
+    zoom = _zoom_from_bbox(minx, miny, maxx, maxy)
     return ViewState(longitude=center_lon, latitude=center_lat, zoom=zoom, pitch=pitch, bearing=bearing)
 
-
+# this is present in the ecoscope base -- should be excluded tbh
 def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     """Convert a hex color string to an RGB tuple."""
     hex_color = hex_color.lstrip("#")
@@ -259,7 +240,7 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
         raise ValueError("Hex color must be 6 characters long.")
     return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
 
-
+# this could be modified further to include more options
 @task
 def generate_density_grid(
     features_gdf: AnyGeoDataFrame, cell_size_meters: int = 2000, geometry_type: Literal["point", "line"] = "point"
@@ -285,7 +266,6 @@ def generate_density_grid(
 
     density_grid = density_grid[(density_grid["density"].notna()) & (density_grid["density"] > 0)]
     return density_grid
-
 
 @task
 def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[int, int, int]]) -> MapStyleConfig:
@@ -317,10 +297,9 @@ def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[in
 
         legend["labels"].append(aoi)
         legend["colors"].append(hex_color)
-
     return MapStyleConfig(styles=styles, legend=legend)
 
-
+# custom task to download landdx db
 @task
 def download_land_dx(
     url: Annotated[str, Field(description="URL to retrieve the LandDx database")],
@@ -339,7 +318,6 @@ def download_land_dx(
     """
     ecoscope.io.utils.download_file(url=url, path=path, overwrite_existing=overwrite_existing, unzip=unzip)
     return path
-
 
 @task
 def load_landdx_aoi(map_path: str, aoi: List[str]) -> Optional[AnyGeoDataFrame]:
@@ -365,7 +343,6 @@ def load_landdx_aoi(map_path: str, aoi: List[str]) -> Optional[AnyGeoDataFrame]:
         print("landDx.gpkg not found in the specified path.")
         return None
 
-    # Try to load and filter
     try:
         geodataframe = gpd.read_file(landDx_path, layer="landDx_polygons").set_index("globalid")
         filtered = geodataframe[geodataframe["type"].isin(aoi)]
@@ -375,7 +352,6 @@ def load_landdx_aoi(map_path: str, aoi: List[str]) -> Optional[AnyGeoDataFrame]:
     except Exception as e:
         print(f"Error loading or filtering landDx.gpkg: {e}")
         return None
-
 
 @task
 def annotate_gdf_dict_with_geometry_type(gdf_dict: Dict[str, AnyGeoDataFrame]) -> Dict[str, Dict[str, object]]:
@@ -409,9 +385,7 @@ def annotate_gdf_dict_with_geometry_type(gdf_dict: Dict[str, AnyGeoDataFrame]) -
             primary_type = "Mixed"
 
         result[name] = {"gdf": gdf, "geometry_type": primary_type}
-
     return result
-
 
 @task
 def create_map_layers_from_annotated_dict(
@@ -440,18 +414,21 @@ def create_map_layers_from_annotated_dict(
         geometry_type = content.get("geometry_type")
 
         try:
-            layer = create_layer_from_gdf(filename=name, gdf=gdf, style_config=style_config, primary_type=geometry_type)
+            layer = create_layer_from_gdf(
+                filename=name, 
+                gdf=gdf, 
+                style_config=style_config, 
+                primary_type=geometry_type
+                )
 
             if layer:
                 layers.append(layer)
-
         except Exception as e:
             print(f"Error creating layer for '{name}': {e}")
             traceback.print_exc()
 
     print(f"Created {len(layers)} layers from annotated dict")
     return layers
-
 
 @task
 def combine_map_layers(
@@ -470,5 +447,4 @@ def combine_map_layers(
         static_layers = [static_layers]
     if not isinstance(grouped_layers, list):
         grouped_layers = [grouped_layers]
-
     return static_layers + grouped_layers

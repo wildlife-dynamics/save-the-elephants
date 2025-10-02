@@ -301,7 +301,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Retrieve and Unpack LandDx Database"
+      "title": "Download LandDx Database and extract"
     },
     "load_aoi": {
       "additionalProperties": false,
@@ -405,43 +405,6 @@
       "type": "object",
       "title": "Convert Relocations to Trajectories"
     },
-    "generate_seasonal_etd": {
-      "additionalProperties": false,
-      "properties": {
-        "auto_scale_or_custom_cell_size": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AutoScaleGridCellSize"
-            },
-            {
-              "$ref": "#/$defs/CustomGridCellSize"
-            }
-          ],
-          "default": {
-            "auto_scale_or_custom": "Auto-scale"
-          },
-          "title": "Auto Scale Or Custom Grid Cell Size",
-          "ecoscope:advanced": true
-        },
-        "max_speed_factor": {
-          "default": 1.05,
-          "title": "Max Speed Factor (Kilometers per Hour)",
-          "type": "number",
-          "description": "An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
-          "ecoscope:advanced": true
-        },
-        "expansion_factor": {
-          "default": 1.05,
-          "title": "Shape Buffer Expansion Factor",
-          "type": "number",
-          "description": "Controls how far time density values spread across the grid, affecting the smoothness of the output.",
-          "ecoscope:advanced": true
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Generate Seasonal Home Range ETD"
-    },
     "sort_trajectories_by_speed": {
       "additionalProperties": false,
       "properties": {
@@ -478,20 +441,20 @@
           "default": 1.05,
           "title": "Max Speed Factor (Kilometers per Hour)",
           "type": "number",
-          "description": "An estimate of the subject's maximum speed.",
+          "description": "An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
           "ecoscope:advanced": true
         },
         "expansion_factor": {
-          "default": 1.3,
+          "default": 1.05,
           "title": "Shape Buffer Expansion Factor",
           "type": "number",
-          "description": "Controls how far time density values spread across the grid.",
+          "description": "Controls how far time density values spread across the grid, affecting the smoothness of the output.",
           "ecoscope:advanced": true
         }
       },
       "required": [],
       "type": "object",
-      "title": "Generate Home Range Ecomaps"
+      "title": "Generate Home Range Ecomap"
     },
     "generate_speed_raster": {
       "additionalProperties": false,
@@ -534,6 +497,19 @@
           "type": "integer",
           "description": "Length scale for tortuosity smoothing"
         },
+        "step_length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step Length",
+          "description": "Mean step length for resolution"
+        },
         "network_metric": {
           "anyOf": [
             {
@@ -555,7 +531,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Generate Subject Speed Rasters"
+      "title": "Generate Speed Rasters"
     },
     "sort_speed_features_by_value": {
       "additionalProperties": false,
@@ -570,6 +546,44 @@
       "required": [],
       "type": "object",
       "title": "Sort Speed Features by Value"
+    },
+    "seasonal_home_range": {
+      "additionalProperties": false,
+      "properties": {
+        "percentiles": {
+          "default": [
+            25.0,
+            50.0,
+            75.0,
+            90.0,
+            95.0,
+            99.9
+          ],
+          "items": {
+            "type": "number"
+          },
+          "title": "Percentiles",
+          "type": "array"
+        },
+        "auto_scale_or_custom_cell_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoScaleGridCellSize"
+            },
+            {
+              "$ref": "#/$defs/CustomGridCellSize"
+            }
+          ],
+          "default": {
+            "auto_scale_or_custom": "Auto-scale"
+          },
+          "title": "Auto Scale Or Custom Grid Cell Size",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Calculate seasonal home range"
     }
   },
   "$defs": {
@@ -774,13 +788,6 @@
         "unzip"
       ]
     },
-    "generate_seasonal_etd": {
-      "ui:order": [
-        "auto_scale_or_custom_cell_size",
-        "max_speed_factor",
-        "expansion_factor"
-      ]
-    },
     "generate_etd": {
       "ui:order": [
         "auto_scale_or_custom_cell_size",
@@ -794,7 +801,14 @@
         "radius",
         "cutoff",
         "tortuosity_length",
+        "step_length",
         "network_metric"
+      ]
+    },
+    "seasonal_home_range": {
+      "ui:order": [
+        "percentiles",
+        "auto_scale_or_custom_cell_size"
       ]
     },
     "ui:order": [
@@ -810,11 +824,11 @@
       "gee_project_name",
       "subject_observations",
       "convert_to_trajectories",
-      "generate_seasonal_etd",
       "sort_trajectories_by_speed",
       "generate_etd",
       "generate_speed_raster",
-      "sort_speed_features_by_value"
+      "sort_speed_features_by_value",
+      "seasonal_home_range"
     ]
   },
   "additionalProperties": false

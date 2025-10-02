@@ -5,13 +5,17 @@ initialize_workflow_metadata:
 
 # Desired time range
 define_time_range:
-  since: "2025-05-01T00:00:00Z"
-  until: "2025-08-31T23:59:59Z"
+  since: "2025-06-01T00:00:00Z"
+  until: "2025-06-15T23:59:59Z"
 
 # Connect to EarthRanger
 er_client_name:
   data_source:
     name: "ste"
+
+# er_client_name:
+#   data_source:
+#     name: "ate"
 
 # Connect to EarthEngine
 gee_project_name:
@@ -22,11 +26,16 @@ gee_project_name:
 # Value grouper /temporal grouper
 configure_grouping_strategy:
   groupers: 
-     - extra__name
+     - subject_name
 
 # Subject group name
 subject_observations:
     subject_group_name: "ecoscope"
+
+
+# subject_observations:
+#     subject_group_name: "Elephants - Big Life"
+
 
 # Subject trajectory filter
 convert_to_trajectories:
@@ -40,13 +49,7 @@ convert_to_trajectories:
 
 # Create directory to persist LandDX db 
 create_output_directory:
-  path_name: "/home/ttemu/ecoscope-workflows/outputs"
-
-
-#Link to retrieve landDx db
-# retrieve_landdx_database:
-#   url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
-
+  path_name: "/home/ttemu/ecoscope-workflows/STE-Outputs"
 
 # Specific AOI to use from LandDX db
 load_aoi:
@@ -63,21 +66,21 @@ create_styled_landdx_layers:
       Community Conservancy:
         get_fill_color: [85, 107, 47]
         get_line_color: [85, 107, 47]
-        opacity: 0.25
+        opacity: 0.20
         get_line_width: 2
         stroked: True
       
       National Reserve:
         get_fill_color: [143, 188, 139]
         get_line_color: [143, 188, 139]
-        opacity: 0.25
+        opacity: 0.20
         get_line_width: 2
         stroked: True
 
       National Park: 
         get_fill_color: [255, 250, 205]
         get_line_color: [255, 250, 205]
-        opacity: 0.25
+        opacity: 0.20
         get_line_width: 2
         stroked: True
     legend:
@@ -89,7 +92,6 @@ generate_etd:
      auto_scale_or_custom: "Customize" # you could swap this to Auto
      grid_cell_size: 500
 
-
 # Desired basemap layers
 configure_base_maps:
   base_maps:
@@ -99,3 +101,13 @@ configure_base_maps:
       opacity: 0.2
       max_zoom: 15
       min_zoom: null
+
+# subject_home_range_season:
+#   auto_scale_or_custom_cell_size:
+#     auto_scale_or_custom: "Customize" # you could swap this to Auto
+#     grid_cell_size: 500
+#     percentiles:
+#       - 99.9
+
+generate_speed_raster:
+  step_length: 2000

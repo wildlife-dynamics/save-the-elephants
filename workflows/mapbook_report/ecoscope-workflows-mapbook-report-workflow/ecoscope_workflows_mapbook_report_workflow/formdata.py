@@ -276,6 +276,9 @@ class GenerateSpeedRaster(BaseModel):
         description="Length scale for tortuosity smoothing",
         title="Tortuosity Length",
     )
+    step_length: Optional[int] = Field(
+        None, description="Mean step length for resolution", title="Step Length"
+    )
     network_metric: Optional[NetworkMetric] = Field(None, title="Network Metric")
 
 
@@ -413,7 +416,7 @@ class ConvertToTrajectories(BaseModel):
     )
 
 
-class GenerateSeasonalEtd(BaseModel):
+class GenerateEtd(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -435,25 +438,18 @@ class GenerateSeasonalEtd(BaseModel):
     )
 
 
-class GenerateEtd(BaseModel):
+class SeasonalHomeRange(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
+    )
+    percentiles: Optional[List[float]] = Field(
+        [25.0, 50.0, 75.0, 90.0, 95.0, 99.9], title="Percentiles"
     )
     auto_scale_or_custom_cell_size: Optional[
         Union[AutoScaleGridCellSize, CustomGridCellSize]
     ] = Field(
         {"auto_scale_or_custom": "Auto-scale"},
         title="Auto Scale Or Custom Grid Cell Size",
-    )
-    max_speed_factor: Optional[float] = Field(
-        1.05,
-        description="An estimate of the subject's maximum speed.",
-        title="Max Speed Factor (Kilometers per Hour)",
-    )
-    expansion_factor: Optional[float] = Field(
-        1.3,
-        description="Controls how far time density values spread across the grid.",
-        title="Shape Buffer Expansion Factor",
     )
 
 
@@ -481,7 +477,7 @@ class FormData(BaseModel):
         None, title="Create Output Directory"
     )
     retrieve_landdx_database: Optional[RetrieveLanddxDatabase] = Field(
-        None, title="Retrieve and Unpack LandDx Database"
+        None, title="Download LandDx Database and extract"
     )
     load_aoi: Optional[LoadAoi] = Field(None, title="Load AOI from landDx")
     create_styled_landdx_layers: Optional[CreateStyledLanddxLayers] = Field(
@@ -497,18 +493,18 @@ class FormData(BaseModel):
     convert_to_trajectories: Optional[ConvertToTrajectories] = Field(
         None, title="Convert Relocations to Trajectories"
     )
-    generate_seasonal_etd: Optional[GenerateSeasonalEtd] = Field(
-        None, title="Generate Seasonal Home Range ETD"
-    )
     sort_trajectories_by_speed: Optional[SortTrajectoriesBySpeed] = Field(
         None, title="Sort Trajectories by Speed Bins"
     )
     generate_etd: Optional[GenerateEtd] = Field(
-        None, title="Generate Home Range Ecomaps"
+        None, title="Generate Home Range Ecomap"
     )
     generate_speed_raster: Optional[GenerateSpeedRaster] = Field(
-        None, title="Generate Subject Speed Rasters"
+        None, title="Generate Speed Rasters"
     )
     sort_speed_features_by_value: Optional[SortSpeedFeaturesByValue] = Field(
         None, title="Sort Speed Features by Value"
+    )
+    seasonal_home_range: Optional[SeasonalHomeRange] = Field(
+        None, title="Calculate seasonal home range"
     )
