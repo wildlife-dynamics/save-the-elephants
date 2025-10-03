@@ -84,7 +84,7 @@
             }
           ],
           "items": {
-            "title": "Base Layer or Custom Layer",
+            "title": "Base Layer",
             "anyOf": [
               {
                 "properties": {
@@ -259,7 +259,7 @@
               }
             ]
           },
-          "title": "Set Map Base Layers",
+          "title": " ",
           "type": "array",
           "description": "Select tile layers to use as base layers in map outputs. The first layer in the list will be the bottommost layer displayed.",
           "ecoscope:advanced": true
@@ -369,8 +369,7 @@
       "properties": {
         "subject_group_name": {
           "title": "Subject Group Name",
-          "type": "string",
-          "description": "Name of EarthRanger Subject"
+          "type": "string"
         }
       },
       "required": [
@@ -396,7 +395,7 @@
             "min_speed_kmhr": 0.01,
             "max_speed_kmhr": 500
           },
-          "title": "Trajectory Segment Filter",
+          "title": " ",
           "description": "Filter track data by setting limits on track segment length, duration, and speed. Segments outside these bounds are removed, reducing noise and to focus on meaningful movement patterns.",
           "ecoscope:advanced": true
         }
@@ -434,7 +433,7 @@
           "default": {
             "auto_scale_or_custom": "Auto-scale"
           },
-          "title": "Auto Scale Or Custom Grid Cell Size",
+          "title": "Grid Cell Size",
           "ecoscope:advanced": true
         },
         "max_speed_factor": {
@@ -691,6 +690,7 @@
         "max_length_meters": {
           "default": 100000,
           "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
           "title": "Maximum Segment Length (Meters)",
           "type": "number"
         },
@@ -704,6 +704,7 @@
         "max_time_secs": {
           "default": 172800,
           "ecoscope:advanced": true,
+          "exclusiveMinimum": 1,
           "title": "Maximum Segment Duration (Seconds)",
           "type": "number"
         },
@@ -717,6 +718,7 @@
         "max_speed_kmhr": {
           "default": 500,
           "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
           "title": "Maximum Segment Speed (Kilometers per Hour)",
           "type": "number"
         }
