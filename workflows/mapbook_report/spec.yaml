@@ -1274,84 +1274,101 @@ workflow:
       groupers: ${{ workflow.configure_grouping_strategy.return }}
 
   # Additional steps 
+  - name: Download Mapbook cover page templates
+    id: download_mapbook_cover_page
+    task: download_file_and_persist
+    partial:
+      url: https://www.dropbox.com/scl/fi/ttouhou7vvfydlavtu93y/cover_page.docx?rlkey=zacyg42cvst4b3b5fcvvp163p&st=gllw5mnu&dl=0
+      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      overwrite_existing: false
+
+  - name: Download Mapbook section templates
+    id: download_mapbook_section_templates
+    task: download_file_and_persist
+    partial:
+      url: https://www.dropbox.com/scl/fi/2rcq4ae57pchbu53o2bsc/mapbook_subject_template.docx?rlkey=mnt41ud5beos0w45kz4wsfkvu&st=wl4hc8qm&dl=0
+      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      overwrite_existing: false
+
   # convert html to png using playwright and persist
   # 1. speedmap
-  - name: Convert speedmap html to png 
-    id: convert_speedmap_html_to_png
-    task: html_to_png
-    partial:
-      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config:
-        wait_for_timeout: 30000
-    mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_speed_ecomap_urls.return }}
+  # - name: Convert speedmap html to png 
+  #   id: convert_speedmap_html_to_png
+  #   task: html_to_png
+  #   partial:
+  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+  #     config:
+  #       wait_for_timeout: 30000
+  #   mapvalues:
+  #     argnames: html_path
+  #     argvalues: ${{ workflow.persist_speed_ecomap_urls.return }}
   
-  # 2. day/night ecomap
-  - name: Convert day/night html to png
-    id: convert_day_night_html_to_png
-    task: html_to_png
-    partial:
-      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config:
-        wait_for_timeout: 30000
-    mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_day_night_ecomap_urls.return }}
+  # # 2. day/night ecomap
+  # - name: Convert day/night html to png
+  #   id: convert_day_night_html_to_png
+  #   task: html_to_png
+  #   partial:
+  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+  #     config:
+  #       wait_for_timeout: 30000
+  #   mapvalues:
+  #     argnames: html_path
+  #     argvalues: ${{ workflow.persist_day_night_ecomap_urls.return }}
 
-  # 3. quarter movement ecomap
-  - name: Convert quarter html to png
-    id: convert_quarter_html_to_png
-    task: html_to_png
-    partial:
-      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
-        wait_for_timeout: 30000
-    mapvalues:
-      argnames: html_path 
-      argvalues: ${{ workflow.persist_quarter_ecomap_urls.return }}
+  # # 3. quarter movement ecomap
+  # - name: Convert quarter html to png
+  #   id: convert_quarter_html_to_png
+  #   task: html_to_png
+  #   partial:
+  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+  #     config: 
+  #       wait_for_timeout: 30000
+  #   mapvalues:
+  #     argnames: html_path 
+  #     argvalues: ${{ workflow.persist_quarter_ecomap_urls.return }}
 
-  # 4. home range ecomap
-  - name: Convert home range html to png
-    id: convert_hr_html_to_png
-    task: html_to_png
-    partial:
-      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config:
-        wait_for_timeout: 30000
-    mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_hr_ecomap_urls.return }}
+  # # 4. home range ecomap
+  # - name: Convert home range html to png
+  #   id: convert_hr_html_to_png
+  #   task: html_to_png
+  #   partial:
+  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+  #     config:
+  #       wait_for_timeout: 30000
+  #   mapvalues:
+  #     argnames: html_path
+  #     argvalues: ${{ workflow.persist_hr_ecomap_urls.return }}
 
-  # 5. speed raster ecomap
-  - name: Convert speed raster html to png
-    id: convert_speed_raster_html_to_png
-    task: html_to_png
-    partial:
-      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config:
-        wait_for_timeout: 30000
-    mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.speed_raster_ecomap_urls.return }}
+  # # 5. speed raster ecomap
+  # - name: Convert speed raster html to png
+  #   id: convert_speed_raster_html_to_png
+  #   task: html_to_png
+  #   partial:
+  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+  #     config:
+  #       wait_for_timeout: 30000
+  #   mapvalues:
+  #     argnames: html_path
+  #     argvalues: ${{ workflow.speed_raster_ecomap_urls.return }}
 
-  # 6. seasonal home range ecomap
-  - name: Convert seasonal home range html to png
-    id: convert_seasonal_hr_html_to_png
-    task: html_to_png
-    partial:
-      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config:
-        wait_for_timeout: 30000
-    mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}
+  # # 6. seasonal home range ecomap
+  # - name: Convert seasonal home range html to png
+  #   id: convert_seasonal_hr_html_to_png
+  #   task: html_to_png
+  #   partial:
+  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+  #     config:
+  #       wait_for_timeout: 30000
+  #   mapvalues:
+  #     argnames: html_path
+  #     argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}
   
+  #
 
-  # add these outputs to a context dictionary for use in report generation
+  # # add these outputs to a context dictionary for use in report generation
 
-  # download templates for report generation ie intro page and individual sections
+  # # download templates for report generation ie intro page and individual sections
 
-  # persist context dictionary as json for report generation
+  # # persist context dictionary as json for report generation
 
-  # generate output and merge to form a single word report 
+  # # generate output and merge to form a single word report 

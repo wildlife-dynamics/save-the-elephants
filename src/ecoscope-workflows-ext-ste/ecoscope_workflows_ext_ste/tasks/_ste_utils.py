@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 from datetime import datetime
+from pathlib import Path
 from dataclasses import dataclass
 from ecoscope.trajectory import Trajectory
 from ecoscope.base.utils import hex_to_rgba
@@ -433,7 +434,7 @@ def get_duration(
         raise ValueError("time_unit must be either 'days' or 'months'")
     
 @task
-def download_file(
+def download_file_and_persist(
     url: Annotated[str, Field(description="URL to download the file from")],
     output_path: Annotated[str, Field(description="Path to save the downloaded file")],
     retries: Annotated[int, Field(description="Number of retries on failure", ge=0)] = 3,
@@ -449,3 +450,45 @@ def download_file(
         unzip = unzip
     )
     return output_path
+
+@task
+def download_file_and_persist(
+    url: Annotated[str, Field(description="URL to download the file from")],
+    output_path: Annotated[str, Field(description="Path to save the downloaded file or directory")],
+    retries: Annotated[int, Field(description="Number of retries on failure", ge=0)] = 3,
+    overwrite_existing: Annotated[bool, Field(description="Whether to overwrite existing files")] = False,
+    unzip: Annotated[bool, Field(description="Whether to unzip the file if it's a zip archive")] = False,
+) -> str:
+    """
+    Downloads a file from the provided URL and persists it locally.
+    Returns the full path to the downloaded (and optionally unzipped) file.
+    """
+    output_dir = os.path.isdir(output_path)
+
+    # Perform download
+    download_file(
+        url=url,
+        path=output_path,
+        retries=retries,
+        overwrite_existing=overwrite_existing,
+        unzip=unzip
+    )
+
+    if output_dir:
+        import requests, email
+        s = requests.Session()
+        r = s.head(url, allow_redirects=True)
+        m = email.message.Message()
+        m["content-type"] = r.headers.get("content-disposition", m.get_default_type())
+        filename = m.get_param("filename")
+        if filename is None:
+            filename = os.path.basename(r.url.split("?")[0]) 
+        persisted_path = os.path.join(output_path, filename)
+    else:
+        persisted_path = output_path
+    persisted_path = str(Path(persisted_path).resolve())
+
+    if not os.path.exists(persisted_path):
+        raise FileNotFoundError(f"Download failed — {persisted_path} not found after execution.")
+
+    return persisted_path

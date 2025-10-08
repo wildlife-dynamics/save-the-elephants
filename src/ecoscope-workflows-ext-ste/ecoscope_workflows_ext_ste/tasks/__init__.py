@@ -27,6 +27,7 @@ from ._ste_utils import (
     create_seasonal_labels,
     generate_ecograph_raster,
     assign_quarter_status_colors,
+    download_file_and_persist,
     calculate_seasonal_home_range,
     dataframe_column_first_unique_str,
 )
@@ -47,6 +48,7 @@ __all__ = [
     "create_map_layers",
     "combine_map_layers",
     "clean_geodataframe",
+    "download_file_and_persist",
     "zip_grouped_by_key",
     "split_gdf_by_column",
     "assign_quarter_status_colors",
