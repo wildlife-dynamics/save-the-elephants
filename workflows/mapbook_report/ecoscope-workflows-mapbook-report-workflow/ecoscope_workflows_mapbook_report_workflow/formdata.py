@@ -13,6 +13,7 @@ from pydantic import (
     Field,
     RootModel,
     confloat,
+    conint,
     constr,
 )
 
@@ -289,6 +290,66 @@ class SortSpeedFeaturesByValue(BaseModel):
     )
 
 
+class DownloadMapbookCoverPage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    retries: Optional[conint(ge=0)] = Field(
+        3, description="Number of retries on failure", title="Retries"
+    )
+    unzip: Optional[bool] = Field(
+        False,
+        description="Whether to unzip the file if it's a zip archive",
+        title="Unzip",
+    )
+
+
+class DownloadSectTemplates(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    retries: Optional[conint(ge=0)] = Field(
+        3, description="Number of retries on failure", title="Retries"
+    )
+    unzip: Optional[bool] = Field(
+        False,
+        description="Whether to unzip the file if it's a zip archive",
+        title="Unzip",
+    )
+
+
+class DownloadLogoPath(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    url: str = Field(..., description="URL to download the file from", title="Url")
+    retries: Optional[conint(ge=0)] = Field(
+        3, description="Number of retries on failure", title="Retries"
+    )
+    unzip: Optional[bool] = Field(
+        False,
+        description="Whether to unzip the file if it's a zip archive",
+        title="Unzip",
+    )
+
+
+class PersistContextCover(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    filename: Optional[str] = Field(None, title="Filename")
+
+
+class IndividualMapbookContext(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    filename: Optional[str] = Field(None, title="Filename")
+    validate_images: Optional[bool] = Field(True, title="Validate Images")
+    box_h_cm: Optional[float] = Field(6.5, title="Box H Cm")
+    box_w_cm: Optional[float] = Field(11.11, title="Box W Cm")
+
+
 class TemporalGrouper(RootModel[str]):
     root: str = Field(..., title="Time")
 
@@ -502,4 +563,19 @@ class FormData(BaseModel):
     )
     seasonal_home_range: Optional[SeasonalHomeRange] = Field(
         None, title="Calculate seasonal home range"
+    )
+    download_mapbook_cover_page: Optional[DownloadMapbookCoverPage] = Field(
+        None, title="Download Mapbook cover page templates"
+    )
+    download_sect_templates: Optional[DownloadSectTemplates] = Field(
+        None, title="Download Mapbook section templates"
+    )
+    download_logo_path: Optional[DownloadLogoPath] = Field(
+        None, title="Download Logo Path"
+    )
+    persist_context_cover: Optional[PersistContextCover] = Field(
+        None, title="Persist context to cover template"
+    )
+    individual_mapbook_context: Optional[IndividualMapbookContext] = Field(
+        None, title="Create individual mapbook context"
     )

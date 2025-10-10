@@ -58,7 +58,15 @@ from ecoscope_workflows_ext_ste.tasks import dataframe_column_first_unique_str
 from ecoscope_workflows_core.tasks.results import create_text_widget_single_view
 from ecoscope_workflows_ext_ste.tasks import get_duration
 from ecoscope_workflows_core.tasks.results import gather_dashboard
+from ecoscope_workflows_ext_ste.tasks import download_file_and_persist
+from ecoscope_workflows_core.tasks.analysis import dataframe_column_nunique
+from ecoscope_workflows_ext_ste.tasks import build_mapbook_report_template
+from ecoscope_workflows_ext_ste.tasks import create_context_page
 from ecoscope_workflows_ext_custom.tasks import html_to_png
+from ecoscope_workflows_ext_ste.tasks import flatten_tuple
+from ecoscope_workflows_ext_ste.tasks import print_output
+from ecoscope_workflows_ext_ste.tasks import create_mapbook_context
+from ecoscope_workflows_core.tasks.results import gather_output_files
 
 from ..params import Params
 
@@ -1371,12 +1379,94 @@ def main(params: Params):
         .call()
     )
 
+    get_subject_name = (
+        dataframe_column_first_unique_str.validate()
+        .handle_errors(task_instance_id="get_subject_name")
+        .partial(
+            column_name="subject_name", **(params_dict.get("get_subject_name") or {})
+        )
+        .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
+    )
+
+    download_mapbook_cover_page = (
+        download_file_and_persist.validate()
+        .handle_errors(task_instance_id="download_mapbook_cover_page")
+        .partial(
+            url="https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0",
+            output_path=create_output_directory,
+            overwrite_existing=False,
+            **(params_dict.get("download_mapbook_cover_page") or {}),
+        )
+        .call()
+    )
+
+    download_sect_templates = (
+        download_file_and_persist.validate()
+        .handle_errors(task_instance_id="download_sect_templates")
+        .partial(
+            url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=76hzfzfg&dl=0",
+            output_path=create_output_directory,
+            overwrite_existing=False,
+            **(params_dict.get("download_sect_templates") or {}),
+        )
+        .call()
+    )
+
+    download_logo_path = (
+        download_file_and_persist.validate()
+        .handle_errors(task_instance_id="download_logo_path")
+        .partial(
+            output_path=create_output_directory,
+            overwrite_existing=False,
+            **(params_dict.get("download_logo_path") or {}),
+        )
+        .call()
+    )
+
+    unique_subjects = (
+        dataframe_column_nunique.validate()
+        .handle_errors(task_instance_id="unique_subjects")
+        .partial(
+            df=rename_reloc_cols,
+            column_name="subject_name",
+            **(params_dict.get("unique_subjects") or {}),
+        )
+        .call()
+    )
+
+    create_cover_template_context = (
+        build_mapbook_report_template.validate()
+        .handle_errors(task_instance_id="create_cover_template_context")
+        .partial(
+            count=unique_subjects,
+            org_logo_path=download_logo_path,
+            report_period=define_time_range,
+            prepared_by="Ecoscope Team",
+            **(params_dict.get("create_cover_template_context") or {}),
+        )
+        .call()
+    )
+
+    persist_context_cover = (
+        create_context_page.validate()
+        .handle_errors(task_instance_id="persist_context_cover")
+        .partial(
+            logo_width_cm=5.5,
+            logo_height_cm=1.93,
+            template_path=download_mapbook_cover_page,
+            output_directory=create_output_directory,
+            context=create_cover_template_context,
+            **(params_dict.get("persist_context_cover") or {}),
+        )
+        .call()
+    )
+
     convert_speedmap_html_to_png = (
         html_to_png.validate()
         .handle_errors(task_instance_id="convert_speedmap_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 30000},
+            config={"wait_for_timeout": 100},
             **(params_dict.get("convert_speedmap_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=persist_speed_ecomap_urls)
@@ -1387,7 +1477,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="convert_day_night_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 30000},
+            config={"wait_for_timeout": 100},
             **(params_dict.get("convert_day_night_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=persist_day_night_ecomap_urls)
@@ -1398,7 +1488,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="convert_quarter_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 30000},
+            config={"wait_for_timeout": 100},
             **(params_dict.get("convert_quarter_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=persist_quarter_ecomap_urls)
@@ -1409,7 +1499,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="convert_hr_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 30000},
+            config={"wait_for_timeout": 100},
             **(params_dict.get("convert_hr_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=persist_hr_ecomap_urls)
@@ -1420,7 +1510,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="convert_speed_raster_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 30000},
+            config={"wait_for_timeout": 100},
             **(params_dict.get("convert_speed_raster_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=speed_raster_ecomap_urls)
@@ -1431,10 +1521,163 @@ def main(params: Params):
         .handle_errors(task_instance_id="convert_seasonal_hr_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 30000},
+            config={"wait_for_timeout": 100},
             **(params_dict.get("convert_seasonal_hr_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=season_etd_ecomap_html_url)
     )
 
-    return convert_seasonal_hr_html_to_png
+    zip_grid_mcp = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="zip_grid_mcp")
+        .partial(
+            left=total_grid_area,
+            right=total_mcp_area,
+            **(params_dict.get("zip_grid_mcp") or {}),
+        )
+        .call()
+    )
+
+    zip_grid_mcp_quarter = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="zip_grid_mcp_quarter")
+        .partial(
+            left=zip_grid_mcp,
+            right=convert_quarter_html_to_png,
+            **(params_dict.get("zip_grid_mcp_quarter") or {}),
+        )
+        .call()
+    )
+
+    zip_grid_mcp_quarter_hr = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="zip_grid_mcp_quarter_hr")
+        .partial(
+            left=zip_grid_mcp_quarter,
+            right=convert_hr_html_to_png,
+            **(params_dict.get("zip_grid_mcp_quarter_hr") or {}),
+        )
+        .call()
+    )
+
+    zip_grid_mcp_speedraster = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="zip_grid_mcp_speedraster")
+        .partial(
+            left=zip_grid_mcp_quarter_hr,
+            right=convert_speed_raster_html_to_png,
+            **(params_dict.get("zip_grid_mcp_speedraster") or {}),
+        )
+        .call()
+    )
+
+    zip_grid_mcp_dn = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="zip_grid_mcp_dn")
+        .partial(
+            left=zip_grid_mcp_speedraster,
+            right=convert_day_night_html_to_png,
+            **(params_dict.get("zip_grid_mcp_dn") or {}),
+        )
+        .call()
+    )
+
+    zip_grid_dn_speedmap = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="zip_grid_dn_speedmap")
+        .partial(
+            left=zip_grid_mcp_dn,
+            right=convert_speedmap_html_to_png,
+            **(params_dict.get("zip_grid_dn_speedmap") or {}),
+        )
+        .call()
+    )
+
+    zip_all_mapbook_context_inputs = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="zip_all_mapbook_context_inputs")
+        .partial(
+            left=zip_grid_dn_speedmap,
+            right=convert_seasonal_hr_html_to_png,
+            **(params_dict.get("zip_all_mapbook_context_inputs") or {}),
+        )
+        .call()
+    )
+
+    zip_all_with_name = (
+        zip_grouped_by_key.validate()
+        .handle_errors(task_instance_id="zip_all_with_name")
+        .partial(
+            left=zip_all_mapbook_context_inputs,
+            right=get_subject_name,
+            **(params_dict.get("zip_all_with_name") or {}),
+        )
+        .call()
+    )
+
+    flatten_mbook_context = (
+        flatten_tuple.validate()
+        .handle_errors(task_instance_id="flatten_mbook_context")
+        .partial(**(params_dict.get("flatten_mbook_context") or {}))
+        .mapvalues(argnames=["nested"], argvalues=zip_all_with_name)
+    )
+
+    print_flatten_context = (
+        print_output.validate()
+        .handle_errors(task_instance_id="print_flatten_context")
+        .partial(**(params_dict.get("print_flatten_context") or {}))
+        .mapvalues(argnames=["value"], argvalues=flatten_mbook_context)
+    )
+
+    individual_mapbook_context = (
+        create_mapbook_context.validate()
+        .handle_errors(task_instance_id="individual_mapbook_context")
+        .partial(
+            template_path=download_sect_templates,
+            output_directory=create_output_directory,
+            subject_name=get_subject_name,
+            time_period=define_time_range,
+            period=report_duration,
+            **(params_dict.get("individual_mapbook_context") or {}),
+        )
+        .mapvalues(
+            argnames=[
+                "grid_area",
+                "mcp_area",
+                "movement_tracks_ecomap",
+                "home_range_ecomap",
+                "speed_raster_ecomap",
+                "night_day_ecomap",
+                "speedmap",
+                "seasonal_homerange",
+                "subject_name",
+            ],
+            argvalues=flatten_mbook_context,
+        )
+    )
+
+    print_indv_outputs = (
+        print_output.validate()
+        .handle_errors(task_instance_id="print_indv_outputs")
+        .partial(**(params_dict.get("print_indv_outputs") or {}))
+        .mapvalues(argnames=["value"], argvalues=individual_mapbook_context)
+    )
+
+    gather_mbook_files = (
+        gather_output_files.validate()
+        .handle_errors(task_instance_id="gather_mbook_files")
+        .partial(
+            files=individual_mapbook_context,
+            **(params_dict.get("gather_mbook_files") or {}),
+        )
+        .call()
+    )
+
+    print_mbook_outputs = (
+        print_output.validate()
+        .handle_errors(task_instance_id="print_mbook_outputs")
+        .partial(**(params_dict.get("print_mbook_outputs") or {}))
+        .mapvalues(argnames=["value"], argvalues=gather_mbook_files)
+    )
+
+    return print_mbook_outputs

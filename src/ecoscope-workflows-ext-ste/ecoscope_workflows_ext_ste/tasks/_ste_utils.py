@@ -1,24 +1,41 @@
 import os
+import uuid
 import hashlib
 import numpy as np 
 import pandas as pd
 import geopandas as gpd
-from datetime import datetime
 from pathlib import Path
-from dataclasses import dataclass
+from docx.shared import Cm
+from datetime import datetime
+from ecoscope.io import download_file
+from dataclasses import asdict,dataclass
 from ecoscope.trajectory import Trajectory
 from ecoscope.base.utils import hex_to_rgba
+from docxtpl import DocxTemplate,InlineImage 
 from pydantic.json_schema import SkipJsonSchema
 from dateutil.relativedelta import relativedelta
 from pydantic import Field, BaseModel, ConfigDict
 from ecoscope_workflows_core.decorators import task
-from ecoscope.io import download_file
-from typing import Annotated, Optional, Dict, cast, Literal
 from ecoscope.analysis.ecograph import Ecograph, get_feature_gdf
 from ecoscope_workflows_core.tasks.filter._filter import TimeRange 
+from typing import Annotated, Optional, Dict, cast, Literal,Union
 from ecoscope.analysis.seasons import seasonal_windows, std_ndvi_vals, val_cuts
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import calculate_elliptical_time_density
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, AdvancedField
+
+@dataclass
+class MapbookContext:
+    subject_name: Optional[str] = None
+    time_period: Optional[str] = None
+    period: Optional[Union[int, float]] = None
+    grid_area: Optional[Union[int, float]] = None
+    mcp_area: Optional[Union[int, float]] = None
+    movement_tracks_ecomap: Optional[str] = None
+    home_range_ecomap: Optional[str] = None
+    speedmap: Optional[str] = None
+    speed_raster_ecomap: Optional[str] = None
+    night_day_ecomap: Optional[str] = None
+    seasonal_homerange: Optional[str] = None
 
 class AutoScaleGridCellSize(BaseModel):
     model_config = ConfigDict(json_schema_extra={"title": "Auto-scale"})
@@ -492,3 +509,195 @@ def download_file_and_persist(
         raise FileNotFoundError(f"Download failed — {persisted_path} not found after execution.")
 
     return persisted_path
+
+@task
+def build_mapbook_report_template(
+    count: int,
+    org_logo_path: Union[str, Path],
+    report_period:TimeRange,
+    prepared_by: str,
+) -> Dict[str, str]:
+    """
+    Build a dictionary with the mapbook report template values.
+
+    Args:
+        count (int): Total number of subjects or records.
+        org_logo_path (Union[str, Path]): Path to the organization logo file.
+        report_period (TimeRange): Object with 'since', 'until', and 'time_format' attributes.
+        prepared_by (str): Name of the person or organization preparing the report.
+
+    Returns:
+        Dict[str, str]: Structured dictionary with formatted metadata.
+    """
+    if isinstance(org_logo_path, (str, Path)):
+        org_logo_path = Path(org_logo_path)
+        org_logo_path = str(org_logo_path.resolve()) if org_logo_path.exists() else str(org_logo_path)
+
+    formatted_date = datetime.now()
+    formatted_date_str = formatted_date.strftime("%Y-%m-%d %H:%M:%S")
+    fmt = getattr(report_period, "time_format", "%Y-%m-%d")
+    formatted_time_range = (
+        f"{report_period.since.strftime(fmt)} to {report_period.until.strftime(fmt)}"
+    )
+
+    print(f"Report period: {formatted_time_range}")
+    print(f"Report date generated: {formatted_date_str}")
+    print(f"Report prepared by: {prepared_by}")
+    print(f"Report count: {count}")
+    print(f"Organization logo path: {org_logo_path}")
+    print(f"Report ID: REP-{uuid.uuid4().hex[:8].upper()}")
+
+    # Return structured dictionary
+    return {
+        "report_id": f"REP-{uuid.uuid4().hex[:8].upper()}",
+        "subject_count": str(count),
+        "org_logo_path": org_logo_path,
+        "time_generated": formatted_date_str,
+        "report_period": formatted_time_range,
+        "prepared_by": prepared_by,
+    }
+
+@task
+def create_context_page(
+    template_path: str,
+    output_directory: str,
+    context: dict,
+    logo_width_cm: float = 7.7,
+    logo_height_cm: float = 1.93,
+    filename: str = None
+) -> str:
+    """
+    Create a context page document from a template and context dictionary.
+
+    Args:
+        template_path (str): Path to the .docx template file.
+        output_directory (str): Directory to save the generated .docx file.
+        context (dict): Dictionary with context values for the template.
+        filename (str, optional): Optional filename for the generated file.
+            If not provided, a random UUID-based filename will be generated.
+
+    Returns:
+        str: Full path to the generated .docx file.
+    """
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(f"Template file not found: {template_path}")
+
+    os.makedirs(output_directory, exist_ok=True)
+    if not filename:
+        filename = f"context_page_{uuid.uuid4().hex}.docx"
+    output_path = Path(output_directory) / filename
+
+    doc = DocxTemplate(template_path)
+    if "org_logo_path" in context and os.path.exists(context["org_logo_path"]):
+        context["org_logo"] = InlineImage(
+            doc,
+            context["org_logo_path"],
+            width=Cm(logo_width_cm),
+            height=Cm(logo_height_cm),
+        )
+
+    doc.render(context)
+    doc.save(output_path)
+    return str(output_path)
+
+@task
+def create_mapbook_context(
+    template_path: str,
+    output_directory: str,
+    filename: Optional[str] = None,
+    subject_name: Optional[str] = None,
+    time_period: Optional[TimeRange] = None,
+    period: Optional[Union[int, float]] = None,
+    grid_area: Optional[Union[int, float]] = None,
+    mcp_area: Optional[Union[int, float]] = None,
+    movement_tracks_ecomap: Optional[str] = None,
+    home_range_ecomap: Optional[str] = None,
+    speedmap: Optional[str] = None,
+    speed_raster_ecomap: Optional[str] = None,
+    night_day_ecomap: Optional[str] = None,
+    seasonal_homerange: Optional[str] = None,
+    validate_images: bool = True,
+    box_h_cm: float = 6.5,
+    box_w_cm: float = 11.11,
+) -> str:
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(f"Template file not found: {template_path}")
+    os.makedirs(output_directory, exist_ok=True)
+    if not filename:
+        filename = f"mapbook_context_{uuid.uuid4().hex}.docx"
+    output_path = Path(output_directory) / filename
+    time_period_str = None
+    if time_period:
+        fmt = getattr(time_period, "time_format", "%Y-%m-%d")
+        time_period_str = f"{time_period.since.strftime(fmt)} to {time_period.until.strftime(fmt)}"
+
+    result = {}
+    tpl = DocxTemplate(template_path)
+    ctx = MapbookContext(
+        subject_name=subject_name,
+        time_period=time_period_str,
+        period=period,
+        grid_area=grid_area,
+        mcp_area=mcp_area,
+        movement_tracks_ecomap=movement_tracks_ecomap,
+        home_range_ecomap=home_range_ecomap,
+        speedmap=speedmap,
+        speed_raster_ecomap=speed_raster_ecomap,
+        night_day_ecomap=night_day_ecomap,
+        seasonal_homerange=seasonal_homerange,
+    )
+    if validate_images:
+        for field_name, value in asdict(ctx).items():
+            if isinstance(value, str) and Path(value).suffix.lower() in (".png", ".jpg", ".jpeg"):
+                p = Path(value)
+                if not p.exists() or not p.is_file():
+                    warnings.warn(f"Image for '{field_name}' not found or not a file: {value}")
+
+    base = asdict(ctx)
+
+    for key, value in base.items():
+        if isinstance(value, str) and Path(value).suffix.lower() in (".png", ".jpg", ".jpeg"):
+            result[key] = InlineImage(tpl, value, width=Cm(box_w_cm), height=Cm(box_h_cm))
+        else:
+            result[key] = value
+
+    tpl.render(result)
+    tpl.save(output_path)
+    return str(output_path)
+
+#combine cover_page and context pages into a single docx
+@task
+def combine_docx_files(
+    cover_page_path: str,
+    context_page_paths: list[str],
+    output_directory: str,
+    filename: Optional[str] = None,
+) -> str:
+    from docx import Document 
+    from docxcompose.composer import Composer
+
+    if not os.path.exists(cover_page_path):
+        raise FileNotFoundError(f"Cover page file not found: {cover_page_path}")
+    
+    for path in context_page_paths:
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Context page file not found: {path}")
+    
+    os.makedirs(output_directory, exist_ok=True)
+
+    if not filename:
+        filename = f"overall_mapbook_{uuid.uuid4().hex}.docx"
+    output_path = Path(output_directory) / filename
+
+    master = Document(cover_page_path)
+    composer = Composer(master)
+
+    for doc_path in context_page_paths:
+        doc = Document(doc_path)
+        composer.append(doc)
+    composer.save(output_path)
+    return str(output_path)
+
+
+
+

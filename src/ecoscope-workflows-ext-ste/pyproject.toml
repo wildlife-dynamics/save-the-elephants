@@ -69,6 +69,8 @@ ecoscope-workflows-ext-ecoscope=">=0.7.2"
 ecoscope-workflows-ext-custom = "0.0.3.*"
 #ecoscope = { extras = ["analysis"], version = "*" }
 earthengine-api ="*"
+docxtpl="*"
+playwright="*"
 
 # additional dependencies added by this extension
 

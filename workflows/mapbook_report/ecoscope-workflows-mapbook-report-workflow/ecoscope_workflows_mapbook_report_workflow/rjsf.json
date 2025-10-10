@@ -583,6 +583,124 @@
       "required": [],
       "type": "object",
       "title": "Calculate seasonal home range"
+    },
+    "download_mapbook_cover_page": {
+      "additionalProperties": false,
+      "properties": {
+        "retries": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer",
+          "description": "Number of retries on failure"
+        },
+        "unzip": {
+          "default": false,
+          "title": "Unzip",
+          "type": "boolean",
+          "description": "Whether to unzip the file if it's a zip archive"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Download Mapbook cover page templates"
+    },
+    "download_sect_templates": {
+      "additionalProperties": false,
+      "properties": {
+        "retries": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer",
+          "description": "Number of retries on failure"
+        },
+        "unzip": {
+          "default": false,
+          "title": "Unzip",
+          "type": "boolean",
+          "description": "Whether to unzip the file if it's a zip archive"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Download Mapbook section templates"
+    },
+    "download_logo_path": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string",
+          "description": "URL to download the file from"
+        },
+        "retries": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer",
+          "description": "Number of retries on failure"
+        },
+        "unzip": {
+          "default": false,
+          "title": "Unzip",
+          "type": "boolean",
+          "description": "Whether to unzip the file if it's a zip archive"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object",
+      "title": "Download Logo Path"
+    },
+    "persist_context_cover": {
+      "additionalProperties": false,
+      "properties": {
+        "filename": {
+          "default": null,
+          "title": "Filename",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Persist context to cover template"
+    },
+    "individual_mapbook_context": {
+      "additionalProperties": false,
+      "properties": {
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        },
+        "validate_images": {
+          "default": true,
+          "title": "Validate Images",
+          "type": "boolean"
+        },
+        "box_h_cm": {
+          "default": 6.5,
+          "title": "Box H Cm",
+          "type": "number"
+        },
+        "box_w_cm": {
+          "default": 11.11,
+          "title": "Box W Cm",
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Create individual mapbook context"
     }
   },
   "$defs": {
@@ -813,6 +931,33 @@
         "auto_scale_or_custom_cell_size"
       ]
     },
+    "download_mapbook_cover_page": {
+      "ui:order": [
+        "retries",
+        "unzip"
+      ]
+    },
+    "download_sect_templates": {
+      "ui:order": [
+        "retries",
+        "unzip"
+      ]
+    },
+    "download_logo_path": {
+      "ui:order": [
+        "url",
+        "retries",
+        "unzip"
+      ]
+    },
+    "individual_mapbook_context": {
+      "ui:order": [
+        "filename",
+        "validate_images",
+        "box_h_cm",
+        "box_w_cm"
+      ]
+    },
     "ui:order": [
       "initialize_workflow_metadata",
       "define_time_range",
@@ -830,7 +975,12 @@
       "generate_etd",
       "generate_speed_raster",
       "sort_speed_features_by_value",
-      "seasonal_home_range"
+      "seasonal_home_range",
+      "download_mapbook_cover_page",
+      "download_sect_templates",
+      "download_logo_path",
+      "persist_context_cover",
+      "individual_mapbook_context"
     ]
   },
   "additionalProperties": false

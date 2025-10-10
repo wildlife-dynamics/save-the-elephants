@@ -1,20 +1,21 @@
 # write test functions for these functions
 from ._map_utils import (
+    load_map_files,
     load_landdx_aoi,
     download_land_dx,
     create_map_layers,
     clean_geodataframe,
     combine_map_layers,
+    create_layer_from_gdf,
     generate_density_grid,
     build_landdx_style_config,
     create_view_state_from_gdf,
     check_shapefile_geometry_type,
     annotate_gdf_dict_with_geometry_type,
     create_map_layers_from_annotated_dict,
-    load_map_files,
-    create_layer_from_gdf,
 )
-from ._inspect import view_df # testing only
+
+from ._inspect import view_df,print_output # testing only
 from ._file_ import create_directory # testing only
 
 # write test functions for these functions
@@ -29,17 +30,24 @@ from ._ste_utils import (
     assign_quarter_status_colors,
     download_file_and_persist,
     calculate_seasonal_home_range,
+    build_mapbook_report_template,
     dataframe_column_first_unique_str,
+    create_context_page,
+    create_mapbook_context,
+    combine_docx_files
 )
 
-from ._zip import zip_grouped_by_key
+from ._zip import zip_grouped_by_key ,flatten_tuple
 
 from ._example import add_one_thousand # exclude this
 
 __all__ = [
     "view_df",
+    "print_output",
     "add_one_thousand",
     "get_duration",
+    "combine_docx_files",
+    "flatten_tuple",
     "generate_mcp_gdf",
     "load_map_files",
     "load_landdx_aoi",
@@ -58,7 +66,10 @@ __all__ = [
     "generate_density_grid",
     "create_layer_from_gdf",
     "create_seasonal_labels",
+    "create_context_page",
+    "create_mapbook_context",
     "build_landdx_style_config",
+    "build_mapbook_report_template",
     "create_view_state_from_gdf",
     "check_shapefile_geometry_type",
     "calculate_seasonal_home_range",

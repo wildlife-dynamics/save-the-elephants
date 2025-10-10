@@ -1273,102 +1273,262 @@ workflow:
       time_range: ${{ workflow.define_time_range.return }}
       groupers: ${{ workflow.configure_grouping_strategy.return }}
 
+  - name: Get subject name
+    id: get_subject_name
+    task: dataframe_column_first_unique_str
+    partial:
+      column_name: subject_name
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.split_trajectories_by_group.return }}
+
   # Additional steps 
   - name: Download Mapbook cover page templates
     id: download_mapbook_cover_page
     task: download_file_and_persist
     partial:
-      url: https://www.dropbox.com/scl/fi/ttouhou7vvfydlavtu93y/cover_page.docx?rlkey=zacyg42cvst4b3b5fcvvp163p&st=gllw5mnu&dl=0
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      url: https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0
+      output_path: ${{ workflow.create_output_directory.return }}
       overwrite_existing: false
 
   - name: Download Mapbook section templates
-    id: download_mapbook_section_templates
+    id: download_sect_templates
     task: download_file_and_persist
     partial:
-      url: https://www.dropbox.com/scl/fi/2rcq4ae57pchbu53o2bsc/mapbook_subject_template.docx?rlkey=mnt41ud5beos0w45kz4wsfkvu&st=wl4hc8qm&dl=0
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      url: https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=76hzfzfg&dl=0
+      output_path: ${{ workflow.create_output_directory.return }}
       overwrite_existing: false
+
+  - name: Download Logo Path 
+    id: download_logo_path
+    task: download_file_and_persist
+    partial:
+      output_path: ${{ workflow.create_output_directory.return }}
+      overwrite_existing: false 
+
+  - name: Unique subjects on relocs
+    id: unique_subjects
+    task: dataframe_column_nunique
+    partial:
+      df: ${{ workflow.rename_reloc_cols.return }}
+      column_name: subject_name
+
+  - name: Create cover template context 
+    id: create_cover_template_context
+    task: build_mapbook_report_template
+    partial:
+      count: ${{ workflow.unique_subjects.return }}
+      org_logo_path: ${{ workflow.download_logo_path.return }}
+      report_period: ${{ workflow.define_time_range.return }}
+      prepared_by: "Ecoscope Team"
+      
+  - name: Persist context to cover template
+    id: persist_context_cover
+    task: create_context_page
+    partial:
+      logo_width_cm: 5.5
+      logo_height_cm: 1.93
+      template_path: ${{ workflow.download_mapbook_cover_page.return }}
+      output_directory: ${{ workflow.create_output_directory.return }}
+      context: ${{ workflow.create_cover_template_context.return }}
+  
 
   # convert html to png using playwright and persist
   # 1. speedmap
-  # - name: Convert speedmap html to png 
-  #   id: convert_speedmap_html_to_png
-  #   task: html_to_png
-  #   partial:
-  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-  #     config:
-  #       wait_for_timeout: 30000
-  #   mapvalues:
-  #     argnames: html_path
-  #     argvalues: ${{ workflow.persist_speed_ecomap_urls.return }}
+  - name: Convert speedmap html to png 
+    id: convert_speedmap_html_to_png
+    task: html_to_png
+    partial:
+      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      config:
+        wait_for_timeout: 10
+    mapvalues:
+      argnames: html_path
+      argvalues: ${{ workflow.persist_speed_ecomap_urls.return }}
   
-  # # 2. day/night ecomap
-  # - name: Convert day/night html to png
-  #   id: convert_day_night_html_to_png
-  #   task: html_to_png
-  #   partial:
-  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-  #     config:
-  #       wait_for_timeout: 30000
+  # 2. day/night ecomap
+  - name: Convert day/night html to png
+    id: convert_day_night_html_to_png
+    task: html_to_png
+    partial:
+      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      config:
+        wait_for_timeout: 10
+    mapvalues:
+      argnames: html_path
+      argvalues: ${{ workflow.persist_day_night_ecomap_urls.return }}
+
+  # 3. quarter movement ecomap
+  - name: Convert quarter html to png
+    id: convert_quarter_html_to_png
+    task: html_to_png
+    partial:
+      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      config: 
+        wait_for_timeout: 10
+    mapvalues:
+      argnames: html_path 
+      argvalues: ${{ workflow.persist_quarter_ecomap_urls.return }}
+
+  # 4. home range ecomap
+  - name: Convert home range html to png
+    id: convert_hr_html_to_png
+    task: html_to_png
+    partial:
+      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      config:
+        wait_for_timeout: 10
+    mapvalues:
+      argnames: html_path
+      argvalues: ${{ workflow.persist_hr_ecomap_urls.return }}
+
+  # 5. speed raster ecomap
+  - name: Convert speed raster html to png
+    id: convert_speed_raster_html_to_png
+    task: html_to_png
+    partial:
+      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      config:
+        wait_for_timeout: 10
+    mapvalues:
+      argnames: html_path
+      argvalues: ${{ workflow.speed_raster_ecomap_urls.return }}
+
+  # 6. seasonal home range ecomap
+  - name: Convert seasonal home range html to png
+    id: convert_seasonal_hr_html_to_png
+    task: html_to_png
+    partial:
+      output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      config:
+        wait_for_timeout: 10
+    mapvalues:
+      argnames: html_path
+      argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}
+
+    # === Zip mapbook context inputs into a single grouped iterable ===
+  - name: Zip grid and mcp
+    id: zip_grid_mcp
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.total_grid_area.return }}
+      right: ${{ workflow.total_mcp_area.return }}
+
+  - name: Zip with quarter png
+    id: zip_grid_mcp_quarter
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp.return }}
+      right: ${{ workflow.convert_quarter_html_to_png.return }}
+
+  - name: Zip with hr png
+    id: zip_grid_mcp_quarter_hr
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_quarter.return }}
+      right: ${{ workflow.convert_hr_html_to_png.return }}
+
+  - name: Zip with speed raster png
+    id: zip_grid_mcp_speedraster
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_quarter_hr.return }}
+      right: ${{ workflow.convert_speed_raster_html_to_png.return }}
+
+  - name: Zip with day/night png
+    id: zip_grid_mcp_dn
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_speedraster.return }}
+      right: ${{ workflow.convert_day_night_html_to_png.return }}
+
+  - name: Zip with speedmap png
+    id: zip_grid_dn_speedmap
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_dn.return }}
+      right: ${{ workflow.convert_speedmap_html_to_png.return }}
+
+  - name: Zip with seasonal hr png (final)
+    id: zip_all_mapbook_context_inputs
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_dn_speedmap.return }}
+      right: ${{ workflow.convert_seasonal_hr_html_to_png.return }}
+  - name: Zip with subject name
+    id: zip_all_with_name
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_all_mapbook_context_inputs.return }}
+      right: ${{ workflow.get_subject_name.return }}
+
+  - name: Flatten zipped mapbook context inputs
+    id: flatten_mbook_context
+    task: flatten_tuple
+    mapvalues:
+      argnames: nested
+      argvalues: ${{ workflow.zip_all_with_name.return }}
+
+  - name: print output value 
+    id: print_flatten_context
+    task: print_output
+    mapvalues:
+      argnames: value
+      argvalues: ${{ workflow.flatten_mbook_context.return }}
+
+  - name: Create individual mapbook context
+    id: individual_mapbook_context
+    task: create_mapbook_context
+    partial:
+      template_path: ${{ workflow.download_sect_templates.return }}
+      output_directory: ${{ workflow.create_output_directory.return }}
+      subject_name: ${{ workflow.get_subject_name.return }}
+      time_period: ${{ workflow.define_time_range.return }}
+      period: ${{ workflow.report_duration.return }} # months
+    mapvalues:
+      argnames:
+        - grid_area
+        - mcp_area
+        - movement_tracks_ecomap
+        - home_range_ecomap
+        - speed_raster_ecomap
+        - night_day_ecomap
+        - speedmap
+        - seasonal_homerange
+        - subject_name
+      argvalues: ${{ workflow.flatten_mbook_context.return }}
+
+  - name: print individual mapbook outputs
+    id: print_indv_outputs
+    task: print_output
+    mapvalues:
+      argnames: value
+      argvalues: ${{ workflow.individual_mapbook_context.return }}
+
+  - name: Gather mapbook context output files
+    id: gather_mbook_files
+    task: gather_output_files
+    partial:
+      files:
+        - ${{ workflow.individual_mapbook_context.return }}
+
+    
+  # - name: print output files list
+  #   id: print_mbook_outputs
+  #   task: print_output
   #   mapvalues:
-  #     argnames: html_path
-  #     argvalues: ${{ workflow.persist_day_night_ecomap_urls.return }}
+  #     argnames: value
+  #     argvalues: ${{ workflow.gather_mbook_files.return }}
 
-  # # 3. quarter movement ecomap
-  # - name: Convert quarter html to png
-  #   id: convert_quarter_html_to_png
-  #   task: html_to_png
-  #   partial:
-  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-  #     config: 
-  #       wait_for_timeout: 30000
-  #   mapvalues:
-  #     argnames: html_path 
-  #     argvalues: ${{ workflow.persist_quarter_ecomap_urls.return }}
+  # func to merge all individual subject mapbook sections and cover page
+  - name: Generate final mapbook report
+    id: generate_mapbook_report
+    task: combine_docx_files
+    partial:
+      cover_page_path: ${{ workflow.persist_context_cover.return }}
+      output_directory: ${{ workflow.create_output_directory.return }}
+      filename: mapbook_report.docx
+    mapvalues:
+      argnames: context_page_paths
+      argvalues: ${{ workflow.gather_mbook_files.return }}
 
-  # # 4. home range ecomap
-  # - name: Convert home range html to png
-  #   id: convert_hr_html_to_png
-  #   task: html_to_png
-  #   partial:
-  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-  #     config:
-  #       wait_for_timeout: 30000
-  #   mapvalues:
-  #     argnames: html_path
-  #     argvalues: ${{ workflow.persist_hr_ecomap_urls.return }}
-
-  # # 5. speed raster ecomap
-  # - name: Convert speed raster html to png
-  #   id: convert_speed_raster_html_to_png
-  #   task: html_to_png
-  #   partial:
-  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-  #     config:
-  #       wait_for_timeout: 30000
-  #   mapvalues:
-  #     argnames: html_path
-  #     argvalues: ${{ workflow.speed_raster_ecomap_urls.return }}
-
-  # # 6. seasonal home range ecomap
-  # - name: Convert seasonal home range html to png
-  #   id: convert_seasonal_hr_html_to_png
-  #   task: html_to_png
-  #   partial:
-  #     output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-  #     config:
-  #       wait_for_timeout: 30000
-  #   mapvalues:
-  #     argnames: html_path
-  #     argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}
-  
-  #
-
-  # # add these outputs to a context dictionary for use in report generation
-
-  # # download templates for report generation ie intro page and individual sections
-
-  # # persist context dictionary as json for report generation
-
-  # # generate output and merge to form a single word report 

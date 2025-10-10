@@ -67,7 +67,15 @@ from ecoscope_workflows_ext_ste.tasks import dataframe_column_first_unique_str
 from ecoscope_workflows_core.tasks.results import create_text_widget_single_view
 from ecoscope_workflows_ext_ste.tasks import get_duration
 from ecoscope_workflows_core.tasks.results import gather_dashboard
+from ecoscope_workflows_ext_ste.tasks import download_file_and_persist
+from ecoscope_workflows_core.tasks.analysis import dataframe_column_nunique
+from ecoscope_workflows_ext_ste.tasks import build_mapbook_report_template
+from ecoscope_workflows_ext_ste.tasks import create_context_page
 from ecoscope_workflows_ext_custom.tasks import html_to_png
+from ecoscope_workflows_ext_ste.tasks import flatten_tuple
+from ecoscope_workflows_ext_ste.tasks import print_output
+from ecoscope_workflows_ext_ste.tasks import create_mapbook_context
+from ecoscope_workflows_core.tasks.results import gather_output_files
 
 # %% [markdown]
 # ## Initialize Workflow Metadata
@@ -2646,6 +2654,182 @@ mapbook_dashboard = (
 
 
 # %% [markdown]
+# ## Get subject name
+
+# %%
+# parameters
+
+get_subject_name_params = dict()
+
+# %%
+# call the task
+
+
+get_subject_name = (
+    dataframe_column_first_unique_str.handle_errors(task_instance_id="get_subject_name")
+    .partial(column_name="subject_name", **get_subject_name_params)
+    .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
+)
+
+
+# %% [markdown]
+# ## Download Mapbook cover page templates
+
+# %%
+# parameters
+
+download_mapbook_cover_page_params = dict(
+    retries=...,
+    unzip=...,
+)
+
+# %%
+# call the task
+
+
+download_mapbook_cover_page = (
+    download_file_and_persist.handle_errors(
+        task_instance_id="download_mapbook_cover_page"
+    )
+    .partial(
+        url="https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0",
+        output_path=create_output_directory,
+        overwrite_existing=False,
+        **download_mapbook_cover_page_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Download Mapbook section templates
+
+# %%
+# parameters
+
+download_sect_templates_params = dict(
+    retries=...,
+    unzip=...,
+)
+
+# %%
+# call the task
+
+
+download_sect_templates = (
+    download_file_and_persist.handle_errors(task_instance_id="download_sect_templates")
+    .partial(
+        url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=76hzfzfg&dl=0",
+        output_path=create_output_directory,
+        overwrite_existing=False,
+        **download_sect_templates_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Download Logo Path
+
+# %%
+# parameters
+
+download_logo_path_params = dict(
+    url=...,
+    retries=...,
+    unzip=...,
+)
+
+# %%
+# call the task
+
+
+download_logo_path = (
+    download_file_and_persist.handle_errors(task_instance_id="download_logo_path")
+    .partial(
+        output_path=create_output_directory,
+        overwrite_existing=False,
+        **download_logo_path_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Unique subjects on relocs
+
+# %%
+# parameters
+
+unique_subjects_params = dict()
+
+# %%
+# call the task
+
+
+unique_subjects = (
+    dataframe_column_nunique.handle_errors(task_instance_id="unique_subjects")
+    .partial(df=rename_reloc_cols, column_name="subject_name", **unique_subjects_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Create cover template context
+
+# %%
+# parameters
+
+create_cover_template_context_params = dict()
+
+# %%
+# call the task
+
+
+create_cover_template_context = (
+    build_mapbook_report_template.handle_errors(
+        task_instance_id="create_cover_template_context"
+    )
+    .partial(
+        count=unique_subjects,
+        org_logo_path=download_logo_path,
+        report_period=define_time_range,
+        prepared_by="Ecoscope Team",
+        **create_cover_template_context_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Persist context to cover template
+
+# %%
+# parameters
+
+persist_context_cover_params = dict(
+    filename=...,
+)
+
+# %%
+# call the task
+
+
+persist_context_cover = (
+    create_context_page.handle_errors(task_instance_id="persist_context_cover")
+    .partial(
+        logo_width_cm=5.5,
+        logo_height_cm=1.93,
+        template_path=download_mapbook_cover_page,
+        output_directory=create_output_directory,
+        context=create_cover_template_context,
+        **persist_context_cover_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Convert speedmap html to png
 
 # %%
@@ -2661,7 +2845,7 @@ convert_speedmap_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_speedmap_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 30000},
+        config={"wait_for_timeout": 100},
         **convert_speedmap_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_speed_ecomap_urls)
@@ -2684,7 +2868,7 @@ convert_day_night_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_day_night_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 30000},
+        config={"wait_for_timeout": 100},
         **convert_day_night_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_day_night_ecomap_urls)
@@ -2707,7 +2891,7 @@ convert_quarter_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_quarter_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 30000},
+        config={"wait_for_timeout": 100},
         **convert_quarter_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_quarter_ecomap_urls)
@@ -2730,7 +2914,7 @@ convert_hr_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_hr_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 30000},
+        config={"wait_for_timeout": 100},
         **convert_hr_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_hr_ecomap_urls)
@@ -2753,7 +2937,7 @@ convert_speed_raster_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_speed_raster_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 30000},
+        config={"wait_for_timeout": 100},
         **convert_speed_raster_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=speed_raster_ecomap_urls)
@@ -2776,8 +2960,327 @@ convert_seasonal_hr_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_seasonal_hr_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 30000},
+        config={"wait_for_timeout": 100},
         **convert_seasonal_hr_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=season_etd_ecomap_html_url)
+)
+
+
+# %% [markdown]
+# ## Zip grid and mcp
+
+# %%
+# parameters
+
+zip_grid_mcp_params = dict()
+
+# %%
+# call the task
+
+
+zip_grid_mcp = (
+    zip_grouped_by_key.handle_errors(task_instance_id="zip_grid_mcp")
+    .partial(left=total_grid_area, right=total_mcp_area, **zip_grid_mcp_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zip with quarter png
+
+# %%
+# parameters
+
+zip_grid_mcp_quarter_params = dict()
+
+# %%
+# call the task
+
+
+zip_grid_mcp_quarter = (
+    zip_grouped_by_key.handle_errors(task_instance_id="zip_grid_mcp_quarter")
+    .partial(
+        left=zip_grid_mcp,
+        right=convert_quarter_html_to_png,
+        **zip_grid_mcp_quarter_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zip with hr png
+
+# %%
+# parameters
+
+zip_grid_mcp_quarter_hr_params = dict()
+
+# %%
+# call the task
+
+
+zip_grid_mcp_quarter_hr = (
+    zip_grouped_by_key.handle_errors(task_instance_id="zip_grid_mcp_quarter_hr")
+    .partial(
+        left=zip_grid_mcp_quarter,
+        right=convert_hr_html_to_png,
+        **zip_grid_mcp_quarter_hr_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zip with speed raster png
+
+# %%
+# parameters
+
+zip_grid_mcp_speedraster_params = dict()
+
+# %%
+# call the task
+
+
+zip_grid_mcp_speedraster = (
+    zip_grouped_by_key.handle_errors(task_instance_id="zip_grid_mcp_speedraster")
+    .partial(
+        left=zip_grid_mcp_quarter_hr,
+        right=convert_speed_raster_html_to_png,
+        **zip_grid_mcp_speedraster_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zip with day/night png
+
+# %%
+# parameters
+
+zip_grid_mcp_dn_params = dict()
+
+# %%
+# call the task
+
+
+zip_grid_mcp_dn = (
+    zip_grouped_by_key.handle_errors(task_instance_id="zip_grid_mcp_dn")
+    .partial(
+        left=zip_grid_mcp_speedraster,
+        right=convert_day_night_html_to_png,
+        **zip_grid_mcp_dn_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zip with speedmap png
+
+# %%
+# parameters
+
+zip_grid_dn_speedmap_params = dict()
+
+# %%
+# call the task
+
+
+zip_grid_dn_speedmap = (
+    zip_grouped_by_key.handle_errors(task_instance_id="zip_grid_dn_speedmap")
+    .partial(
+        left=zip_grid_mcp_dn,
+        right=convert_speedmap_html_to_png,
+        **zip_grid_dn_speedmap_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zip with seasonal hr png (final)
+
+# %%
+# parameters
+
+zip_all_mapbook_context_inputs_params = dict()
+
+# %%
+# call the task
+
+
+zip_all_mapbook_context_inputs = (
+    zip_grouped_by_key.handle_errors(task_instance_id="zip_all_mapbook_context_inputs")
+    .partial(
+        left=zip_grid_dn_speedmap,
+        right=convert_seasonal_hr_html_to_png,
+        **zip_all_mapbook_context_inputs_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zip with subject name
+
+# %%
+# parameters
+
+zip_all_with_name_params = dict()
+
+# %%
+# call the task
+
+
+zip_all_with_name = (
+    zip_grouped_by_key.handle_errors(task_instance_id="zip_all_with_name")
+    .partial(
+        left=zip_all_mapbook_context_inputs,
+        right=get_subject_name,
+        **zip_all_with_name_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Flatten zipped mapbook context inputs
+
+# %%
+# parameters
+
+flatten_mbook_context_params = dict()
+
+# %%
+# call the task
+
+
+flatten_mbook_context = (
+    flatten_tuple.handle_errors(task_instance_id="flatten_mbook_context")
+    .partial(**flatten_mbook_context_params)
+    .mapvalues(argnames=["nested"], argvalues=zip_all_with_name)
+)
+
+
+# %% [markdown]
+# ## print output value
+
+# %%
+# parameters
+
+print_flatten_context_params = dict()
+
+# %%
+# call the task
+
+
+print_flatten_context = (
+    print_output.handle_errors(task_instance_id="print_flatten_context")
+    .partial(**print_flatten_context_params)
+    .mapvalues(argnames=["value"], argvalues=flatten_mbook_context)
+)
+
+
+# %% [markdown]
+# ## Create individual mapbook context
+
+# %%
+# parameters
+
+individual_mapbook_context_params = dict(
+    filename=...,
+    validate_images=...,
+    box_h_cm=...,
+    box_w_cm=...,
+)
+
+# %%
+# call the task
+
+
+individual_mapbook_context = (
+    create_mapbook_context.handle_errors(task_instance_id="individual_mapbook_context")
+    .partial(
+        template_path=download_sect_templates,
+        output_directory=create_output_directory,
+        subject_name=get_subject_name,
+        time_period=define_time_range,
+        period=report_duration,
+        **individual_mapbook_context_params,
+    )
+    .mapvalues(
+        argnames=[
+            "grid_area",
+            "mcp_area",
+            "movement_tracks_ecomap",
+            "home_range_ecomap",
+            "speed_raster_ecomap",
+            "night_day_ecomap",
+            "speedmap",
+            "seasonal_homerange",
+            "subject_name",
+        ],
+        argvalues=flatten_mbook_context,
+    )
+)
+
+
+# %% [markdown]
+# ## print individual mapbook outputs
+
+# %%
+# parameters
+
+print_indv_outputs_params = dict()
+
+# %%
+# call the task
+
+
+print_indv_outputs = (
+    print_output.handle_errors(task_instance_id="print_indv_outputs")
+    .partial(**print_indv_outputs_params)
+    .mapvalues(argnames=["value"], argvalues=individual_mapbook_context)
+)
+
+
+# %% [markdown]
+# ## Gather mapbook context output files
+
+# %%
+# parameters
+
+gather_mbook_files_params = dict()
+
+# %%
+# call the task
+
+
+gather_mbook_files = (
+    gather_output_files.handle_errors(task_instance_id="gather_mbook_files")
+    .partial(files=individual_mapbook_context, **gather_mbook_files_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## print output files list
+
+# %%
+# parameters
+
+print_mbook_outputs_params = dict()
+
+# %%
+# call the task
+
+
+print_mbook_outputs = (
+    print_output.handle_errors(task_instance_id="print_mbook_outputs")
+    .partial(**print_mbook_outputs_params)
+    .mapvalues(argnames=["value"], argvalues=gather_mbook_files)
 )

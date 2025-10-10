@@ -5,8 +5,8 @@ initialize_workflow_metadata:
 
 # Desired time range
 define_time_range:
-  since: "2025-06-01T00:00:00Z"
-  until: "2025-06-15T23:59:59Z"
+  since: "2025-08-01T00:00:00Z"
+  until: "2025-08-10T23:59:59Z"
 
 # Connect to EarthRanger
 er_client_name:
@@ -111,3 +111,6 @@ configure_base_maps:
 
 generate_speed_raster:
   step_length: 2000
+
+download_logo_path:
+  url: "https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=jlwbhik9&dl=0"
