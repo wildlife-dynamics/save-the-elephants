@@ -48,8 +48,8 @@ convert_to_trajectories:
     min_speed_kmhr: 0.01
 
 # Create directory to persist LandDX db 
-# create_output_directory:
-#   path_name: "/home/ttemu/ecoscope-workflows/STE-Outputs"
+create_output_directory:
+  path_name: "/home/ttemu/ecoscope-workflows/STE-Outputs"
 
 # Specific AOI to use from LandDX db
 load_aoi:

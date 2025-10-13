@@ -200,6 +200,17 @@ class ConfigureBaseMaps(BaseModel):
     )
 
 
+class CreateOutputDirectory(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    path_name: Optional[str] = Field(
+        "/home/ttemu/ecoscope-workflows/save-the-elephants/.pixi/envs/compile/lib/python3.12/site-packages/ecoscope_workflows_ext_ste/tasks/output",
+        description="Path to the directory that should be created",
+        title="Path Name",
+    )
+
+
 class LoadAoi(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -467,6 +478,9 @@ class Params(BaseModel):
     )
     configure_base_maps: Optional[ConfigureBaseMaps] = Field(
         None, title="Configure Base Map Layers"
+    )
+    create_output_directory: Optional[CreateOutputDirectory] = Field(
+        None, title="Create Output Directory"
     )
     load_aoi: Optional[LoadAoi] = Field(None, title="Load AOI from landDx")
     create_styled_landdx_layers: Optional[CreateStyledLanddxLayers] = Field(

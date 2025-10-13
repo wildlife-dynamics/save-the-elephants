@@ -36,16 +36,16 @@ workflow:
     task: set_base_maps
 
   # create output directory to persist workflow files
-  # - name: Create Output Directory
-  #   id: create_output_directory
-  #   task: create_directory
+  - name: Create Output Directory
+    id: create_output_directory
+    task: create_directory
 
   # download LandDx database, unzip, and save to output directory
   - name: Download LandDx Database and extract
     id: download_ldx_db
     task: download_land_dx
     partial:
-      path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }} 
+      path: ${{ workflow.create_output_directory.return }} 
       url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
       overwrite_existing: false
       unzip: true
@@ -1295,7 +1295,7 @@ workflow:
     task: download_file_and_persist
     partial:
       url: https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
+      output_path: ${{ workflow.create_output_directory.return }}
       overwrite_existing: false
 
   # Download section templates
@@ -1304,7 +1304,7 @@ workflow:
     task: download_file_and_persist
     partial:
       url: https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
+      output_path: ${{ workflow.create_output_directory.return }}
       overwrite_existing: false
 
   # Download Logo
@@ -1312,7 +1312,7 @@ workflow:
     id: download_logo_path
     task: download_file_and_persist
     partial:
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
+      output_path: ${{ workflow.create_output_directory.return }}
       overwrite_existing: false 
 
   # Retrieve unique subjects extracted from relocs
@@ -1340,7 +1340,7 @@ workflow:
       logo_width_cm: 5.25
       logo_height_cm: 1.93
       template_path: ${{ workflow.download_mapbook_cover_page.return }}
-      output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
+      output_directory: ${{ workflow.create_output_directory.return }}
       context: ${{ workflow.create_cover_template_context.return }}
   
   # convert  ecomaps html to png using playwright and persist
@@ -1485,7 +1485,7 @@ workflow:
     task: create_mapbook_context
     partial:
       template_path: ${{ workflow.download_sect_templates.return }}
-      output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
+      output_directory: ${{ workflow.create_output_directory.return }}
       subject_name: ${{ workflow.get_subject_name.return }}
       time_period: ${{ workflow.define_time_range.return }}
       period: ${{ workflow.round_report_duration.return }} # months
@@ -1508,7 +1508,7 @@ workflow:
     task: combine_docx_files
     partial:
       cover_page_path: ${{ workflow.persist_context_cover.return }}
-      output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
+      output_directory: ${{ workflow.create_output_directory.return }}
       filename: mapbook_report.docx
       context_page_items: ${{ workflow.individual_mapbook_context.return }}
 

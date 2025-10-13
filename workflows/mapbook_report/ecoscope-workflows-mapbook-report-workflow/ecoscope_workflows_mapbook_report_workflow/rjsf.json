@@ -269,6 +269,20 @@
       "required": [],
       "title": "Configure Base Map Layers"
     },
+    "create_output_directory": {
+      "additionalProperties": false,
+      "properties": {
+        "path_name": {
+          "default": "/home/ttemu/ecoscope-workflows/save-the-elephants/.pixi/envs/compile/lib/python3.12/site-packages/ecoscope_workflows_ext_ste/tasks/output",
+          "title": "Path Name",
+          "type": "string",
+          "description": "Path to the directory that should be created"
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create Output Directory"
+    },
     "load_aoi": {
       "additionalProperties": false,
       "properties": {
@@ -916,6 +930,7 @@
       "define_time_range",
       "configure_grouping_strategy",
       "configure_base_maps",
+      "create_output_directory",
       "load_aoi",
       "create_styled_landdx_layers",
       "er_client_name",
