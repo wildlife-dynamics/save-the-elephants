@@ -200,31 +200,6 @@ class ConfigureBaseMaps(BaseModel):
     )
 
 
-class CreateOutputDirectory(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    path_name: Optional[str] = Field(
-        "/home/ttemu/ecoscope-workflows/save-the-elephants/.pixi/envs/compile/lib/python3.12/site-packages/ecoscope_workflows_ext_ste/tasks/output",
-        description="Path to the directory that should be created",
-        title="Path Name",
-    )
-
-
-class RetrieveLanddxDatabase(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    overwrite_existing: Optional[bool] = Field(
-        False,
-        description="Overwrite the existing file if it exists",
-        title="Overwrite Existing",
-    )
-    unzip: Optional[bool] = Field(
-        True, description="Whether to unzip the downloaded file", title="Unzip"
-    )
-
-
 class LoadAoi(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -259,25 +234,12 @@ class GenerateSpeedRaster(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    resolution: Optional[float] = Field(
-        None,
-        description="Raster resolution; if None, uses the mean of dist_col.",
-        title="Resolution",
-    )
-    radius: Optional[int] = Field(
-        2, description="Radius for kernel smoothing", title="Radius"
-    )
-    cutoff: Optional[float] = Field(
-        None, description="Cutoff distance for kernel", title="Cutoff"
-    )
-    tortuosity_length: Optional[int] = Field(
-        3,
-        description="Length scale for tortuosity smoothing",
-        title="Tortuosity Length",
-    )
-    step_length: Optional[int] = Field(
-        None, description="Mean step length for resolution", title="Step Length"
-    )
+    filename: Optional[str] = Field(None, title="Filename")
+    resolution: Optional[float] = Field(None, title="Resolution")
+    radius: Optional[int] = Field(2, title="Radius")
+    cutoff: Optional[float] = Field(None, title="Cutoff")
+    tortuosity_length: Optional[int] = Field(3, title="Tortuosity Length")
+    step_length: Optional[int] = Field(None, title="Step Length")
     network_metric: Optional[NetworkMetric] = Field(None, title="Network Metric")
 
 
@@ -294,43 +256,25 @@ class DownloadMapbookCoverPage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    retries: Optional[conint(ge=0)] = Field(
-        3, description="Number of retries on failure", title="Retries"
-    )
-    unzip: Optional[bool] = Field(
-        False,
-        description="Whether to unzip the file if it's a zip archive",
-        title="Unzip",
-    )
+    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
+    unzip: Optional[bool] = Field(False, title="Unzip")
 
 
 class DownloadSectTemplates(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    retries: Optional[conint(ge=0)] = Field(
-        3, description="Number of retries on failure", title="Retries"
-    )
-    unzip: Optional[bool] = Field(
-        False,
-        description="Whether to unzip the file if it's a zip archive",
-        title="Unzip",
-    )
+    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
+    unzip: Optional[bool] = Field(False, title="Unzip")
 
 
 class DownloadLogoPath(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    url: str = Field(..., description="URL to download the file from", title="Url")
-    retries: Optional[conint(ge=0)] = Field(
-        3, description="Number of retries on failure", title="Retries"
-    )
-    unzip: Optional[bool] = Field(
-        False,
-        description="Whether to unzip the file if it's a zip archive",
-        title="Unzip",
-    )
+    url: str = Field(..., title="Url")
+    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
+    unzip: Optional[bool] = Field(False, title="Unzip")
 
 
 class PersistContextCover(BaseModel):
@@ -498,15 +442,10 @@ class SeasonalHomeRange(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    percentiles: Optional[List[float]] = Field(
-        [25.0, 50.0, 75.0, 90.0, 95.0, 99.9], title="Percentiles"
-    )
+    percentiles: Optional[List[float]] = Field([99.9], title="Percentiles")
     auto_scale_or_custom_cell_size: Optional[
         Union[AutoScaleGridCellSize, CustomGridCellSize]
-    ] = Field(
-        {"auto_scale_or_custom": "Auto-scale"},
-        title="Auto Scale Or Custom Grid Cell Size",
-    )
+    ] = Field(None, title="Auto Scale Or Custom Cell Size")
 
 
 class FormData(BaseModel):
@@ -528,12 +467,6 @@ class FormData(BaseModel):
     )
     configure_base_maps: Optional[ConfigureBaseMaps] = Field(
         None, title="Configure Base Map Layers"
-    )
-    create_output_directory: Optional[CreateOutputDirectory] = Field(
-        None, title="Create Output Directory"
-    )
-    retrieve_landdx_database: Optional[RetrieveLanddxDatabase] = Field(
-        None, title="Download LandDx Database and extract"
     )
     load_aoi: Optional[LoadAoi] = Field(None, title="Load AOI from landDx")
     create_styled_landdx_layers: Optional[CreateStyledLanddxLayers] = Field(

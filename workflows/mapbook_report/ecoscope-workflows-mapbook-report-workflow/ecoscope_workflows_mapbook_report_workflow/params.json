@@ -269,40 +269,6 @@
       "required": [],
       "title": "Configure Base Map Layers"
     },
-    "create_output_directory": {
-      "additionalProperties": false,
-      "properties": {
-        "path_name": {
-          "default": "/home/ttemu/ecoscope-workflows/save-the-elephants/.pixi/envs/compile/lib/python3.12/site-packages/ecoscope_workflows_ext_ste/tasks/output",
-          "title": "Path Name",
-          "type": "string",
-          "description": "Path to the directory that should be created"
-        }
-      },
-      "type": "object",
-      "required": [],
-      "title": "Create Output Directory"
-    },
-    "retrieve_landdx_database": {
-      "additionalProperties": false,
-      "properties": {
-        "overwrite_existing": {
-          "default": false,
-          "title": "Overwrite Existing",
-          "type": "boolean",
-          "description": "Overwrite the existing file if it exists"
-        },
-        "unzip": {
-          "default": true,
-          "title": "Unzip",
-          "type": "boolean",
-          "description": "Whether to unzip the downloaded file"
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Download LandDx Database and extract"
-    },
     "load_aoi": {
       "additionalProperties": false,
       "properties": {
@@ -458,6 +424,18 @@
     "generate_speed_raster": {
       "additionalProperties": false,
       "properties": {
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        },
         "resolution": {
           "anyOf": [
             {
@@ -468,14 +446,12 @@
             }
           ],
           "default": null,
-          "title": "Resolution",
-          "description": "Raster resolution; if None, uses the mean of dist_col."
+          "title": "Resolution"
         },
         "radius": {
           "default": 2,
           "title": "Radius",
-          "type": "integer",
-          "description": "Radius for kernel smoothing"
+          "type": "integer"
         },
         "cutoff": {
           "anyOf": [
@@ -487,14 +463,12 @@
             }
           ],
           "default": null,
-          "title": "Cutoff",
-          "description": "Cutoff distance for kernel"
+          "title": "Cutoff"
         },
         "tortuosity_length": {
           "default": 3,
           "title": "Tortuosity Length",
-          "type": "integer",
-          "description": "Length scale for tortuosity smoothing"
+          "type": "integer"
         },
         "step_length": {
           "anyOf": [
@@ -506,8 +480,7 @@
             }
           ],
           "default": null,
-          "title": "Step Length",
-          "description": "Mean step length for resolution"
+          "title": "Step Length"
         },
         "network_metric": {
           "anyOf": [
@@ -551,11 +524,6 @@
       "properties": {
         "percentiles": {
           "default": [
-            25.0,
-            50.0,
-            75.0,
-            90.0,
-            95.0,
             99.9
           ],
           "items": {
@@ -573,11 +541,8 @@
               "$ref": "#/$defs/CustomGridCellSize"
             }
           ],
-          "default": {
-            "auto_scale_or_custom": "Auto-scale"
-          },
-          "title": "Auto Scale Or Custom Grid Cell Size",
-          "ecoscope:advanced": true
+          "default": null,
+          "title": "Auto Scale Or Custom Cell Size"
         }
       },
       "required": [],
@@ -591,14 +556,12 @@
           "default": 3,
           "minimum": 0,
           "title": "Retries",
-          "type": "integer",
-          "description": "Number of retries on failure"
+          "type": "integer"
         },
         "unzip": {
           "default": false,
           "title": "Unzip",
-          "type": "boolean",
-          "description": "Whether to unzip the file if it's a zip archive"
+          "type": "boolean"
         }
       },
       "required": [],
@@ -612,14 +575,12 @@
           "default": 3,
           "minimum": 0,
           "title": "Retries",
-          "type": "integer",
-          "description": "Number of retries on failure"
+          "type": "integer"
         },
         "unzip": {
           "default": false,
           "title": "Unzip",
-          "type": "boolean",
-          "description": "Whether to unzip the file if it's a zip archive"
+          "type": "boolean"
         }
       },
       "required": [],
@@ -631,21 +592,18 @@
       "properties": {
         "url": {
           "title": "Url",
-          "type": "string",
-          "description": "URL to download the file from"
+          "type": "string"
         },
         "retries": {
           "default": 3,
           "minimum": 0,
           "title": "Retries",
-          "type": "integer",
-          "description": "Number of retries on failure"
+          "type": "integer"
         },
         "unzip": {
           "default": false,
           "title": "Unzip",
-          "type": "boolean",
-          "description": "Whether to unzip the file if it's a zip archive"
+          "type": "boolean"
         }
       },
       "required": [
@@ -902,12 +860,6 @@
         "until"
       ]
     },
-    "retrieve_landdx_database": {
-      "ui:order": [
-        "overwrite_existing",
-        "unzip"
-      ]
-    },
     "generate_etd": {
       "ui:order": [
         "auto_scale_or_custom_cell_size",
@@ -917,6 +869,7 @@
     },
     "generate_speed_raster": {
       "ui:order": [
+        "filename",
         "resolution",
         "radius",
         "cutoff",
@@ -963,8 +916,6 @@
       "define_time_range",
       "configure_grouping_strategy",
       "configure_base_maps",
-      "create_output_directory",
-      "retrieve_landdx_database",
       "load_aoi",
       "create_styled_landdx_layers",
       "er_client_name",

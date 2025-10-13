@@ -1,15 +1,17 @@
 import os
 import math
+import logging
 import ecoscope
 import traceback
 from enum import Enum
 import geopandas as gpd
+from pathlib import Path
 from ecoscope_workflows_core.decorators import task
 from pydantic import BaseModel, Field, field_validator
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import ViewState
-from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LayerDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PointLayerStyle
+from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LayerDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LegendDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolygonLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolylineLayerStyle
@@ -20,6 +22,8 @@ from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polylin
 from ecoscope_workflows_ext_ecoscope.tasks.analysis._time_density import CustomGridCellSize
 from ecoscope_workflows_ext_ecoscope.tasks.analysis._create_meshgrid import create_meshgrid
 from ecoscope_workflows_ext_ecoscope.tasks.analysis._calculate_feature_density import calculate_feature_density
+
+logger = logging.getLogger(__name__)
 
 class MapStyleConfig(BaseModel):
     styles: Dict[str, Dict] = Field(default_factory=dict)
@@ -47,73 +51,123 @@ class MapProcessingConfig(BaseModel):
 class GeometrySummary(TypedDict):
     primary_type: Literal["Polygon", "Point", "LineString", "Other", "Mixed", "Line"]
 
+
 @task
-def clean_geodataframe(
-    gdf: Annotated[AnyGeoDataFrame, Field(description="The geodataframe to visualize.", exclude=True)],
+def remove_invalid_geometries(
+    gdf: Annotated[AnyGeoDataFrame, Field(description="GeoDataFrame to filter for valid geometries.", exclude=True)],
 ) -> AnyGeoDataFrame:
+    """
+    Remove rows from the GeoDataFrame that contain null or empty geometries.
+
+    Args:
+        gdf (GeoDataFrame): Input GeoDataFrame that may contain invalid geometries.
+
+    Returns:
+        GeoDataFrame: Filtered GeoDataFrame containing only non-empty, non-null geometries.
+    """
     return gdf.loc[(~gdf.geometry.isna()) & (~gdf.geometry.is_empty)]
 
 @task
-def check_shapefile_geometry_type(data: AnyGeoDataFrame) -> str:
-    unique_geom_types = data.geometry.geom_type.unique()
+def detect_geometry_type(gdf: AnyGeoDataFrame) -> GeometrySummary:
+    """
+    Detect the dominant geometry type in a GeoDataFrame and count each type.
 
-    if len(unique_geom_types) == 1:
-        geom_type = unique_geom_types[0]
-        if "Polygon" in geom_type:
-            primary_type = "Polygon"
-        elif "Point" in geom_type:
-            primary_type = "Point"
-        elif "LineString" in geom_type:
-            primary_type = "LineString"
-        else:
-            primary_type = "Other"
+    Args:
+        gdf (GeoDataFrame): Input GeoDataFrame whose geometries will be analyzed.
+
+    Returns:
+        GeometrySummary: Dict containing the detected geometry type and counts per geometry class.
+    """
+    geom_counts = gdf.geometry.geom_type.value_counts().to_dict()
+    unique_types = list(geom_counts.keys())
+
+    if len(unique_types) == 1:
+        geom = unique_types[0]
+        mapping = {
+            "Polygon": "Polygon",
+            "MultiPolygon": "Polygon",
+            "Point": "Point",
+            "MultiPoint": "Point",
+            "LineString": "LineString",
+            "MultiLineString": "LineString",
+        }
+        primary_type = mapping.get(geom, "Other")
     else:
         primary_type = "Mixed"
-    return primary_type
+
+    return {"primary_type": primary_type, "counts": geom_counts}
 
 @task
-def load_map_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFrame]:
+def load_geospatial_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFrame]:
     """
-    Loads geospatial files from the specified path and returns a dictionary
-    mapping filenames to cleaned GeoDataFrames, reprojected to target CRS if needed.
+    Load geospatial files from `config.path` and return a dict mapping
+    relative file path -> cleaned GeoDataFrame (reprojected to target_crs).
     """
-    path = config.path
-    target_crs = config.target_crs
-    recursive = config.recursive
-    loaded_files: Dict[str, AnyGeoDataFrame] = {}
+    base_path = Path(config.path)
+    if not base_path.exists():
+        raise FileNotFoundError(f"Path does not exist: {base_path!s}")
 
-    walk = os.walk(path) if recursive else [(path, None, os.listdir(path))]
-    for root, _, files in walk:
-        for file in files:
-            if not file.lower().endswith(tuple(SUPPORTED_FORMATS)):
+    target_crs = CRS.from_user_input(config.target_crs)
+
+    loaded_files: Dict[str, AnyGeoDataFrame] = {}
+    normalized_suffixes = {s.lower() if s.startswith(".") else f".{s.lower()}" for s in SUPPORTED_FORMATS}
+    iterator = base_path.rglob("*") if config.recursive else base_path.iterdir()
+
+    for p in iterator:
+        try:
+            if not p.is_file():
                 continue
 
-            try:
-                file_path = os.path.join(root, file)
-                gdf = gpd.read_file(file_path)
+            if p.suffix.lower() not in normalized_suffixes:
+                continue
 
-                if gdf.empty:
-                    print(f"Skipped empty file: {file}")
-                    continue
+            file_path = str(p)
+            gdf = gpd.read_file(file_path)
 
-                if gdf.crs and gdf.crs != target_crs:
-                    gdf = gdf.to_crs(target_crs)
+            if gdf is None or gdf.empty:
+                logger.info("Skipped empty or unreadable file: %s", file_path)
+                continue
 
-                loaded_files[file] = clean_geodataframe(gdf)
+            if gdf.crs is None:
+                logger.warning("File has no CRS, skipping reprojection: %s", file_path)
+            else:
+                try:
+                    gdf_crs = CRS.from_user_input(gdf.crs)
+                    if not gdf_crs == target_crs:
+                        # geopandas accepts a CRS-like input string/object
+                        gdf = gdf.to_crs(target_crs.to_string())
+                except Exception as e:
+                    logger.warning("Failed to normalize or compare CRS for %s: %s", file_path, e)
 
-            except Exception as e:
-                print(f"Error processing {file}: {e}")
-                traceback.print_exc()
+            cleaned = remove_invalid_geometries(gdf)
+            key = str(p.relative_to(base_path))
+            loaded_files[key] = cleaned
+
+        except Exception:
+            logger.error("Error processing %s", p, exc_info=True)
+
+    logger.info("Loaded %d vector files from %s", len(loaded_files), base_path)
     return loaded_files
 
-def clean_file_keys(file_dict: dict) -> dict:
+
+def clean_file_keys(file_dict: Dict[str, AnyGeoDataFrame]) -> Dict[str, AnyGeoDataFrame]:
+    """
+    Clean dictionary keys by removing file extensions and normalizing names.
+    Args:
+        file_dict: Dictionary mapping filenames to GeoDataFrames.
+    Returns:
+        A new dictionary with standardized, lowercase keys suitable for map layer identifiers.
+    """
     def clean_key(key: str) -> str:
         for ext in SUPPORTED_FORMATS:
             if key.lower().endswith(ext):
                 key = key[: -len(ext)]
                 break
-        return key.replace(" and ", "_").replace(" ", "_").replace(".", "")
 
+        key = re.sub(r'\band\b', '_', key, flags=re.IGNORECASE)
+        key = re.sub(r'[^A-Za-z0-9_]+', '_', key)
+        key = re.sub(r'_+', '_', key)  # collapse multiple underscores
+        return key.strip('_').lower()
     return {clean_key(k): v for k, v in file_dict.items()}
 
 @task
@@ -122,32 +176,65 @@ def create_layer_from_gdf(
     gdf: AnyGeoDataFrame,
     style_config: MapStyleConfig,
     primary_type: str,
-) -> Optional[object]:
+) -> Optional[LayerDefinition]:
+    """
+    Create an appropriately styled map layer from a GeoDataFrame.
+
+    Args:
+        filename: key matching an entry in style_config.styles (use cleaned keys).
+        gdf: GeoDataFrame to render.
+        style_config: MapStyleConfig containing style definitions and optional legend.
+        primary_type: canonical geometry type (e.g. "Polygon", "Point", "LineString", "Other", "Mixed").
+
+    Returns:
+        A LayerDefinition (or subclass) or None if creation failed / unsupported.
+    """
+    canonical_map = {
+        "MultiPolygon": "Polygon",
+        "MultiPoint": "Point",
+        "MultiLineString": "LineString",
+    }
+    primary = canonical_map.get(primary_type, primary_type)
+
     if filename not in style_config.styles:
-        print(f"No style config for '{filename}'")
+        logger.warning("No style config for '%s'", filename)
         return None
 
-    style_params = style_config.styles[filename]
-    legend = None
+    style_params: Dict[str, Any] = style_config.styles[filename]
 
-    if style_config.legend and "labels" in style_config.legend and "colors" in style_config.legend:
-        legend = LegendDefinition(labels=style_config.legend["labels"], colors=style_config.legend["colors"])
+    legend = None
+    legend_cfg = getattr(style_config, "legend", None)
+    if isinstance(legend_cfg, dict):
+        labels = legend_cfg.get("labels")
+        colors = legend_cfg.get("colors")
+        if labels and colors and len(labels) == len(colors):
+            legend = LegendDefinition(labels=labels, colors=colors)
+        else:
+            logger.debug("Skipping legend for '%s' due to missing or mismatched labels/colors", filename)
 
     try:
-        if primary_type == "Polygon":
-            print(f"Creating polygon layer for '{filename}'")
+        gdf = remove_invalid_geometries(gdf)
+    except Exception:
+        pass
+
+    try:
+        if primary == "Polygon":
+            logger.info("Creating polygon layer for '%s'", filename)
             return create_polygon_layer(gdf, layer_style=PolygonLayerStyle(**style_params), legend=legend)
-        elif primary_type == "Point":
-            print(f"Creating point layer for '{filename}'")
+
+        if primary == "Point":
+            logger.info("Creating point layer for '%s'", filename)
             return create_point_layer(gdf, layer_style=PointLayerStyle(**style_params), legend=legend)
-        elif primary_type in ("Line", "LineString"):
-            print(f"Creating line layer for '{filename}'")
+
+        if primary == "LineString":
+            logger.info("Creating line layer for '%s'", filename)
             return create_polyline_layer(gdf, layer_style=PolylineLayerStyle(**style_params), legend=legend)
-        else:
-            print(f"Unsupported geometry type '{primary_type}' for file '{filename}'")
+
+        logger.warning("Unsupported geometry type '%s' for file '%s'", primary_type, filename)
+    except TypeError as te:
+        logger.error("Invalid style params for '%s': %s", filename, te, exc_info=True)
     except Exception as e:
-        print(f"Error creating layer for '{filename}': {e}")
-        traceback.print_exc()
+        logger.error("Error creating layer for '%s': %s", filename, e, exc_info=True)
     return None
 
 @task
@@ -156,7 +243,7 @@ def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapSt
     Create styled map layers from a dictionary of GeoDataFrames using the provided style config.
 
     Args:
-        file_dict: Dictionary mapping filenames to AnyGeoDataFrames.
+        file_dict: Dictionary mapping filenames to GeoDataFrames.
         style_config: Object holding style definitions and legend config.
     Returns:
         A list of styled map layer objects.
@@ -166,19 +253,25 @@ def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapSt
 
     for filename, gdf in cleaned_files.items():
         try:
-            geom_analysis = check_shapefile_geometry_type(gdf)
-            print(f"{filename} geometry type: {geom_analysis}")
-            primary_type = geom_analysis
-            layer = create_layer_from_gdf(filename, gdf, style_config, primary_type)
+            try:
+                gdf = remove_invalid_geometries(gdf)
+            except Exception:
+                gdf = gdf.loc[(~gdf.geometry.isna()) & (~gdf.geometry.is_empty)]
+
+            geom_analysis = detect_geometry_type(gdf=gdf)
+            gdf_geom_type = geom_analysis["primary_type"]
+            gdf_counts = geom_analysis.get("counts", {})
+            logger.info("%s geometry type: %s counts: %s", filename, gdf_geom_type, gdf_counts)
+            layer = create_layer_from_gdf(filename, gdf, style_config, gdf_geom_type)
 
             if layer is not None:
                 layers.append(layer)
-        except Exception as e:
-            print(f"Error processing layer for '{filename}': {e}")
-            traceback.print_exc()
 
-    print(f"Successfully created {len(layers)} map layers")
+        except Exception as e:
+            logger.error("Error processing layer for '%s': %s", filename, e, exc_info=True)
+    logger.info("Successfully created %d map layers", len(layers))
     return layers
+
 
 # https://stackoverflow.com/questions/63787612/plotly-automatic-zooming-for-mapbox-maps
 # Alternative approach using both dimensions for better fitting
@@ -212,7 +305,6 @@ def _zoom_from_bbox(minx, miny, maxx, maxy, map_width_px=800, map_height_px=600)
     zoom = round(max(0, min(20, zoom)), 2)
     return zoom
 
-# magically works
 @task
 def create_view_state_from_gdf(
     gdf: AnyGeoDataFrame, 
@@ -230,43 +322,32 @@ def create_view_state_from_gdf(
     center_lon = (minx + maxx) / 2.0
     center_lat = (miny + maxy) / 2.0
     zoom = _zoom_from_bbox(minx, miny, maxx, maxy)
-    return ViewState(longitude=center_lon, latitude=center_lat, zoom=zoom, pitch=pitch, bearing=bearing)
-
-# this is present in the ecoscope base -- should be excluded tbh
-def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
-    """Convert a hex color string to an RGB tuple."""
-    hex_color = hex_color.lstrip("#")
-    if len(hex_color) != 6:
-        raise ValueError("Hex color must be 6 characters long.")
-    return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
-
-# this could be modified further to include more options
+    return ViewState(
+        longitude=center_lon, 
+        latitude=center_lat, 
+        zoom=zoom, 
+        pitch=pitch, 
+        bearing=bearing
+        )
 @task
-def generate_density_grid(
-    features_gdf: AnyGeoDataFrame, cell_size_meters: int = 2000, geometry_type: Literal["point", "line"] = "point"
-) -> AnyGeoDataFrame:
+def download_land_dx(
+    url: Annotated[str, Field(description="URL to retrieve the LandDx database")],
+    path: Annotated[str, Field(description="Local path to save the LandDx database copy")],
+    overwrite_existing: Annotated[bool, Field(default=False, description="Overwrite the existing file if it exists")],
+    unzip: Annotated[bool, Field(default=True, description="Whether to unzip the downloaded file")],
+) -> str:
     """
-    Generates a density grid based on point or line features within a defined area of interest.
+    Downloads the LandDx database from a given URL and saves it to the specified path.
 
-    Args:
-        features_gdf (AnyGeoDataFrame): The input GeoDataFrame containing features (points or lines).
-        cell_size_meters (int): The size of each grid cell in meters. Default is 2000.
-        geometry_type (Literal["point", "line"]): The geometry type of features to calculate density for.
-
-    Returns:
-        AnyGeoDataFrame: A filtered density grid (only cells with density > 0 and not NaN).
+    Parameters:
+        url (str): The download URL.
+        path (str): Destination path for saving the file.
+        overwrite_existing (bool): Whether to overwrite an existing file. Default is False.
+        unzip (bool): Whether to unzip the downloaded file. Default is True.
     """
-    meshgrid_gdf = create_meshgrid(
-        aoi=features_gdf, auto_scale_or_custom_cell_size=CustomGridCellSize(grid_cell_size=cell_size_meters)
-    )
-
-    density_grid = calculate_feature_density(
-        geodataframe=features_gdf, meshgrid=meshgrid_gdf, geometry_type=geometry_type
-    )
-
-    density_grid = density_grid[(density_grid["density"].notna()) & (density_grid["density"] > 0)]
-    return density_grid
-
+    ecoscope.io.utils.download_file(url=url, path=path, overwrite_existing=overwrite_existing, unzip=unzip)
+    return path
+    
 @task
 def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[int, int, int]]) -> MapStyleConfig:
     """
@@ -289,35 +370,17 @@ def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[in
         styles[aoi] = {
             "get_elevation": 1000,
             "get_fill_color": rgb,
-            "opacity": 0.15,
+            "opacity": 0.25,
             "get_line_width": 4.00,
             "get_width": 5,
             "get_line_color": rgb,
+            "get_line_width": 2,
+            "stroked":True
         }
 
         legend["labels"].append(aoi)
         legend["colors"].append(hex_color)
     return MapStyleConfig(styles=styles, legend=legend)
-
-# custom task to download landdx db
-@task
-def download_land_dx(
-    url: Annotated[str, Field(description="URL to retrieve the LandDx database")],
-    path: Annotated[str, Field(description="Local path to save the LandDx database copy")],
-    overwrite_existing: Annotated[bool, Field(default=False, description="Overwrite the existing file if it exists")],
-    unzip: Annotated[bool, Field(default=True, description="Whether to unzip the downloaded file")],
-) -> str:
-    """
-    Downloads the LandDx database from a given URL and saves it to the specified path.
-
-    Parameters:
-        url (str): The download URL.
-        path (str): Destination path for saving the file.
-        overwrite_existing (bool): Whether to overwrite an existing file. Default is False.
-        unzip (bool): Whether to unzip the downloaded file. Default is True.
-    """
-    ecoscope.io.utils.download_file(url=url, path=path, overwrite_existing=overwrite_existing, unzip=unzip)
-    return path
 
 @task
 def load_landdx_aoi(map_path: str, aoi: List[str]) -> Optional[AnyGeoDataFrame]:

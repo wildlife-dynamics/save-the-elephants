@@ -6,7 +6,6 @@ from ecoscope_workflows_core.tasks.config import set_workflow_details
 from ecoscope_workflows_core.tasks.filter import set_time_range
 from ecoscope_workflows_core.tasks.groupby import set_groupers
 from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps
-from ecoscope_workflows_ext_ste.tasks import create_directory
 from ecoscope_workflows_ext_ste.tasks import download_land_dx
 from ecoscope_workflows_ext_ste.tasks import load_landdx_aoi
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column
@@ -53,20 +52,20 @@ from ecoscope_workflows_ext_ste.tasks import retrieve_feature_gdf
 from ecoscope_workflows_ext_ste.tasks import calculate_seasonal_home_range
 from ecoscope_workflows_ext_ecoscope.tasks.skip import all_geometry_are_none
 from ecoscope_workflows_core.tasks.analysis import dataframe_column_sum
+from ecoscope_workflows_ext_ste.tasks import round_off_values
 from ecoscope_workflows_core.tasks.results import create_single_value_widget_single_view
 from ecoscope_workflows_ext_ste.tasks import dataframe_column_first_unique_str
 from ecoscope_workflows_core.tasks.results import create_text_widget_single_view
 from ecoscope_workflows_ext_ste.tasks import get_duration
-from ecoscope_workflows_core.tasks.results import gather_dashboard
 from ecoscope_workflows_ext_ste.tasks import download_file_and_persist
 from ecoscope_workflows_core.tasks.analysis import dataframe_column_nunique
 from ecoscope_workflows_ext_ste.tasks import build_mapbook_report_template
 from ecoscope_workflows_ext_ste.tasks import create_context_page
 from ecoscope_workflows_ext_custom.tasks import html_to_png
 from ecoscope_workflows_ext_ste.tasks import flatten_tuple
-from ecoscope_workflows_ext_ste.tasks import print_output
 from ecoscope_workflows_ext_ste.tasks import create_mapbook_context
-from ecoscope_workflows_core.tasks.results import gather_output_files
+from ecoscope_workflows_ext_ste.tasks import combine_docx_files
+from ecoscope_workflows_core.tasks.results import gather_dashboard
 
 from ..params import Params
 
@@ -105,20 +104,15 @@ def main(params: Params):
         .call()
     )
 
-    create_output_directory = (
-        create_directory.validate()
-        .handle_errors(task_instance_id="create_output_directory")
-        .partial(**(params_dict.get("create_output_directory") or {}))
-        .call()
-    )
-
-    retrieve_landdx_database = (
+    download_ldx_db = (
         download_land_dx.validate()
-        .handle_errors(task_instance_id="retrieve_landdx_database")
+        .handle_errors(task_instance_id="download_ldx_db")
         .partial(
-            path=create_output_directory,
+            path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             url="https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
-            **(params_dict.get("retrieve_landdx_database") or {}),
+            overwrite_existing=False,
+            unzip=True,
+            **(params_dict.get("download_ldx_db") or {}),
         )
         .call()
     )
@@ -126,9 +120,7 @@ def main(params: Params):
     load_aoi = (
         load_landdx_aoi.validate()
         .handle_errors(task_instance_id="load_aoi")
-        .partial(
-            map_path=retrieve_landdx_database, **(params_dict.get("load_aoi") or {})
-        )
+        .partial(map_path=download_ldx_db, **(params_dict.get("load_aoi") or {}))
         .call()
     )
 
@@ -1257,11 +1249,25 @@ def main(params: Params):
         .mapvalues(argnames=["df"], argvalues=calculate_mcp)
     )
 
+    round_mcp_area = (
+        round_off_values.validate()
+        .handle_errors(task_instance_id="round_mcp_area")
+        .partial(dp=2, **(params_dict.get("round_mcp_area") or {}))
+        .mapvalues(argnames=["value"], argvalues=total_mcp_area)
+    )
+
     total_grid_area = (
         dataframe_column_sum.validate()
         .handle_errors(task_instance_id="total_grid_area")
         .partial(column_name="area_sqkm", **(params_dict.get("total_grid_area") or {}))
         .mapvalues(argnames=["df"], argvalues=generate_etd)
+    )
+
+    round_grid_area = (
+        round_off_values.validate()
+        .handle_errors(task_instance_id="round_grid_area")
+        .partial(dp=2, **(params_dict.get("round_grid_area") or {}))
+        .mapvalues(argnames=["value"], argvalues=total_grid_area)
     )
 
     total_mcp_sv_widgets = (
@@ -1278,7 +1284,7 @@ def main(params: Params):
             decimal_places=1,
             **(params_dict.get("total_mcp_sv_widgets") or {}),
         )
-        .map(argnames=["view", "data"], argvalues=total_mcp_area)
+        .map(argnames=["view", "data"], argvalues=round_mcp_area)
     )
 
     total_mcp_grouped_sv_widget = (
@@ -1305,7 +1311,7 @@ def main(params: Params):
             decimal_places=1,
             **(params_dict.get("total_grid_sv_widgets") or {}),
         )
-        .map(argnames=["view", "data"], argvalues=total_grid_area)
+        .map(argnames=["view", "data"], argvalues=round_grid_area)
     )
 
     total_grid_grouped_sv_widget = (
@@ -1356,25 +1362,13 @@ def main(params: Params):
         .call()
     )
 
-    mapbook_dashboard = (
-        gather_dashboard.validate()
-        .handle_errors(task_instance_id="mapbook_dashboard")
+    round_report_duration = (
+        round_off_values.validate()
+        .handle_errors(task_instance_id="round_report_duration")
         .partial(
-            details=initialize_workflow_metadata,
-            widgets=[
-                gender_sv_widget,
-                total_mcp_grouped_sv_widget,
-                total_grid_grouped_sv_widget,
-                merge_speedmap_widgets,
-                merge_day_night_ecomap_widgets,
-                merge_quarter_ecomap_widgets,
-                merge_hr_ecomap_widgets,
-                speedraster_ecomap_widgets,
-                season_grouped_map_widget,
-            ],
-            time_range=define_time_range,
-            groupers=configure_grouping_strategy,
-            **(params_dict.get("mapbook_dashboard") or {}),
+            dp=2,
+            value=report_duration,
+            **(params_dict.get("round_report_duration") or {}),
         )
         .call()
     )
@@ -1393,7 +1387,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="download_mapbook_cover_page")
         .partial(
             url="https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0",
-            output_path=create_output_directory,
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             overwrite_existing=False,
             **(params_dict.get("download_mapbook_cover_page") or {}),
         )
@@ -1404,8 +1398,8 @@ def main(params: Params):
         download_file_and_persist.validate()
         .handle_errors(task_instance_id="download_sect_templates")
         .partial(
-            url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=76hzfzfg&dl=0",
-            output_path=create_output_directory,
+            url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0",
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             overwrite_existing=False,
             **(params_dict.get("download_sect_templates") or {}),
         )
@@ -1416,7 +1410,7 @@ def main(params: Params):
         download_file_and_persist.validate()
         .handle_errors(task_instance_id="download_logo_path")
         .partial(
-            output_path=create_output_directory,
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             overwrite_existing=False,
             **(params_dict.get("download_logo_path") or {}),
         )
@@ -1441,7 +1435,7 @@ def main(params: Params):
             count=unique_subjects,
             org_logo_path=download_logo_path,
             report_period=define_time_range,
-            prepared_by="Ecoscope Team",
+            prepared_by="Ecoscope",
             **(params_dict.get("create_cover_template_context") or {}),
         )
         .call()
@@ -1451,10 +1445,10 @@ def main(params: Params):
         create_context_page.validate()
         .handle_errors(task_instance_id="persist_context_cover")
         .partial(
-            logo_width_cm=5.5,
+            logo_width_cm=5.25,
             logo_height_cm=1.93,
             template_path=download_mapbook_cover_page,
-            output_directory=create_output_directory,
+            output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             context=create_cover_template_context,
             **(params_dict.get("persist_context_cover") or {}),
         )
@@ -1466,7 +1460,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="convert_speedmap_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 100},
+            config={"wait_for_timeout": 20000},
             **(params_dict.get("convert_speedmap_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=persist_speed_ecomap_urls)
@@ -1477,7 +1471,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="convert_day_night_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 100},
+            config={"wait_for_timeout": 20000},
             **(params_dict.get("convert_day_night_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=persist_day_night_ecomap_urls)
@@ -1488,7 +1482,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="convert_quarter_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 100},
+            config={"wait_for_timeout": 20000},
             **(params_dict.get("convert_quarter_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=persist_quarter_ecomap_urls)
@@ -1499,7 +1493,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="convert_hr_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 100},
+            config={"wait_for_timeout": 20000},
             **(params_dict.get("convert_hr_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=persist_hr_ecomap_urls)
@@ -1510,7 +1504,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="convert_speed_raster_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 100},
+            config={"wait_for_timeout": 20000},
             **(params_dict.get("convert_speed_raster_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=speed_raster_ecomap_urls)
@@ -1521,7 +1515,7 @@ def main(params: Params):
         .handle_errors(task_instance_id="convert_seasonal_hr_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            config={"wait_for_timeout": 100},
+            config={"wait_for_timeout": 20000},
             **(params_dict.get("convert_seasonal_hr_html_to_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=season_etd_ecomap_html_url)
@@ -1531,8 +1525,8 @@ def main(params: Params):
         zip_grouped_by_key.validate()
         .handle_errors(task_instance_id="zip_grid_mcp")
         .partial(
-            left=total_grid_area,
-            right=total_mcp_area,
+            left=round_grid_area,
+            right=round_mcp_area,
             **(params_dict.get("zip_grid_mcp") or {}),
         )
         .call()
@@ -1622,22 +1616,15 @@ def main(params: Params):
         .mapvalues(argnames=["nested"], argvalues=zip_all_with_name)
     )
 
-    print_flatten_context = (
-        print_output.validate()
-        .handle_errors(task_instance_id="print_flatten_context")
-        .partial(**(params_dict.get("print_flatten_context") or {}))
-        .mapvalues(argnames=["value"], argvalues=flatten_mbook_context)
-    )
-
     individual_mapbook_context = (
         create_mapbook_context.validate()
         .handle_errors(task_instance_id="individual_mapbook_context")
         .partial(
             template_path=download_sect_templates,
-            output_directory=create_output_directory,
+            output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             subject_name=get_subject_name,
             time_period=define_time_range,
-            period=report_duration,
+            period=round_report_duration,
             **(params_dict.get("individual_mapbook_context") or {}),
         )
         .mapvalues(
@@ -1656,28 +1643,40 @@ def main(params: Params):
         )
     )
 
-    print_indv_outputs = (
-        print_output.validate()
-        .handle_errors(task_instance_id="print_indv_outputs")
-        .partial(**(params_dict.get("print_indv_outputs") or {}))
-        .mapvalues(argnames=["value"], argvalues=individual_mapbook_context)
-    )
-
-    gather_mbook_files = (
-        gather_output_files.validate()
-        .handle_errors(task_instance_id="gather_mbook_files")
+    generate_mapbook_report = (
+        combine_docx_files.validate()
+        .handle_errors(task_instance_id="generate_mapbook_report")
         .partial(
-            files=individual_mapbook_context,
-            **(params_dict.get("gather_mbook_files") or {}),
+            cover_page_path=persist_context_cover,
+            output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename="mapbook_report.docx",
+            context_page_items=individual_mapbook_context,
+            **(params_dict.get("generate_mapbook_report") or {}),
         )
         .call()
     )
 
-    print_mbook_outputs = (
-        print_output.validate()
-        .handle_errors(task_instance_id="print_mbook_outputs")
-        .partial(**(params_dict.get("print_mbook_outputs") or {}))
-        .mapvalues(argnames=["value"], argvalues=gather_mbook_files)
+    mapbook_dashboard = (
+        gather_dashboard.validate()
+        .handle_errors(task_instance_id="mapbook_dashboard")
+        .partial(
+            details=initialize_workflow_metadata,
+            widgets=[
+                gender_sv_widget,
+                total_mcp_grouped_sv_widget,
+                total_grid_grouped_sv_widget,
+                merge_speedmap_widgets,
+                merge_day_night_ecomap_widgets,
+                merge_quarter_ecomap_widgets,
+                merge_hr_ecomap_widgets,
+                speedraster_ecomap_widgets,
+                season_grouped_map_widget,
+            ],
+            time_range=define_time_range,
+            groupers=configure_grouping_strategy,
+            **(params_dict.get("mapbook_dashboard") or {}),
+        )
+        .call()
     )
 
-    return print_mbook_outputs
+    return mapbook_dashboard

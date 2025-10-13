@@ -36,24 +36,26 @@ workflow:
     task: set_base_maps
 
   # create output directory to persist workflow files
-  - name: Create Output Directory
-    id: create_output_directory
-    task: create_directory
+  # - name: Create Output Directory
+  #   id: create_output_directory
+  #   task: create_directory
 
   # download LandDx database, unzip, and save to output directory
   - name: Download LandDx Database and extract
-    id: retrieve_landdx_database
+    id: download_ldx_db
     task: download_land_dx
     partial:
-      path: ${{ workflow.create_output_directory.return }} #${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }} 
       url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
+      overwrite_existing: false
+      unzip: true
 
   # Load AOI from LandDx 
   - name: Load AOI from landDx
     id: load_aoi
     task: load_landdx_aoi
     partial:
-      map_path: ${{ workflow.retrieve_landdx_database.return }}
+      map_path: ${{ workflow.download_ldx_db.return }}
 
   # split LandDx AOI features by 'type' column
   - name: Split LandDx Layers by Type
@@ -195,7 +197,7 @@ workflow:
 
       df: ${{ workflow.assign_quarter_colors_traj.return }}
 
-  # persist trajectories
+  # persist trajectories and relocations
   - name: Persist Trajectories as GPKG
     id: persist_trajectory_df
     task: persist_df 
@@ -204,7 +206,6 @@ workflow:
       filetype: "gpkg"
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
-  # persist relocations
   - name: Persist Relocations as GPKG
     id: persist_relocs_df
     task: persist_df
@@ -1166,6 +1167,15 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.calculate_mcp.return }}
 
+  - name: Round off mcp area to 2 decimal_places
+    id: round_mcp_area
+    task: round_off_values
+    partial:
+      dp: 2
+    mapvalues:
+      argnames: value
+      argvalues: ${{ workflow.total_mcp_area.return }}
+
   # calculate total grid area per group
   - name: Calculate Total Grid Area
     id: total_grid_area
@@ -1175,6 +1185,15 @@ workflow:
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.generate_etd.return }}
+
+  - name: Round off grid area to 2 decimal_places
+    id: round_grid_area
+    task: round_off_values
+    partial:
+      dp: 2
+    mapvalues:
+      argnames: value
+      argvalues: ${{ workflow.total_grid_area.return }}
 
   - name: Create Single Value Widgets for Total MCP Area Per Group
     id: total_mcp_sv_widgets
@@ -1189,7 +1208,7 @@ workflow:
       argnames:
         - view
         - data
-      argvalues: ${{ workflow.total_mcp_area.return }}
+      argvalues: ${{ workflow.round_mcp_area.return }}
 
   - name: Merge per group Total MCP Area SV widgets
     id: total_mcp_grouped_sv_widget
@@ -1210,7 +1229,7 @@ workflow:
       argnames:
         - view
         - data
-      argvalues: ${{ workflow.total_grid_area.return }}
+      argvalues: ${{ workflow.round_grid_area.return }}
 
   - name: Merge per group Total Grid Area SV widgets
     id: total_grid_grouped_sv_widget
@@ -1253,25 +1272,13 @@ workflow:
     partial:
       time_range: ${{ workflow.define_time_range.return }}
       time_unit: months
-    
-  - name: Mapbook Dashboard
-    id: mapbook_dashboard
-    task: gather_dashboard
-    partial:
-      details: ${{ workflow.initialize_workflow_metadata.return }}
-      widgets:
-        - ${{ workflow.gender_sv_widget.return }} # gender str widget
-        - ${{ workflow.total_mcp_grouped_sv_widget.return }} # total mcp area widget
-        - ${{ workflow.total_grid_grouped_sv_widget.return }} # total grid area widget
-        - ${{ workflow.merge_speedmap_widgets.return }} #speedmap widgets
-        - ${{ workflow.merge_day_night_ecomap_widgets.return }} # day/night widgets
-        - ${{ workflow.merge_quarter_ecomap_widgets.return }} #prev-current quarter movement widgets
-        - ${{ workflow.merge_hr_ecomap_widgets.return }} # etd hr widgets
-        - ${{ workflow.speedraster_ecomap_widgets.return }} # speedraster widgets
-        - ${{ workflow.season_grouped_map_widget.return }} # seasons 
 
-      time_range: ${{ workflow.define_time_range.return }}
-      groupers: ${{ workflow.configure_grouping_strategy.return }}
+  - name: Round off report duration to 2 decimal_places
+    id: round_report_duration
+    task: round_off_values
+    partial:
+      dp: 2
+      value: ${{ workflow.report_duration.return }}
 
   - name: Get subject name
     id: get_subject_name
@@ -1282,30 +1289,33 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
 
-  # Additional steps 
+  # Download cover template
   - name: Download Mapbook cover page templates
     id: download_mapbook_cover_page
     task: download_file_and_persist
     partial:
       url: https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0
-      output_path: ${{ workflow.create_output_directory.return }}
+      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
       overwrite_existing: false
 
+  # Download section templates
   - name: Download Mapbook section templates
     id: download_sect_templates
     task: download_file_and_persist
     partial:
-      url: https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=76hzfzfg&dl=0
-      output_path: ${{ workflow.create_output_directory.return }}
+      url: https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0
+      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
       overwrite_existing: false
 
+  # Download Logo
   - name: Download Logo Path 
     id: download_logo_path
     task: download_file_and_persist
     partial:
-      output_path: ${{ workflow.create_output_directory.return }}
+      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
       overwrite_existing: false 
 
+  # Retrieve unique subjects extracted from relocs
   - name: Unique subjects on relocs
     id: unique_subjects
     task: dataframe_column_nunique
@@ -1313,6 +1323,7 @@ workflow:
       df: ${{ workflow.rename_reloc_cols.return }}
       column_name: subject_name
 
+  # Create cover context and persist 
   - name: Create cover template context 
     id: create_cover_template_context
     task: build_mapbook_report_template
@@ -1320,20 +1331,19 @@ workflow:
       count: ${{ workflow.unique_subjects.return }}
       org_logo_path: ${{ workflow.download_logo_path.return }}
       report_period: ${{ workflow.define_time_range.return }}
-      prepared_by: "Ecoscope Team"
+      prepared_by: "Ecoscope"
       
   - name: Persist context to cover template
     id: persist_context_cover
     task: create_context_page
     partial:
-      logo_width_cm: 5.5
+      logo_width_cm: 5.25
       logo_height_cm: 1.93
       template_path: ${{ workflow.download_mapbook_cover_page.return }}
-      output_directory: ${{ workflow.create_output_directory.return }}
+      output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
       context: ${{ workflow.create_cover_template_context.return }}
   
-
-  # convert html to png using playwright and persist
+  # convert  ecomaps html to png using playwright and persist
   # 1. speedmap
   - name: Convert speedmap html to png 
     id: convert_speedmap_html_to_png
@@ -1341,7 +1351,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 10
+        wait_for_timeout: 20000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.persist_speed_ecomap_urls.return }}
@@ -1353,7 +1363,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 10
+        wait_for_timeout: 20000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.persist_day_night_ecomap_urls.return }}
@@ -1365,7 +1375,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
-        wait_for_timeout: 10
+        wait_for_timeout: 20000
     mapvalues:
       argnames: html_path 
       argvalues: ${{ workflow.persist_quarter_ecomap_urls.return }}
@@ -1377,7 +1387,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 10
+        wait_for_timeout: 20000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.persist_hr_ecomap_urls.return }}
@@ -1389,7 +1399,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 10
+        wait_for_timeout: 20000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.speed_raster_ecomap_urls.return }}
@@ -1401,18 +1411,19 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 10
+        wait_for_timeout: 20000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}
 
     # === Zip mapbook context inputs into a single grouped iterable ===
+    # there's a groupby task I recently saw on workflows: 
   - name: Zip grid and mcp
     id: zip_grid_mcp
     task: zip_grouped_by_key
     partial:
-      left: ${{ workflow.total_grid_area.return }}
-      right: ${{ workflow.total_mcp_area.return }}
+      left: ${{ workflow.round_grid_area.return }}
+      right: ${{ workflow.round_mcp_area.return }}
 
   - name: Zip with quarter png
     id: zip_grid_mcp_quarter
@@ -1469,22 +1480,15 @@ workflow:
       argnames: nested
       argvalues: ${{ workflow.zip_all_with_name.return }}
 
-  - name: print output value 
-    id: print_flatten_context
-    task: print_output
-    mapvalues:
-      argnames: value
-      argvalues: ${{ workflow.flatten_mbook_context.return }}
-
   - name: Create individual mapbook context
     id: individual_mapbook_context
     task: create_mapbook_context
     partial:
       template_path: ${{ workflow.download_sect_templates.return }}
-      output_directory: ${{ workflow.create_output_directory.return }}
+      output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
       subject_name: ${{ workflow.get_subject_name.return }}
       time_period: ${{ workflow.define_time_range.return }}
-      period: ${{ workflow.report_duration.return }} # months
+      period: ${{ workflow.round_report_duration.return }} # months
     mapvalues:
       argnames:
         - grid_area
@@ -1498,37 +1502,31 @@ workflow:
         - subject_name
       argvalues: ${{ workflow.flatten_mbook_context.return }}
 
-  - name: print individual mapbook outputs
-    id: print_indv_outputs
-    task: print_output
-    mapvalues:
-      argnames: value
-      argvalues: ${{ workflow.individual_mapbook_context.return }}
-
-  - name: Gather mapbook context output files
-    id: gather_mbook_files
-    task: gather_output_files
-    partial:
-      files:
-        - ${{ workflow.individual_mapbook_context.return }}
-
-    
-  # - name: print output files list
-  #   id: print_mbook_outputs
-  #   task: print_output
-  #   mapvalues:
-  #     argnames: value
-  #     argvalues: ${{ workflow.gather_mbook_files.return }}
-
   # func to merge all individual subject mapbook sections and cover page
   - name: Generate final mapbook report
     id: generate_mapbook_report
     task: combine_docx_files
     partial:
       cover_page_path: ${{ workflow.persist_context_cover.return }}
-      output_directory: ${{ workflow.create_output_directory.return }}
+      output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }} #${{ workflow.create_output_directory.return }}
       filename: mapbook_report.docx
-    mapvalues:
-      argnames: context_page_paths
-      argvalues: ${{ workflow.gather_mbook_files.return }}
+      context_page_items: ${{ workflow.individual_mapbook_context.return }}
 
+  - name: Mapbook Dashboard
+    id: mapbook_dashboard
+    task: gather_dashboard
+    partial:
+      details: ${{ workflow.initialize_workflow_metadata.return }}
+      widgets:
+        - ${{ workflow.gender_sv_widget.return }} # gender str widget
+        - ${{ workflow.total_mcp_grouped_sv_widget.return }} # total mcp area widget
+        - ${{ workflow.total_grid_grouped_sv_widget.return }} # total grid area widget
+        - ${{ workflow.merge_speedmap_widgets.return }} #speedmap widgets
+        - ${{ workflow.merge_day_night_ecomap_widgets.return }} # day/night widgets
+        - ${{ workflow.merge_quarter_ecomap_widgets.return }} #prev-current quarter movement widgets
+        - ${{ workflow.merge_hr_ecomap_widgets.return }} # etd hr widgets
+        - ${{ workflow.speedraster_ecomap_widgets.return }} # speedraster widgets
+        - ${{ workflow.season_grouped_map_widget.return }} # seasons 
+
+      time_range: ${{ workflow.define_time_range.return }}
+      groupers: ${{ workflow.configure_grouping_strategy.return }}

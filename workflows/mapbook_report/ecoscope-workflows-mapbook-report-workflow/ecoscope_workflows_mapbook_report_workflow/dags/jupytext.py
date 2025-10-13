@@ -15,7 +15,6 @@ from ecoscope_workflows_core.tasks.config import set_workflow_details
 from ecoscope_workflows_core.tasks.filter import set_time_range
 from ecoscope_workflows_core.tasks.groupby import set_groupers
 from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps
-from ecoscope_workflows_ext_ste.tasks import create_directory
 from ecoscope_workflows_ext_ste.tasks import download_land_dx
 from ecoscope_workflows_ext_ste.tasks import load_landdx_aoi
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column
@@ -62,20 +61,20 @@ from ecoscope_workflows_ext_ste.tasks import retrieve_feature_gdf
 from ecoscope_workflows_ext_ste.tasks import calculate_seasonal_home_range
 from ecoscope_workflows_ext_ecoscope.tasks.skip import all_geometry_are_none
 from ecoscope_workflows_core.tasks.analysis import dataframe_column_sum
+from ecoscope_workflows_ext_ste.tasks import round_off_values
 from ecoscope_workflows_core.tasks.results import create_single_value_widget_single_view
 from ecoscope_workflows_ext_ste.tasks import dataframe_column_first_unique_str
 from ecoscope_workflows_core.tasks.results import create_text_widget_single_view
 from ecoscope_workflows_ext_ste.tasks import get_duration
-from ecoscope_workflows_core.tasks.results import gather_dashboard
 from ecoscope_workflows_ext_ste.tasks import download_file_and_persist
 from ecoscope_workflows_core.tasks.analysis import dataframe_column_nunique
 from ecoscope_workflows_ext_ste.tasks import build_mapbook_report_template
 from ecoscope_workflows_ext_ste.tasks import create_context_page
 from ecoscope_workflows_ext_custom.tasks import html_to_png
 from ecoscope_workflows_ext_ste.tasks import flatten_tuple
-from ecoscope_workflows_ext_ste.tasks import print_output
 from ecoscope_workflows_ext_ste.tasks import create_mapbook_context
-from ecoscope_workflows_core.tasks.results import gather_output_files
+from ecoscope_workflows_ext_ste.tasks import combine_docx_files
+from ecoscope_workflows_core.tasks.results import gather_dashboard
 
 # %% [markdown]
 # ## Initialize Workflow Metadata
@@ -165,47 +164,25 @@ configure_base_maps = (
 
 
 # %% [markdown]
-# ## Create Output Directory
-
-# %%
-# parameters
-
-create_output_directory_params = dict(
-    path_name=...,
-)
-
-# %%
-# call the task
-
-
-create_output_directory = (
-    create_directory.handle_errors(task_instance_id="create_output_directory")
-    .partial(**create_output_directory_params)
-    .call()
-)
-
-
-# %% [markdown]
 # ## Download LandDx Database and extract
 
 # %%
 # parameters
 
-retrieve_landdx_database_params = dict(
-    overwrite_existing=...,
-    unzip=...,
-)
+download_ldx_db_params = dict()
 
 # %%
 # call the task
 
 
-retrieve_landdx_database = (
-    download_land_dx.handle_errors(task_instance_id="retrieve_landdx_database")
+download_ldx_db = (
+    download_land_dx.handle_errors(task_instance_id="download_ldx_db")
     .partial(
-        path=create_output_directory,
+        path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         url="https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
-        **retrieve_landdx_database_params,
+        overwrite_existing=False,
+        unzip=True,
+        **download_ldx_db_params,
     )
     .call()
 )
@@ -227,7 +204,7 @@ load_aoi_params = dict(
 
 load_aoi = (
     load_landdx_aoi.handle_errors(task_instance_id="load_aoi")
-    .partial(map_path=retrieve_landdx_database, **load_aoi_params)
+    .partial(map_path=download_ldx_db, **load_aoi_params)
     .call()
 )
 
@@ -2422,6 +2399,25 @@ total_mcp_area = (
 
 
 # %% [markdown]
+# ## Round off mcp area to 2 decimal_places
+
+# %%
+# parameters
+
+round_mcp_area_params = dict()
+
+# %%
+# call the task
+
+
+round_mcp_area = (
+    round_off_values.handle_errors(task_instance_id="round_mcp_area")
+    .partial(dp=2, **round_mcp_area_params)
+    .mapvalues(argnames=["value"], argvalues=total_mcp_area)
+)
+
+
+# %% [markdown]
 # ## Calculate Total Grid Area
 
 # %%
@@ -2437,6 +2433,25 @@ total_grid_area = (
     dataframe_column_sum.handle_errors(task_instance_id="total_grid_area")
     .partial(column_name="area_sqkm", **total_grid_area_params)
     .mapvalues(argnames=["df"], argvalues=generate_etd)
+)
+
+
+# %% [markdown]
+# ## Round off grid area to 2 decimal_places
+
+# %%
+# parameters
+
+round_grid_area_params = dict()
+
+# %%
+# call the task
+
+
+round_grid_area = (
+    round_off_values.handle_errors(task_instance_id="round_grid_area")
+    .partial(dp=2, **round_grid_area_params)
+    .mapvalues(argnames=["value"], argvalues=total_grid_area)
 )
 
 
@@ -2465,7 +2480,7 @@ total_mcp_sv_widgets = (
     .partial(
         title="Total MCP Area (Km2)", decimal_places=1, **total_mcp_sv_widgets_params
     )
-    .map(argnames=["view", "data"], argvalues=total_mcp_area)
+    .map(argnames=["view", "data"], argvalues=round_mcp_area)
 )
 
 
@@ -2513,7 +2528,7 @@ total_grid_sv_widgets = (
     .partial(
         title="Total Grid Area(Km2)", decimal_places=1, **total_grid_sv_widgets_params
     )
-    .map(argnames=["view", "data"], argvalues=total_grid_area)
+    .map(argnames=["view", "data"], argvalues=round_grid_area)
 )
 
 
@@ -2619,36 +2634,20 @@ report_duration = (
 
 
 # %% [markdown]
-# ## Mapbook Dashboard
+# ## Round off report duration to 2 decimal_places
 
 # %%
 # parameters
 
-mapbook_dashboard_params = dict()
+round_report_duration_params = dict()
 
 # %%
 # call the task
 
 
-mapbook_dashboard = (
-    gather_dashboard.handle_errors(task_instance_id="mapbook_dashboard")
-    .partial(
-        details=initialize_workflow_metadata,
-        widgets=[
-            gender_sv_widget,
-            total_mcp_grouped_sv_widget,
-            total_grid_grouped_sv_widget,
-            merge_speedmap_widgets,
-            merge_day_night_ecomap_widgets,
-            merge_quarter_ecomap_widgets,
-            merge_hr_ecomap_widgets,
-            speedraster_ecomap_widgets,
-            season_grouped_map_widget,
-        ],
-        time_range=define_time_range,
-        groupers=configure_grouping_strategy,
-        **mapbook_dashboard_params,
-    )
+round_report_duration = (
+    round_off_values.handle_errors(task_instance_id="round_report_duration")
+    .partial(dp=2, value=report_duration, **round_report_duration_params)
     .call()
 )
 
@@ -2693,7 +2692,7 @@ download_mapbook_cover_page = (
     )
     .partial(
         url="https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0",
-        output_path=create_output_directory,
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         **download_mapbook_cover_page_params,
     )
@@ -2719,8 +2718,8 @@ download_sect_templates_params = dict(
 download_sect_templates = (
     download_file_and_persist.handle_errors(task_instance_id="download_sect_templates")
     .partial(
-        url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=76hzfzfg&dl=0",
-        output_path=create_output_directory,
+        url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0",
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         **download_sect_templates_params,
     )
@@ -2747,7 +2746,7 @@ download_logo_path_params = dict(
 download_logo_path = (
     download_file_and_persist.handle_errors(task_instance_id="download_logo_path")
     .partial(
-        output_path=create_output_directory,
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         **download_logo_path_params,
     )
@@ -2794,7 +2793,7 @@ create_cover_template_context = (
         count=unique_subjects,
         org_logo_path=download_logo_path,
         report_period=define_time_range,
-        prepared_by="Ecoscope Team",
+        prepared_by="Ecoscope",
         **create_cover_template_context_params,
     )
     .call()
@@ -2818,10 +2817,10 @@ persist_context_cover_params = dict(
 persist_context_cover = (
     create_context_page.handle_errors(task_instance_id="persist_context_cover")
     .partial(
-        logo_width_cm=5.5,
+        logo_width_cm=5.25,
         logo_height_cm=1.93,
         template_path=download_mapbook_cover_page,
-        output_directory=create_output_directory,
+        output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         context=create_cover_template_context,
         **persist_context_cover_params,
     )
@@ -2845,7 +2844,7 @@ convert_speedmap_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_speedmap_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 100},
+        config={"wait_for_timeout": 20000},
         **convert_speedmap_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_speed_ecomap_urls)
@@ -2868,7 +2867,7 @@ convert_day_night_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_day_night_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 100},
+        config={"wait_for_timeout": 20000},
         **convert_day_night_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_day_night_ecomap_urls)
@@ -2891,7 +2890,7 @@ convert_quarter_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_quarter_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 100},
+        config={"wait_for_timeout": 20000},
         **convert_quarter_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_quarter_ecomap_urls)
@@ -2914,7 +2913,7 @@ convert_hr_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_hr_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 100},
+        config={"wait_for_timeout": 20000},
         **convert_hr_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_hr_ecomap_urls)
@@ -2937,7 +2936,7 @@ convert_speed_raster_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_speed_raster_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 100},
+        config={"wait_for_timeout": 20000},
         **convert_speed_raster_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=speed_raster_ecomap_urls)
@@ -2960,7 +2959,7 @@ convert_seasonal_hr_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_seasonal_hr_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 100},
+        config={"wait_for_timeout": 20000},
         **convert_seasonal_hr_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=season_etd_ecomap_html_url)
@@ -2981,7 +2980,7 @@ zip_grid_mcp_params = dict()
 
 zip_grid_mcp = (
     zip_grouped_by_key.handle_errors(task_instance_id="zip_grid_mcp")
-    .partial(left=total_grid_area, right=total_mcp_area, **zip_grid_mcp_params)
+    .partial(left=round_grid_area, right=round_mcp_area, **zip_grid_mcp_params)
     .call()
 )
 
@@ -3167,25 +3166,6 @@ flatten_mbook_context = (
 
 
 # %% [markdown]
-# ## print output value
-
-# %%
-# parameters
-
-print_flatten_context_params = dict()
-
-# %%
-# call the task
-
-
-print_flatten_context = (
-    print_output.handle_errors(task_instance_id="print_flatten_context")
-    .partial(**print_flatten_context_params)
-    .mapvalues(argnames=["value"], argvalues=flatten_mbook_context)
-)
-
-
-# %% [markdown]
 # ## Create individual mapbook context
 
 # %%
@@ -3206,10 +3186,10 @@ individual_mapbook_context = (
     create_mapbook_context.handle_errors(task_instance_id="individual_mapbook_context")
     .partial(
         template_path=download_sect_templates,
-        output_directory=create_output_directory,
+        output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         subject_name=get_subject_name,
         time_period=define_time_range,
-        period=report_duration,
+        period=round_report_duration,
         **individual_mapbook_context_params,
     )
     .mapvalues(
@@ -3230,57 +3210,60 @@ individual_mapbook_context = (
 
 
 # %% [markdown]
-# ## print individual mapbook outputs
+# ## Generate final mapbook report
 
 # %%
 # parameters
 
-print_indv_outputs_params = dict()
+generate_mapbook_report_params = dict()
 
 # %%
 # call the task
 
 
-print_indv_outputs = (
-    print_output.handle_errors(task_instance_id="print_indv_outputs")
-    .partial(**print_indv_outputs_params)
-    .mapvalues(argnames=["value"], argvalues=individual_mapbook_context)
-)
-
-
-# %% [markdown]
-# ## Gather mapbook context output files
-
-# %%
-# parameters
-
-gather_mbook_files_params = dict()
-
-# %%
-# call the task
-
-
-gather_mbook_files = (
-    gather_output_files.handle_errors(task_instance_id="gather_mbook_files")
-    .partial(files=individual_mapbook_context, **gather_mbook_files_params)
+generate_mapbook_report = (
+    combine_docx_files.handle_errors(task_instance_id="generate_mapbook_report")
+    .partial(
+        cover_page_path=persist_context_cover,
+        output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="mapbook_report.docx",
+        context_page_items=individual_mapbook_context,
+        **generate_mapbook_report_params,
+    )
     .call()
 )
 
 
 # %% [markdown]
-# ## print output files list
+# ## Mapbook Dashboard
 
 # %%
 # parameters
 
-print_mbook_outputs_params = dict()
+mapbook_dashboard_params = dict()
 
 # %%
 # call the task
 
 
-print_mbook_outputs = (
-    print_output.handle_errors(task_instance_id="print_mbook_outputs")
-    .partial(**print_mbook_outputs_params)
-    .mapvalues(argnames=["value"], argvalues=gather_mbook_files)
+mapbook_dashboard = (
+    gather_dashboard.handle_errors(task_instance_id="mapbook_dashboard")
+    .partial(
+        details=initialize_workflow_metadata,
+        widgets=[
+            gender_sv_widget,
+            total_mcp_grouped_sv_widget,
+            total_grid_grouped_sv_widget,
+            merge_speedmap_widgets,
+            merge_day_night_ecomap_widgets,
+            merge_quarter_ecomap_widgets,
+            merge_hr_ecomap_widgets,
+            speedraster_ecomap_widgets,
+            season_grouped_map_widget,
+        ],
+        time_range=define_time_range,
+        groupers=configure_grouping_strategy,
+        **mapbook_dashboard_params,
+    )
+    .call()
 )

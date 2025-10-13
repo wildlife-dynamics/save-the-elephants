@@ -1,5 +1,7 @@
+from __future__ import annotations
 import os
 import uuid
+import logging
 import hashlib
 import numpy as np 
 import pandas as pd
@@ -16,12 +18,16 @@ from pydantic.json_schema import SkipJsonSchema
 from dateutil.relativedelta import relativedelta
 from pydantic import Field, BaseModel, ConfigDict
 from ecoscope_workflows_core.decorators import task
+from ecoscope_workflows_core.indexes import CompositeFilter
 from ecoscope.analysis.ecograph import Ecograph, get_feature_gdf
-from ecoscope_workflows_core.tasks.filter._filter import TimeRange 
 from typing import Annotated, Optional, Dict, cast, Literal,Union
+from ecoscope_workflows_core.tasks.filter._filter import TimeRange 
 from ecoscope.analysis.seasons import seasonal_windows, std_ndvi_vals, val_cuts
+from ecoscope_workflows_core.skip import SkippedDependencyFallback, SkipSentinel
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import calculate_elliptical_time_density
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, AdvancedField
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class MapbookContext:
@@ -72,26 +78,26 @@ class CustomGridCellSize(BaseModel):
 @task
 def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
     """
-    Adds a 'quarter_status' column to the DataFrame based on whether each timestamp
-    falls in the most recent quarter (from the dataset) or any previous quarter.
+    Label rows based on whether their timestamp falls in the most recent quarter.
 
     Args:
-        gdf (AnyDataFrame): GeoDataFrame with a datetime column.
-        timestamp_col (str): Name of the datetime column to evaluate.
+        gdf: Input DataFrame with a datetime column.
+        timestamp_col: Name of the timestamp column.
 
     Returns:
-        AnyDataFrame: Updated GeoDataFrame with 'quarter_status' column added.
+        A copy of the DataFrame with a new column 'quarter_status' indicating
+        'Present Quarter Movement' or 'Previous Quarter Movement'.
     """
-    gdf = gdf.copy()
+    if gdf is None or gdf.empty:
+        raise ValueError("Input GeoDataFrame is empty.")
+    
     gdf[timestamp_col] = pd.to_datetime(gdf[timestamp_col])
-
     latest_date = gdf[timestamp_col].max()
     most_recent_quarter = latest_date.to_period("Q")
-
-    gdf["quarter_status"] = (
-        gdf[timestamp_col]
-        .dt.to_period("Q")
-        .apply(lambda x: "Present Quarter Movement" if x == most_recent_quarter else "Previous Quarter Movement")
+    gdf["quarter_status"] = np.where(
+        gdf[timestamp_col].dt.to_period("Q") == most_recent_quarter,
+        "Present Quarter Movement",
+        "Previous Quarter Movement",
     )
     return gdf
 
@@ -121,13 +127,7 @@ def generate_ecograph_raster(
     ] = None,
     network_metric: Optional[Literal["weight", "betweenness", "degree", "collective_influence"]] = None,
 ) -> str:
-    """
-    Generate a GeoTIFF raster from trajectory data using Ecograph.
-
-    Exactly one of `movement_covariate` or `network_metric` must be provided.
-    If `resolution` is None, the mean of `dist_col` is used.
-    """
-    if gdf is None or len(gdf) == 0:
+    if gdf is None or gdf.empty:
         raise ValueError("gdf is empty.")
 
     if dist_col not in gdf.columns:
@@ -173,56 +173,8 @@ def generate_ecograph_raster(
 def retrieve_feature_gdf(
     file_path: Annotated[str, Field(description="Path to the saved Ecograph feature file")],
 ) -> AnyGeoDataFrame:
-    """
-    Loads a GeoDataFrame from a saved Ecograph feature file.
-    Args:
-        file_path (str): Path to the `.geojson` or `.gpkg` feature file.
-
-    Returns:
-        AnyGeoDataFrame: The loaded GeoDataFrame containing spatial features.
-    """
     gdf = get_feature_gdf(file_path)
     return gdf
-
-def determine_season_windows(aoi: AnyGeoDataFrame, since, until):
-    windows = None
-    try:
-        # Merge to a larger Polygon
-        aoi = aoi.copy()
-        aoi = aoi.to_crs(4326)
-        aoi = aoi.dissolve()
-        aoi = aoi.iloc[0]["geometry"]
-
-        # Determine wet/dry seasons
-        print(f"Attempting download of NDVI values since: {since.isoformat()} until: {until.isoformat()}")
-        date_chunks = (
-            pd.date_range(start=since, end=until, periods=5, inclusive="both")
-            .to_series()
-            .apply(lambda x: x.isoformat())
-            .values
-        )
-        ndvi_vals = []
-        for t in range(1, len(date_chunks)):
-            print(f"Downloading NDVI Values from EarthEngine......({t}/5)")
-            ndvi_vals.append(
-                std_ndvi_vals(
-                    img_coll="MODIS/061/MCD43A4",
-                    nir_band="Nadir_Reflectance_Band2",
-                    red_band="Nadir_Reflectance_Band1",
-                    aoi=aoi,
-                    start=date_chunks[t - 1],
-                    end=date_chunks[t],
-                )
-            )
-        ndvi_vals = pd.concat(ndvi_vals)
-        print(f"Calculating seasonal windows based on {str(len(ndvi_vals))} NDVI values....")
-        cuts = val_cuts(ndvi_vals, 2)
-        windows = seasonal_windows(ndvi_vals, cuts, season_labels=["dry", "wet"])
-
-    except Exception as e:
-        print(f"Failed to calculate seasonal windows {e}")
-    return windows
-
 
 @task
 def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFrame) -> Optional[AnyGeoDataFrame]:
@@ -231,9 +183,9 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
     Applies to the entire trajectory without grouping.
     """
     try:
-        print("Calculating seasonal ETD percentiles for entire trajectory")
-        print(f"Total percentiles shape: {total_percentiles.shape}")
-        print(f"Available seasons: {total_percentiles['season'].unique()}")
+        logger.info("Calculating seasonal ETD percentiles for entire trajectory")
+        logger.info(f"Total percentiles shape: {total_percentiles.shape}")
+        logger.info(f"Available seasons: {total_percentiles['season'].unique()}")
         seasonal_wins = total_percentiles.copy()
 
         traj_start = traj["segment_start"].min()
@@ -243,16 +195,16 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
             (seasonal_wins["end"] >= traj_start) & (seasonal_wins["start"] <= traj_end)
         ].reset_index(drop=True)
 
-        print(f"Filtered seasonal windows: {len(seasonal_wins)} periods")
-        print(f"Seasonal Windows:\n{seasonal_wins[['start', 'end', 'season']]}")
+        logger.info(f"Filtered seasonal windows: {len(seasonal_wins)} periods")
+        logger.info(f"Seasonal Windows:\n{seasonal_wins[['start', 'end', 'season']]}")
 
         if seasonal_wins.empty:
-            print("No seasonal windows overlap with trajectory timeframe.")
+            logger.error("No seasonal windows overlap with trajectory timeframe.")
             traj["season"] = None
             return traj
 
         season_bins = pd.IntervalIndex(data=seasonal_wins.apply(lambda x: pd.Interval(x["start"], x["end"]), axis=1))
-        print(f"Created {len(season_bins)} seasonal bins")
+        logger.info(f"Created {len(season_bins)} seasonal bins")
 
         labels = seasonal_wins["season"].values
         traj["season"] = pd.cut(traj["segment_start"], bins=season_bins, include_lowest=True).map(
@@ -260,13 +212,13 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
         )
         null_count = traj["season"].isnull().sum()
         if null_count > 0:
-            print(f"Warning: {null_count} trajectory segments couldn't be assigned to any season")
+            logger.warning(f"Warning: {null_count} trajectory segments couldn't be assigned to any season")
 
-        print("Seasonal labeling complete. Season distribution:")
-        print(traj["season"].value_counts(dropna=False))
+        logger.info("Seasonal labeling complete. Season distribution:")
+        logger.info(traj["season"].value_counts(dropna=False))
         return traj
     except Exception as e:
-        print(f"Failed to apply seasonal label to trajectory: {e}")
+        logger.error(f"Failed to apply seasonal label to trajectory: {e}")
         return None
 
 
@@ -283,11 +235,6 @@ def split_gdf_by_column(
 
     grouped = {str(k): v for k, v in gdf.groupby(column)}
     return grouped
-
-@task
-def mapbook_info(values: Dict) -> Dict:
-    val_dict = {}
-    return val_dict.update(values)
 
 @task
 def generate_mcp_gdf(
@@ -320,7 +267,11 @@ def generate_mcp_gdf(
     convex_hull_original_crs = gpd.GeoSeries([convex_hull], crs=planar_crs).to_crs(original_crs).iloc[0]
 
     result_gdf = gpd.GeoDataFrame(
-        {"area_m2": [area_sq_meters], "area_km2": [area_sq_km], "mcp": "mcp"},
+        {
+            "area_m2": [area_sq_meters], 
+            "area_km2": [area_sq_km], 
+            "mcp": "mcp"
+        },
         geometry=[convex_hull_original_crs],
         crs=original_crs,
     )
@@ -332,12 +283,16 @@ def dataframe_column_first_unique_str(
     column_name: Annotated[str, Field(description="Column to aggregate")],
 ) -> Annotated[str, Field(description="The first unique string value in the column")]:
     return str(df[column_name].unique()[0])
-    
+
+
 @task
-def assign_quarter_status_colors(gdf: AnyDataFrame, hex_column: str, previous_color_hex: str) -> AnyDataFrame:
+def assign_quarter_status_colors(
+    gdf: AnyDataFrame, 
+    hex_column: str, 
+    previous_color_hex: str
+    ) -> AnyDataFrame:
     df = gdf.copy()
 
-    # Validate hex color code
     if not isinstance(previous_color_hex, str) or not previous_color_hex.startswith("#"):
         raise ValueError("Invalid hex color code for previous_color_hex.")
     if hex_column not in df.columns:
@@ -453,24 +408,6 @@ def get_duration(
 @task
 def download_file_and_persist(
     url: Annotated[str, Field(description="URL to download the file from")],
-    output_path: Annotated[str, Field(description="Path to save the downloaded file")],
-    retries: Annotated[int, Field(description="Number of retries on failure", ge=0)] = 3,
-    overwrite_existing: Annotated[bool, Field(description="Whether to overwrite existing files")] = False,
-    unzip: Annotated[bool, Field(description="Whether to unzip the file if it's a zip archive")] = False,
-) -> str:
-
-    download_file(
-        url = url,
-        path = output_path,
-        retries = retries,
-        overwrite_existing = overwrite_existing,
-        unzip = unzip
-    )
-    return output_path
-
-@task
-def download_file_and_persist(
-    url: Annotated[str, Field(description="URL to download the file from")],
     output_path: Annotated[str, Field(description="Path to save the downloaded file or directory")],
     retries: Annotated[int, Field(description="Number of retries on failure", ge=0)] = 3,
     overwrite_existing: Annotated[bool, Field(description="Whether to overwrite existing files")] = False,
@@ -540,12 +477,12 @@ def build_mapbook_report_template(
         f"{report_period.since.strftime(fmt)} to {report_period.until.strftime(fmt)}"
     )
 
-    print(f"Report period: {formatted_time_range}")
-    print(f"Report date generated: {formatted_date_str}")
-    print(f"Report prepared by: {prepared_by}")
-    print(f"Report count: {count}")
-    print(f"Organization logo path: {org_logo_path}")
-    print(f"Report ID: REP-{uuid.uuid4().hex[:8].upper()}")
+    logger.info(f"Report period: {formatted_time_range}")
+    logger.info(f"Report date generated: {formatted_date_str}")
+    logger.info(f"Report prepared by: {prepared_by}")
+    logger.info(f"Report count: {count}")
+    logger.info(f"Organization logo path: {org_logo_path}")
+    logger.info(f"Report ID: REP-{uuid.uuid4().hex[:8].upper()}")
 
     # Return structured dictionary
     return {
@@ -665,24 +602,93 @@ def create_mapbook_context(
     tpl.save(output_path)
     return str(output_path)
 
-#combine cover_page and context pages into a single docx
+def _fallback_to_none_doc(
+    obj: tuple[CompositeFilter | None, str] | SkipSentinel
+    ) -> tuple[CompositeFilter | None, str] | None:
+    return None if isinstance(obj, SkipSentinel) else obj
+
+@dataclass
+class GroupedDoc:
+    """Analogous to GroupedWidget but for document pages."""
+    views: dict[CompositeFilter | None, Optional[str]]
+
+    @classmethod
+    def from_single_view(cls, item: tuple[CompositeFilter | None, str]) -> "GroupedDoc":
+        view, path = item
+        return cls(views={view: path})
+
+    @property
+    def merge_key(self) -> str:
+        """
+        Determine how docs should be grouped.
+        Default: group by filename stem of the first non-None path in views.
+        If you want another grouping (e.g. based on metadata), replace this logic.
+        """
+        # pick any path available
+        for p in self.views.values():
+            if p:
+                return Path(p).stem
+        # fallback unique key (shouldn't happen normally)
+        return uuid.uuid4().hex
+
+    def __ior__(self, other: "GroupedDoc") -> "GroupedDoc":
+        """Merge views from other into self. Keys must be compatible by merge_key."""
+        if self.merge_key != other.merge_key:
+            raise ValueError(f"Cannot merge GroupedDoc with different keys: {self.merge_key} != {other.merge_key}")
+        # update views (later views override same view key)
+        self.views.update(other.views)
+        return self
+
 @task
 def combine_docx_files(
-    cover_page_path: str,
-    context_page_paths: list[str],
-    output_directory: str,
-    filename: Optional[str] = None,
-) -> str:
-    from docx import Document 
+    cover_page_path: Annotated[str, Field(description="Path to the cover page .docx file")],
+    context_page_items: Annotated[
+        list[
+            Annotated[
+                tuple[CompositeFilter | None, str],
+                SkippedDependencyFallback(_fallback_to_none_doc),
+            ]
+        ],
+        Field(description="List of  context pages. Items can be SkipSentinel and will be filtered out.", exclude=True),
+    ],
+    output_directory: Annotated[str, Field(description="Directory where combined docx will be written")],
+    filename: Annotated[Optional[str], Field(description="Optional output filename")] = None,
+) -> Annotated[str, Field(description="Path to the combined .docx file")]:
+    """
+    Combine cover + grouped context pages into a single DOCX.
+
+    Behaviour:
+    - Items in `context_page_items` may be SkipSentinel (handled by SkippedDependencyFallback) and will be ignored.
+    - Context pages are grouped by `merge_key` (default: filename stem). All views from the same group are combined.
+    - The resulting single .docx is written to `output_directory` with `filename` or a generated UUID name.
+    """
+    from docx import Document
     from docxcompose.composer import Composer
+
+    valid_items = [it for it in context_page_items if it is not None]
+    grouped_docs = [GroupedDoc.from_single_view(it) for it in valid_items]
+
+    merged_map: dict[str, GroupedDoc] = {}
+    for gd in grouped_docs:
+        key = gd.merge_key
+        if key not in merged_map:
+            merged_map[key] = gd
+        else:
+            merged_map[key] |= gd
+
+    final_paths: list[str] = []
+    for group in merged_map.values():
+        for view_key, p in group.views.items():
+            if p is not None:
+                final_paths.append(p)
 
     if not os.path.exists(cover_page_path):
         raise FileNotFoundError(f"Cover page file not found: {cover_page_path}")
-    
-    for path in context_page_paths:
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Context page file not found: {path}")
-    
+        
+    for p in final_paths:
+        if not os.path.exists(p):
+            raise FileNotFoundError(f"Context page file not found: {p}")
+
     os.makedirs(output_directory, exist_ok=True)
 
     if not filename:
@@ -692,12 +698,13 @@ def combine_docx_files(
     master = Document(cover_page_path)
     composer = Composer(master)
 
-    for doc_path in context_page_paths:
+    for doc_path in final_paths:
         doc = Document(doc_path)
         composer.append(doc)
+
     composer.save(output_path)
     return str(output_path)
 
-
-
-
+@task
+def round_off_values(value: float, dp: int) -> float:
+    return round(value, dp)

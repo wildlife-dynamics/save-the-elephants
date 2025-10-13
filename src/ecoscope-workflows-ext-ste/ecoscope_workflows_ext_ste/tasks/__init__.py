@@ -1,16 +1,15 @@
 # write test functions for these functions
 from ._map_utils import (
-    load_map_files,
-    load_landdx_aoi,
     download_land_dx,
+    load_landdx_aoi,
     create_map_layers,
-    clean_geodataframe,
     combine_map_layers,
+    detect_geometry_type,
+    load_geospatial_files,
     create_layer_from_gdf,
-    generate_density_grid,
     build_landdx_style_config,
+    remove_invalid_geometries,
     create_view_state_from_gdf,
-    check_shapefile_geometry_type,
     annotate_gdf_dict_with_geometry_type,
     create_map_layers_from_annotated_dict,
 )
@@ -34,25 +33,26 @@ from ._ste_utils import (
     dataframe_column_first_unique_str,
     create_context_page,
     create_mapbook_context,
-    combine_docx_files
+    combine_docx_files,
+    round_off_values
 )
 
 from ._zip import zip_grouped_by_key ,flatten_tuple
-
-from ._example import add_one_thousand # exclude this
+from ._example import add_one_thousand
 
 __all__ = [
+    "download_land_dx",
     "view_df",
+    "round_off_values",
     "print_output",
     "add_one_thousand",
     "get_duration",
     "combine_docx_files",
     "flatten_tuple",
     "generate_mcp_gdf",
-    "load_map_files",
+    "load_geospatial_files",
     "load_landdx_aoi",
     "create_directory",
-    "download_land_dx",
     "create_map_layers",
     "combine_map_layers",
     "clean_geodataframe",
@@ -63,7 +63,6 @@ __all__ = [
     "label_quarter_status",
     "retrieve_feature_gdf",
     "generate_ecograph_raster",
-    "generate_density_grid",
     "create_layer_from_gdf",
     "create_seasonal_labels",
     "create_context_page",
@@ -71,7 +70,7 @@ __all__ = [
     "build_landdx_style_config",
     "build_mapbook_report_template",
     "create_view_state_from_gdf",
-    "check_shapefile_geometry_type",
+    "detect_geometry_type",
     "calculate_seasonal_home_range",
     "dataframe_column_first_unique_str",
     "annotate_gdf_dict_with_geometry_type",
