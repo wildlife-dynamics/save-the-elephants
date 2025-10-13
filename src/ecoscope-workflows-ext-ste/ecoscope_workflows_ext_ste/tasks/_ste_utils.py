@@ -9,7 +9,9 @@ import geopandas as gpd
 from pathlib import Path
 from docx.shared import Cm
 from datetime import datetime
+from urllib.parse import urlparse
 from ecoscope.io import download_file
+from urllib.request import url2pathname
 from dataclasses import asdict,dataclass
 from ecoscope.trajectory import Trajectory
 from ecoscope.base.utils import hex_to_rgba
@@ -173,6 +175,10 @@ def generate_ecograph_raster(
 def retrieve_feature_gdf(
     file_path: Annotated[str, Field(description="Path to the saved Ecograph feature file")],
 ) -> AnyGeoDataFrame:
+    if file_path.startswith("file://"):
+        parsed = urlparse(file_path)
+        file_path = url2pathname(parsed.path)
+
     gdf = get_feature_gdf(file_path)
     return gdf
 
@@ -417,6 +423,10 @@ def download_file_and_persist(
     Downloads a file from the provided URL and persists it locally.
     Returns the full path to the downloaded (and optionally unzipped) file.
     """
+    if output_path.startswith("file://"):
+        parsed = urlparse(output_path)
+        output_path = url2pathname(parsed.path)
+
     output_dir = os.path.isdir(output_path)
 
     # Perform download
@@ -466,6 +476,10 @@ def build_mapbook_report_template(
     Returns:
         Dict[str, str]: Structured dictionary with formatted metadata.
     """
+    if org_logo_path.startswith("file://"):
+        parsed = urlparse(org_logo_path)
+        org_logo_path = url2pathname(parsed.path)
+
     if isinstance(org_logo_path, (str, Path)):
         org_logo_path = Path(org_logo_path)
         org_logo_path = str(org_logo_path.resolve()) if org_logo_path.exists() else str(org_logo_path)
@@ -516,6 +530,14 @@ def create_context_page(
     Returns:
         str: Full path to the generated .docx file.
     """
+    if template_path.startswith("file://"):
+        parsed = urlparse(template_path)
+        template_path = url2pathname(parsed.path)
+
+    if output_directory.startswith("file://"):
+        parsed = urlparse(output_directory)
+        output_directory = url2pathname(parsed.path)
+
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template file not found: {template_path}")
 
@@ -557,6 +579,14 @@ def create_mapbook_context(
     box_h_cm: float = 6.5,
     box_w_cm: float = 11.11,
 ) -> str:
+    if template_path.startswith("file://"):
+        parsed = urlparse(template_path)
+        template_path = url2pathname(parsed.path)
+
+    if output_directory.startswith("file://"):
+        parsed = urlparse(output_directory)
+        output_directory = url2pathname(parsed.path)
+
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template file not found: {template_path}")
     os.makedirs(output_directory, exist_ok=True)

@@ -6,6 +6,8 @@ import traceback
 from enum import Enum
 import geopandas as gpd
 from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 from ecoscope_workflows_core.decorators import task
 from pydantic import BaseModel, Field, field_validator
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame
@@ -338,14 +340,24 @@ def download_land_dx(
 ) -> str:
     """
     Downloads the LandDx database from a given URL and saves it to the specified path.
-
-    Parameters:
-        url (str): The download URL.
-        path (str): Destination path for saving the file.
-        overwrite_existing (bool): Whether to overwrite an existing file. Default is False.
-        unzip (bool): Whether to unzip the downloaded file. Default is True.
     """
-    ecoscope.io.utils.download_file(url=url, path=path, overwrite_existing=overwrite_existing, unzip=unzip)
+    # --- Normalize path if it starts with file:// ---
+    if path.startswith("file://"):
+        parsed = urlparse(path)
+        path = url2pathname(parsed.path)
+
+    # --- Ensure it's not a directory only ---
+    if os.path.isdir(path) or path.endswith(os.sep):
+        os.makedirs(path, exist_ok=True)
+        filename = os.path.basename(urlparse(url).path) or "landdx.db"
+        path = os.path.join(path, filename)
+
+    ecoscope.io.utils.download_file(
+        url=url,
+        path=path,
+        overwrite_existing=overwrite_existing,
+        unzip=unzip,
+    )
     return path
     
 @task
@@ -395,6 +407,9 @@ def load_landdx_aoi(map_path: str, aoi: List[str]) -> Optional[AnyGeoDataFrame]:
         Optional[gpd.GeoDataFrame]: Filtered GeoDataFrame, or None if not found or fails to load.
     """
     landDx_path = None
+    if map_path.startswith("file://"):
+        parsed = urlparse(map_path)
+        map_path = url2pathname(parsed.path)
 
     # Search recursively
     for root, _, files in os.walk(map_path):
