@@ -410,7 +410,7 @@ def get_duration(
 
     else:
         raise ValueError("time_unit must be either 'days' or 'months'")
-    
+        
 @task
 def download_file_and_persist(
     url: Annotated[str, Field(description="URL to download the file from")],
@@ -423,60 +423,88 @@ def download_file_and_persist(
     Downloads a file from the provided URL and persists it locally.
     Returns the full path to the downloaded (and optionally unzipped) file.
     """
+
+    # --- Validate input early ---
+    if output_path is None:
+        raise ValueError("output_path must be provided and non-empty.")
+    output_path = str(output_path).strip()
+    if output_path == "":
+        raise ValueError("output_path must be a non-empty path (got empty string).")
+
+    # support file:// URLs
     if output_path.startswith("file://"):
         parsed = urlparse(output_path)
         output_path = url2pathname(parsed.path)
 
-    output_dir = os.path.isdir(output_path)
+    # Decide whether user gave a directory vs a file path.
+    # Treat trailing slash or existing dir as directory; create dir if needed.
+    looks_like_dir = (
+        output_path.endswith(os.sep)
+        or output_path.endswith("/")
+        or output_path.endswith("\\")
+        or os.path.isdir(output_path)
+    )
 
-    # Determine expected filename BEFORE download
-    if output_dir:
+    if looks_like_dir:
+        # ensure directory exists
+        os.makedirs(output_path, exist_ok=True)
+
+        # determine filename from Content-Disposition or URL
         import requests, email
         try:
             s = requests.Session()
             r = s.head(url, allow_redirects=True, timeout=10)
-            m = email.message.Message()
-            m["content-type"] = r.headers.get("content-disposition", "")
-            filename = m.get_param("filename")
-            if filename is None:
-                filename = os.path.basename(urlparse(url).path.split("?")[0])
-            if not filename:  # Fallback if still empty
-                filename = "downloaded_file"
+            cd = r.headers.get("content-disposition", "")
+            filename = None
+            if cd:
+                # parse content-disposition safely
+                m = email.message.Message()
+                m["content-disposition"] = cd
+                filename = m.get_param("filename")
+            if not filename:
+                filename = os.path.basename(urlparse(url).path.split("?")[0]) or "downloaded_file"
         except Exception:
-            # If HEAD request fails, extract from URL
             filename = os.path.basename(urlparse(url).path.split("?")[0]) or "downloaded_file"
-        
-        # Pass the full path to download_file, not just the directory
+
         target_path = os.path.join(output_path, filename)
     else:
         target_path = output_path
 
-    # Perform download with the specific file path
-    download_file(
-        url=url,
-        path=target_path,
-        retries=retries,
-        overwrite_existing=overwrite_existing,
-        unzip=unzip
-    )
+    # final sanity check
+    if not target_path or str(target_path).strip() == "":
+        raise ValueError("Computed download target path is empty. Check 'output_path' argument.")
 
-    # If unzipped, find the extracted files
+    # Do the download and bubble up useful context on failure
+    try:
+        download_file(
+            url=url,
+            path=target_path,
+            retries=retries,
+            overwrite_existing=overwrite_existing,
+            unzip=unzip,
+        )
+    except Exception as e:
+        # include debug info so callers can see what was attempted
+        raise RuntimeError(
+            f"download_file failed for url={url!r} path={target_path!r} retries={retries} . "
+            f"Original error: {e}"
+        ) from e
+
+    # If unzipped, prefer the extracted folder name; else the file path
     if unzip and os.path.isdir(target_path.replace('.zip', '')):
         persisted_path = str(Path(target_path.replace('.zip', '')).resolve())
     else:
         persisted_path = str(Path(target_path).resolve())
 
     if not os.path.exists(persisted_path):
-        # List what's actually in the directory for debugging
         parent_dir = os.path.dirname(persisted_path)
         if os.path.exists(parent_dir):
             actual_files = os.listdir(parent_dir)
             raise FileNotFoundError(
-                f"Download failed — {persisted_path} not found after execution. "
-                f"Files in {parent_dir}: {actual_files}"
+                f"Download failed — {persisted_path} not found after execution. Files in {parent_dir}: {actual_files}"
             )
         else:
-            raise FileNotFoundError(f"Download failed — {persisted_path} not found after execution.")
+            raise FileNotFoundError(f"Download failed — {persisted_path}. Parent dir missing: {parent_dir}")
 
     return persisted_path
 
