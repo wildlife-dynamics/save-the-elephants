@@ -3,6 +3,7 @@ import os
 import uuid
 import logging
 import hashlib
+import zipfile
 import numpy as np 
 import pandas as pd
 import geopandas as gpd
