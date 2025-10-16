@@ -72,7 +72,7 @@ create_styled_landdx_layers:
 generate_etd:
   auto_scale_or_custom_cell_size:
      auto_scale_or_custom: "Customize" # you could swap this to Auto
-     grid_cell_size: 500
+     grid_cell_size: 2000
 
 # Desired basemap layers
 configure_base_maps:
@@ -84,12 +84,8 @@ configure_base_maps:
       max_zoom: 15
       min_zoom: null
 
-# subject_home_range_season:
-#   auto_scale_or_custom_cell_size:
-#     auto_scale_or_custom: "Customize" # you could swap this to Auto
-#     grid_cell_size: 500
-#     percentiles:
-#       - 99.9
+download_ldx_db:
+  output_path: 
 
 generate_speed_raster:
   step_length: 2000

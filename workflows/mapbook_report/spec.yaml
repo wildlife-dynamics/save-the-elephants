@@ -40,7 +40,6 @@ workflow:
     id: download_ldx_db
     task: download_file_and_persist
     partial:
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
       overwrite_existing: false
       unzip: true
