@@ -679,6 +679,26 @@
       "required": [],
       "type": "object",
       "title": "Create individual mapbook context"
+    },
+    "generate_mapbook_report": {
+      "additionalProperties": false,
+      "properties": {
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Generate final mapbook report"
     }
   },
   "$defs": {
@@ -952,7 +972,8 @@
       "download_sect_templates",
       "download_logo_path",
       "persist_context_cover",
-      "individual_mapbook_context"
+      "individual_mapbook_context",
+      "generate_mapbook_report"
     ]
   },
   "additionalProperties": false

@@ -703,22 +703,17 @@ def combine_docx_files(
                 SkippedDependencyFallback(_fallback_to_none_doc),
             ]
         ],
-        Field(description="List of  context pages. Items can be SkipSentinel and will be filtered out.", exclude=True),
+        Field(description="List of context pages. Items can be SkipSentinel and will be filtered out.", exclude=True),
     ],
     output_directory: Annotated[str, Field(description="Directory where combined docx will be written")],
     filename: Annotated[Optional[str], Field(description="Optional output filename")] = None,
 ) -> Annotated[str, Field(description="Path to the combined .docx file")]:
     """
     Combine cover + grouped context pages into a single DOCX.
-
-    Behaviour:
-    - Items in `context_page_items` may be SkipSentinel (handled by SkippedDependencyFallback) and will be ignored.
-    - Context pages are grouped by `merge_key` (default: filename stem). All views from the same group are combined.
-    - The resulting single .docx is written to `output_directory` with `filename` or a generated UUID name.
     """
     from docx import Document
     from docxcompose.composer import Composer
-
+    
     valid_items = [it for it in context_page_items if it is not None]
     grouped_docs = [GroupedDoc.from_single_view(it) for it in valid_items]
 
@@ -728,7 +723,7 @@ def combine_docx_files(
         if key not in merged_map:
             merged_map[key] = gd
         else:
-            merged_map[key] |= gd
+            merged_map[key] = gd
 
     final_paths: list[str] = []
     for group in merged_map.values():
@@ -749,13 +744,15 @@ def combine_docx_files(
         filename = f"overall_mapbook_{uuid.uuid4().hex}.docx"
     output_path = Path(output_directory) / filename
 
+    # Load master document
     master = Document(cover_page_path)
     composer = Composer(master)
 
+    # Append each context page with explicit page break
     for doc_path in final_paths:
         doc = Document(doc_path)
-        composer.append(doc)
-
+        composer.append(doc) 
+        
     composer.save(output_path)
     return str(output_path)
 

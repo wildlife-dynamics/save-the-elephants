@@ -53,14 +53,17 @@ create_styled_landdx_layers:
       Community Conservancy:
         get_fill_color: [85, 107, 47]
         get_line_color: [85, 107, 47]
+        opacity: 0.15
       
       National Reserve:
         get_fill_color: [143, 188, 139]
         get_line_color: [143, 188, 139]
+        opacity: 0.15
 
       National Park: 
         get_fill_color: [255, 250, 205]
         get_line_color: [255, 250, 205]
+        opacity: 0.15
 
     legend:
       labels: ["Community Conservancy","National Reserve", "National Park"]

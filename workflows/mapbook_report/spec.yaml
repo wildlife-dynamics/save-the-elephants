@@ -1346,7 +1346,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 20000
+        wait_for_timeout: 5000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.persist_speed_ecomap_urls.return }}
@@ -1358,7 +1358,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 20000
+        wait_for_timeout: 5000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.persist_day_night_ecomap_urls.return }}
@@ -1370,7 +1370,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
-        wait_for_timeout: 20000
+        wait_for_timeout: 5000
     mapvalues:
       argnames: html_path 
       argvalues: ${{ workflow.persist_quarter_ecomap_urls.return }}
@@ -1382,7 +1382,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 20000
+        wait_for_timeout: 5000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.persist_hr_ecomap_urls.return }}
@@ -1394,7 +1394,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 20000
+        wait_for_timeout: 5000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.speed_raster_ecomap_urls.return }}
@@ -1406,7 +1406,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 20000
+        wait_for_timeout: 5000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}
@@ -1504,7 +1504,6 @@ workflow:
     partial:
       cover_page_path: ${{ workflow.persist_context_cover.return }}
       output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: mapbook_report.docx
       context_page_items: ${{ workflow.individual_mapbook_context.return }}
 
   - name: Mapbook Dashboard

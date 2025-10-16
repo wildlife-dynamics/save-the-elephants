@@ -2845,7 +2845,7 @@ convert_speedmap_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_speedmap_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 20000},
+        config={"wait_for_timeout": 5000},
         **convert_speedmap_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_speed_ecomap_urls)
@@ -2868,7 +2868,7 @@ convert_day_night_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_day_night_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 20000},
+        config={"wait_for_timeout": 5000},
         **convert_day_night_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_day_night_ecomap_urls)
@@ -2891,7 +2891,7 @@ convert_quarter_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_quarter_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 20000},
+        config={"wait_for_timeout": 5000},
         **convert_quarter_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_quarter_ecomap_urls)
@@ -2914,7 +2914,7 @@ convert_hr_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_hr_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 20000},
+        config={"wait_for_timeout": 5000},
         **convert_hr_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=persist_hr_ecomap_urls)
@@ -2937,7 +2937,7 @@ convert_speed_raster_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_speed_raster_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 20000},
+        config={"wait_for_timeout": 5000},
         **convert_speed_raster_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=speed_raster_ecomap_urls)
@@ -2960,7 +2960,7 @@ convert_seasonal_hr_html_to_png = (
     html_to_png.handle_errors(task_instance_id="convert_seasonal_hr_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        config={"wait_for_timeout": 20000},
+        config={"wait_for_timeout": 5000},
         **convert_seasonal_hr_html_to_png_params,
     )
     .mapvalues(argnames=["html_path"], argvalues=season_etd_ecomap_html_url)
@@ -3216,7 +3216,9 @@ individual_mapbook_context = (
 # %%
 # parameters
 
-generate_mapbook_report_params = dict()
+generate_mapbook_report_params = dict(
+    filename=...,
+)
 
 # %%
 # call the task
@@ -3227,7 +3229,6 @@ generate_mapbook_report = (
     .partial(
         cover_page_path=persist_context_cover,
         output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename="mapbook_report.docx",
         context_page_items=individual_mapbook_context,
         **generate_mapbook_report_params,
     )

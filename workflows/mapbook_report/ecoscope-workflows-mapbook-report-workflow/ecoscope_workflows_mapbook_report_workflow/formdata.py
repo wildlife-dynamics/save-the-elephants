@@ -301,6 +301,13 @@ class IndividualMapbookContext(BaseModel):
     box_w_cm: Optional[float] = Field(11.11, title="Box W Cm")
 
 
+class GenerateMapbookReport(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    filename: Optional[str] = Field(None, title="Filename")
+
+
 class TemporalGrouper(RootModel[str]):
     root: str = Field(..., title="Time")
 
@@ -521,4 +528,7 @@ class FormData(BaseModel):
     )
     individual_mapbook_context: Optional[IndividualMapbookContext] = Field(
         None, title="Create individual mapbook context"
+    )
+    generate_mapbook_report: Optional[GenerateMapbookReport] = Field(
+        None, title="Generate final mapbook report"
     )
