@@ -13,10 +13,6 @@ er_client_name:
   data_source:
     name: "ste"
 
-# er_client_name:
-#   data_source:
-#     name: "ate"
-
 # Connect to EarthEngine
 gee_project_name:
   data_source:
@@ -41,10 +37,6 @@ convert_to_trajectories:
     min_time_secs: 1.0
     max_speed_kmhr: 9.0
     min_speed_kmhr: 0.01
-
-# Create directory to persist LandDX db 
-create_output_directory:
-  path_name: "/home/ttemu/ecoscope-workflows/STE-Outputs"
 
 # Specific AOI to use from LandDX db
 load_aoi:
