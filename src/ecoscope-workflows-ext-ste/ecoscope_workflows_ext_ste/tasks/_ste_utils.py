@@ -421,7 +421,7 @@ def download_file_and_persist(
 ) -> str:
     """
     Downloads a file from the provided URL and persists it locally.
-    Returns the full path to the downloaded (and optionally unzipped) file.
+    Returns the full path to the downloaded file, or if unzipped, the path to the extracted directory.
     """
 
     # --- Validate input early ---
@@ -436,8 +436,6 @@ def download_file_and_persist(
         parsed = urlparse(output_path)
         output_path = url2pathname(parsed.path)
 
-    # Decide whether user gave a directory vs a file path.
-    # Treat trailing slash or existing dir as directory; create dir if needed.
     looks_like_dir = (
         output_path.endswith(os.sep)
         or output_path.endswith("/")
@@ -470,9 +468,15 @@ def download_file_and_persist(
     else:
         target_path = output_path
 
-    # final sanity check
     if not target_path or str(target_path).strip() == "":
         raise ValueError("Computed download target path is empty. Check 'output_path' argument.")
+
+    # Store the parent directory to check for extracted content
+    parent_dir = os.path.dirname(target_path)
+    before_extraction = set()
+    if unzip:
+        if os.path.exists(parent_dir):
+            before_extraction = set(os.listdir(parent_dir))
 
     # Do the download and bubble up useful context on failure
     try:
@@ -486,28 +490,60 @@ def download_file_and_persist(
     except Exception as e:
         # include debug info so callers can see what was attempted
         raise RuntimeError(
-            f"download_file failed for url={url!r} path={target_path!r} retries={retries} . "
+            f"download_file failed for url={url!r} path={target_path!r} retries={retries}. "
             f"Original error: {e}"
         ) from e
 
-    # If unzipped, prefer the extracted folder name; else the file path
-    if unzip and os.path.isdir(target_path.replace('.zip', '')):
-        persisted_path = str(Path(target_path.replace('.zip', '')).resolve())
+    # Determine the final persisted path
+    if unzip and zipfile.is_zipfile(target_path):
+        # Find what was extracted by comparing directory contents
+        after_extraction = set(os.listdir(parent_dir))
+        new_items = after_extraction - before_extraction
+        
+        # Remove the zip file itself from new items if it's there
+        zip_filename = os.path.basename(target_path)
+        new_items.discard(zip_filename)
+        
+        # If exactly one new directory was created, return that
+        if len(new_items) == 1:
+            new_item = new_items.pop()
+            new_item_path = os.path.join(parent_dir, new_item)
+            if os.path.isdir(new_item_path):
+                persisted_path = str(Path(new_item_path).resolve())
+            else:
+                # Single file was extracted, return parent directory
+                persisted_path = str(Path(parent_dir).resolve())
+        elif len(new_items) > 1:
+            # Multiple items extracted - return parent directory containing all
+            persisted_path = str(Path(parent_dir).resolve())
+        else:
+            # No new items detected, fallback to checking common extraction pattern
+            # Try removing .zip extension as fallback
+            extracted_dir = target_path.rsplit('.zip', 1)[0]
+            if os.path.isdir(extracted_dir):
+                persisted_path = str(Path(extracted_dir).resolve())
+            else:
+                persisted_path = str(Path(parent_dir).resolve())
     else:
+        # No unzipping, return the downloaded file path
         persisted_path = str(Path(target_path).resolve())
 
+    # Verify the path exists
     if not os.path.exists(persisted_path):
-        parent_dir = os.path.dirname(persisted_path)
-        if os.path.exists(parent_dir):
-            actual_files = os.listdir(parent_dir)
+        parent = os.path.dirname(persisted_path)
+        if os.path.exists(parent):
+            actual_files = os.listdir(parent)
             raise FileNotFoundError(
-                f"Download failed — {persisted_path} not found after execution. Files in {parent_dir}: {actual_files}"
+                f"Download failed — {persisted_path} not found after execution. "
+                f"Files in {parent}: {actual_files}"
             )
         else:
-            raise FileNotFoundError(f"Download failed — {persisted_path}. Parent dir missing: {parent_dir}")
+            raise FileNotFoundError(
+                f"Download failed — {persisted_path}. Parent dir missing: {parent}"
+            )
 
+    print(f"Path: {persisted_path}")
     return persisted_path
-
 
 @task
 def build_mapbook_report_template(

@@ -169,7 +169,6 @@ configure_base_maps = (
 # parameters
 
 download_ldx_db_params = dict(
-    output_path=...,
     retries=...,
 )
 
@@ -180,6 +179,7 @@ download_ldx_db_params = dict(
 download_ldx_db = (
     download_file_and_persist.handle_errors(task_instance_id="download_ldx_db")
     .partial(
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         url="https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
         overwrite_existing=False,
         unzip=True,

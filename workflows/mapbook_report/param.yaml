@@ -83,10 +83,7 @@ configure_base_maps:
       opacity: 0.2
       max_zoom: 15
       min_zoom: null
-
-download_ldx_db:
-  output_path: 
-
+      
 generate_speed_raster:
   step_length: 2000
 
