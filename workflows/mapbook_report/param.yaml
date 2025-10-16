@@ -32,11 +32,6 @@ configure_grouping_strategy:
 subject_observations:
     subject_group_name: "ecoscope"
 
-
-# subject_observations:
-#     subject_group_name: "Elephants - Big Life"
-
-
 # Subject trajectory filter
 convert_to_trajectories:
   trajectory_segment_filter:

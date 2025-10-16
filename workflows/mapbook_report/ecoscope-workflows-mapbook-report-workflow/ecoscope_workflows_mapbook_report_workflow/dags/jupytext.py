@@ -15,8 +15,7 @@ from ecoscope_workflows_core.tasks.config import set_workflow_details
 from ecoscope_workflows_core.tasks.filter import set_time_range
 from ecoscope_workflows_core.tasks.groupby import set_groupers
 from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps
-from ecoscope_workflows_ext_ste.tasks import create_directory
-from ecoscope_workflows_ext_ste.tasks import download_land_dx
+from ecoscope_workflows_ext_ste.tasks import download_file_and_persist
 from ecoscope_workflows_ext_ste.tasks import load_landdx_aoi
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column
 from ecoscope_workflows_ext_ste.tasks import annotate_gdf_dict_with_geometry_type
@@ -67,7 +66,6 @@ from ecoscope_workflows_core.tasks.results import create_single_value_widget_sin
 from ecoscope_workflows_ext_ste.tasks import dataframe_column_first_unique_str
 from ecoscope_workflows_core.tasks.results import create_text_widget_single_view
 from ecoscope_workflows_ext_ste.tasks import get_duration
-from ecoscope_workflows_ext_ste.tasks import download_file_and_persist
 from ecoscope_workflows_core.tasks.analysis import dataframe_column_nunique
 from ecoscope_workflows_ext_ste.tasks import build_mapbook_report_template
 from ecoscope_workflows_ext_ste.tasks import create_context_page
@@ -165,42 +163,23 @@ configure_base_maps = (
 
 
 # %% [markdown]
-# ## Create Output Directory
-
-# %%
-# parameters
-
-create_output_directory_params = dict(
-    path_name=...,
-)
-
-# %%
-# call the task
-
-
-create_output_directory = (
-    create_directory.handle_errors(task_instance_id="create_output_directory")
-    .partial(**create_output_directory_params)
-    .call()
-)
-
-
-# %% [markdown]
 # ## Download LandDx Database and extract
 
 # %%
 # parameters
 
-download_ldx_db_params = dict()
+download_ldx_db_params = dict(
+    retries=...,
+)
 
 # %%
 # call the task
 
 
 download_ldx_db = (
-    download_land_dx.handle_errors(task_instance_id="download_ldx_db")
+    download_file_and_persist.handle_errors(task_instance_id="download_ldx_db")
     .partial(
-        path=create_output_directory,
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         url="https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
         overwrite_existing=False,
         unzip=True,
@@ -2714,7 +2693,7 @@ download_mapbook_cover_page = (
     )
     .partial(
         url="https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0",
-        output_path=create_output_directory,
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         **download_mapbook_cover_page_params,
     )
@@ -2741,7 +2720,7 @@ download_sect_templates = (
     download_file_and_persist.handle_errors(task_instance_id="download_sect_templates")
     .partial(
         url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0",
-        output_path=create_output_directory,
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         **download_sect_templates_params,
     )
@@ -2768,7 +2747,7 @@ download_logo_path_params = dict(
 download_logo_path = (
     download_file_and_persist.handle_errors(task_instance_id="download_logo_path")
     .partial(
-        output_path=create_output_directory,
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         **download_logo_path_params,
     )
@@ -2839,10 +2818,10 @@ persist_context_cover_params = dict(
 persist_context_cover = (
     create_context_page.handle_errors(task_instance_id="persist_context_cover")
     .partial(
-        logo_width_cm=5.25,
+        logo_width_cm=5.05,
         logo_height_cm=1.93,
         template_path=download_mapbook_cover_page,
-        output_directory=create_output_directory,
+        output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         context=create_cover_template_context,
         **persist_context_cover_params,
     )
@@ -3208,7 +3187,7 @@ individual_mapbook_context = (
     create_mapbook_context.handle_errors(task_instance_id="individual_mapbook_context")
     .partial(
         template_path=download_sect_templates,
-        output_directory=create_output_directory,
+        output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         subject_name=get_subject_name,
         time_period=define_time_range,
         period=round_report_duration,
@@ -3247,7 +3226,7 @@ generate_mapbook_report = (
     combine_docx_files.handle_errors(task_instance_id="generate_mapbook_report")
     .partial(
         cover_page_path=persist_context_cover,
-        output_directory=create_output_directory,
+        output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         filename="mapbook_report.docx",
         context_page_items=individual_mapbook_context,
         **generate_mapbook_report_params,

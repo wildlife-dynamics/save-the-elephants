@@ -395,38 +395,39 @@ def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[in
     return MapStyleConfig(styles=styles, legend=legend)
 
 @task
-def load_landdx_aoi(map_path: str, aoi: List[str]) -> Optional[AnyGeoDataFrame]:
-    """
-    Recursively search for 'landDx.gpkg' in the given path, load it, and filter by area types (AOI).
+def load_landdx_aoi(
+    map_path: str,
+    aoi: Optional[List[str]] = None,
+) -> Optional[AnyGeoDataFrame]:
 
-    Args:
-        map_path (str): Directory path to search recursively for the GeoPackage.
-        aoi (List[str]): Area of interest types to filter for (e.g., ["Community Conservancy"]).
+    if map_path is None: 
+        print(f"Provided map path is empty")
 
-    Returns:
-        Optional[gpd.GeoDataFrame]: Filtered GeoDataFrame, or None if not found or fails to load.
-    """
-    landDx_path = None
-    if map_path.startswith("file://"):
-        parsed = urlparse(map_path)
-        map_path = url2pathname(parsed.path)
-
-    # Search recursively
-    for root, _, files in os.walk(map_path):
-        if "landDx.gpkg" in files:
-            landDx_path = os.path.join(root, "landDx.gpkg")
-            break
-
-    if landDx_path is None:
-        print("landDx.gpkg not found in the specified path.")
-        return None
-
+    # Load and filter
     try:
-        geodataframe = gpd.read_file(landDx_path, layer="landDx_polygons").set_index("globalid")
+        geodataframe = gpd.read_file(map_path, layer="landDx_polygons").set_index("globalid")
+        
+        if aoi is None or not aoi:
+           print(f"Loaded landDx.gpkg — total features: {len(geodataframe)} (no filtering applied)")
+        return geodataframe
+        
+        # Filter by AOI
         filtered = geodataframe[geodataframe["type"].isin(aoi)]
-        print(f"Loaded landDx.gpkg — total: {len(geodataframe)}, filtered: {len(filtered)}")
+        logger.info(
+            f"Loaded landDx.gpkg — total: {len(geodataframe)}, "
+            f"filtered by {aoi}: {len(filtered)}"
+        )
+        
+        if filtered.empty:
+            print(f"No features found matching AOI types: {aoi}")
         return filtered
 
+    except FileNotFoundError as e:
+        print(f"File not found: {landDx_path}")
+        return None
+    except KeyError as e:
+        print(f"Required column missing: {e}")
+        return None
     except Exception as e:
         print(f"Error loading or filtering landDx.gpkg: {e}")
         return None

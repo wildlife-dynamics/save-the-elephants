@@ -429,33 +429,57 @@ def download_file_and_persist(
 
     output_dir = os.path.isdir(output_path)
 
-    # Perform download
+    # Determine expected filename BEFORE download
+    if output_dir:
+        import requests, email
+        try:
+            s = requests.Session()
+            r = s.head(url, allow_redirects=True, timeout=10)
+            m = email.message.Message()
+            m["content-type"] = r.headers.get("content-disposition", "")
+            filename = m.get_param("filename")
+            if filename is None:
+                filename = os.path.basename(urlparse(url).path.split("?")[0])
+            if not filename:  # Fallback if still empty
+                filename = "downloaded_file"
+        except Exception:
+            # If HEAD request fails, extract from URL
+            filename = os.path.basename(urlparse(url).path.split("?")[0]) or "downloaded_file"
+        
+        # Pass the full path to download_file, not just the directory
+        target_path = os.path.join(output_path, filename)
+    else:
+        target_path = output_path
+
+    # Perform download with the specific file path
     download_file(
         url=url,
-        path=output_path,
+        path=target_path,
         retries=retries,
         overwrite_existing=overwrite_existing,
         unzip=unzip
     )
 
-    if output_dir:
-        import requests, email
-        s = requests.Session()
-        r = s.head(url, allow_redirects=True)
-        m = email.message.Message()
-        m["content-type"] = r.headers.get("content-disposition", m.get_default_type())
-        filename = m.get_param("filename")
-        if filename is None:
-            filename = os.path.basename(r.url.split("?")[0]) 
-        persisted_path = os.path.join(output_path, filename)
+    # If unzipped, find the extracted files
+    if unzip and os.path.isdir(target_path.replace('.zip', '')):
+        persisted_path = str(Path(target_path.replace('.zip', '')).resolve())
     else:
-        persisted_path = output_path
-    persisted_path = str(Path(persisted_path).resolve())
+        persisted_path = str(Path(target_path).resolve())
 
     if not os.path.exists(persisted_path):
-        raise FileNotFoundError(f"Download failed — {persisted_path} not found after execution.")
+        # List what's actually in the directory for debugging
+        parent_dir = os.path.dirname(persisted_path)
+        if os.path.exists(parent_dir):
+            actual_files = os.listdir(parent_dir)
+            raise FileNotFoundError(
+                f"Download failed — {persisted_path} not found after execution. "
+                f"Files in {parent_dir}: {actual_files}"
+            )
+        else:
+            raise FileNotFoundError(f"Download failed — {persisted_path} not found after execution.")
 
     return persisted_path
+
 
 @task
 def build_mapbook_report_template(
