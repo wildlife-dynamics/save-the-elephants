@@ -87,5 +87,7 @@ configure_base_maps:
 generate_speed_raster:
   step_length: 2000
 
+download_ldx_db:
+  output_path: 
 download_logo_path:
   url: "https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=jlwbhik9&dl=0"

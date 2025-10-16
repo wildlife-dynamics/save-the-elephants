@@ -272,6 +272,10 @@
     "download_ldx_db": {
       "additionalProperties": false,
       "properties": {
+        "output_path": {
+          "title": "Output Path",
+          "type": "string"
+        },
         "retries": {
           "default": 3,
           "minimum": 0,
@@ -279,7 +283,9 @@
           "type": "integer"
         }
       },
-      "required": [],
+      "required": [
+        "output_path"
+      ],
       "type": "object",
       "title": "Download LandDx Database and extract"
     },
@@ -898,6 +904,12 @@
       "ui:order": [
         "since",
         "until"
+      ]
+    },
+    "download_ldx_db": {
+      "ui:order": [
+        "output_path",
+        "retries"
       ]
     },
     "generate_etd": {

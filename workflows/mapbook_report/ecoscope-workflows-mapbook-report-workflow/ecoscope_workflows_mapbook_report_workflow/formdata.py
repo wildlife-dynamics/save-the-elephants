@@ -204,6 +204,7 @@ class DownloadLdxDb(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    output_path: str = Field(..., title="Output Path")
     retries: Optional[conint(ge=0)] = Field(3, title="Retries")
 
 
