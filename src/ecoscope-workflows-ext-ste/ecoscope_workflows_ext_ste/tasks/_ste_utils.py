@@ -737,6 +737,10 @@ def combine_docx_files(
     for p in final_paths:
         if not os.path.exists(p):
             raise FileNotFoundError(f"Context page file not found: {p}")
+    
+    if output_directory.startswith("file://"):
+        parsed = urlparse(output_directory)
+        output_directory = url2pathname(parsed.path)
 
     os.makedirs(output_directory, exist_ok=True)
 
