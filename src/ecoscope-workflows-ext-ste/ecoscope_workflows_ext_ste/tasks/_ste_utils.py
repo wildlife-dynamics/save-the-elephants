@@ -302,7 +302,7 @@ def dataframe_column_first_unique_str(
     df: AnyDataFrame,
     column_name: Annotated[str, Field(description="Column to aggregate")],
 ) -> Annotated[str, Field(description="The first unique string value in the column")]:
-    if gdf is None or gdf.empty:
+    if df is None or df.empty:
         raise ValueError("`dataframe_column_first_unique_str`:df is empty.")
     return str(df[column_name].unique()[0])
 
