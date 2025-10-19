@@ -457,8 +457,15 @@
       "additionalProperties": false,
       "properties": {
         "output_dir": {
-          "title": "Output Dir",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output Dir"
         },
         "filename": {
           "anyOf": [
