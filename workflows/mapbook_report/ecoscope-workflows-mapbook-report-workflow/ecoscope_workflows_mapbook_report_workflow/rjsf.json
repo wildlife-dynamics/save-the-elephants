@@ -596,6 +596,18 @@
     "download_mapbook_cover_page": {
       "additionalProperties": false,
       "properties": {
+        "output_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Path"
+        },
         "retries": {
           "default": 3,
           "minimum": 0,
@@ -615,6 +627,18 @@
     "download_sect_templates": {
       "additionalProperties": false,
       "properties": {
+        "output_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Path"
+        },
         "retries": {
           "default": 3,
           "minimum": 0,
@@ -637,6 +661,18 @@
         "url": {
           "title": "Url",
           "type": "string"
+        },
+        "output_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Path"
         },
         "retries": {
           "default": 3,
@@ -957,12 +993,14 @@
     },
     "download_mapbook_cover_page": {
       "ui:order": [
+        "output_path",
         "retries",
         "unzip"
       ]
     },
     "download_sect_templates": {
       "ui:order": [
+        "output_path",
         "retries",
         "unzip"
       ]
@@ -970,6 +1008,7 @@
     "download_logo_path": {
       "ui:order": [
         "url",
+        "output_path",
         "retries",
         "unzip"
       ]

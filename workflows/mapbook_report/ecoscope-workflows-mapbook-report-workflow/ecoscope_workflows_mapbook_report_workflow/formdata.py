@@ -265,6 +265,7 @@ class DownloadMapbookCoverPage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    output_path: Optional[str] = Field(None, title="Output Path")
     retries: Optional[conint(ge=0)] = Field(3, title="Retries")
     unzip: Optional[bool] = Field(False, title="Unzip")
 
@@ -273,6 +274,7 @@ class DownloadSectTemplates(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    output_path: Optional[str] = Field(None, title="Output Path")
     retries: Optional[conint(ge=0)] = Field(3, title="Retries")
     unzip: Optional[bool] = Field(False, title="Unzip")
 
@@ -282,6 +284,7 @@ class DownloadLogoPath(BaseModel):
         extra="forbid",
     )
     url: str = Field(..., title="Url")
+    output_path: Optional[str] = Field(None, title="Output Path")
     retries: Optional[conint(ge=0)] = Field(3, title="Retries")
     unzip: Optional[bool] = Field(False, title="Unzip")
 

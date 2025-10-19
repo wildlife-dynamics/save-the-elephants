@@ -2679,6 +2679,7 @@ get_subject_name = (
 # parameters
 
 download_mapbook_cover_page_params = dict(
+    output_path=...,
     retries=...,
     unzip=...,
 )
@@ -2693,7 +2694,6 @@ download_mapbook_cover_page = (
     )
     .partial(
         url="https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0",
-        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         **download_mapbook_cover_page_params,
     )
@@ -2708,6 +2708,7 @@ download_mapbook_cover_page = (
 # parameters
 
 download_sect_templates_params = dict(
+    output_path=...,
     retries=...,
     unzip=...,
 )
@@ -2720,7 +2721,6 @@ download_sect_templates = (
     download_file_and_persist.handle_errors(task_instance_id="download_sect_templates")
     .partial(
         url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0",
-        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         **download_sect_templates_params,
     )
@@ -2736,6 +2736,7 @@ download_sect_templates = (
 
 download_logo_path_params = dict(
     url=...,
+    output_path=...,
     retries=...,
     unzip=...,
 )
@@ -2746,11 +2747,7 @@ download_logo_path_params = dict(
 
 download_logo_path = (
     download_file_and_persist.handle_errors(task_instance_id="download_logo_path")
-    .partial(
-        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        overwrite_existing=False,
-        **download_logo_path_params,
-    )
+    .partial(overwrite_existing=False, **download_logo_path_params)
     .call()
 )
 

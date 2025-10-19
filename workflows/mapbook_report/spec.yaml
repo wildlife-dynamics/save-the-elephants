@@ -1290,7 +1290,7 @@ workflow:
     task: download_file_and_persist
     partial:
       url: https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      #output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false
 
   # Download section templates
@@ -1299,7 +1299,7 @@ workflow:
     task: download_file_and_persist
     partial:
       url: https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      #output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false
 
   # Download Logo
@@ -1307,7 +1307,7 @@ workflow:
     id: download_logo_path
     task: download_file_and_persist
     partial:
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      #output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false 
 
   # Retrieve unique subjects extracted from relocs
