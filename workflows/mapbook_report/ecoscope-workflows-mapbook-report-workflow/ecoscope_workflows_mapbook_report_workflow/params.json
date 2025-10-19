@@ -273,8 +273,16 @@
       "additionalProperties": false,
       "properties": {
         "output_path": {
-          "title": "Output Path",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Path"
         },
         "retries": {
           "default": 3,
@@ -283,9 +291,7 @@
           "type": "integer"
         }
       },
-      "required": [
-        "output_path"
-      ],
+      "required": [],
       "type": "object",
       "title": "Download LandDx Database and extract"
     },
