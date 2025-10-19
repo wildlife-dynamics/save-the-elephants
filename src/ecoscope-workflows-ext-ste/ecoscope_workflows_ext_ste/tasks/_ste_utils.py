@@ -108,7 +108,8 @@ def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
 def generate_ecograph_raster(
     gdf: Annotated[AnyGeoDataFrame, Field(description="GeoDataFrame with trajectory data")],
     dist_col: Annotated[str, Field(description="Column name for step distance")],
-    output_dir: Annotated[Optional[str], Field(description="Directory to save the output raster")],
+    output_dir: Annotated[
+        Optional[str], Field(description="Directory to save the output raster")]= None,
     filename: Annotated[
         Optional[str],
         Field(

@@ -465,6 +465,7 @@
               "type": "null"
             }
           ],
+          "default": null,
           "title": "Output Dir"
         },
         "filename": {
@@ -544,9 +545,7 @@
           "title": "Network Metric"
         }
       },
-      "required": [
-        "output_dir"
-      ],
+      "required": [],
       "type": "object",
       "title": "Generate Speed Rasters"
     },
