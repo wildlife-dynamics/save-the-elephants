@@ -242,6 +242,7 @@ class GenerateSpeedRaster(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    output_dir: str = Field(..., title="Output Dir")
     filename: Optional[str] = Field(None, title="Filename")
     resolution: Optional[float] = Field(None, title="Resolution")
     radius: Optional[int] = Field(2, title="Radius")

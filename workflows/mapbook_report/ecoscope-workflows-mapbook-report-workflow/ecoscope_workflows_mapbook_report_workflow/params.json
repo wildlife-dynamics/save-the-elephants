@@ -456,6 +456,10 @@
     "generate_speed_raster": {
       "additionalProperties": false,
       "properties": {
+        "output_dir": {
+          "title": "Output Dir",
+          "type": "string"
+        },
         "filename": {
           "anyOf": [
             {
@@ -533,7 +537,9 @@
           "title": "Network Metric"
         }
       },
-      "required": [],
+      "required": [
+        "output_dir"
+      ],
       "type": "object",
       "title": "Generate Speed Rasters"
     },
@@ -927,6 +933,7 @@
     },
     "generate_speed_raster": {
       "ui:order": [
+        "output_dir",
         "filename",
         "resolution",
         "radius",

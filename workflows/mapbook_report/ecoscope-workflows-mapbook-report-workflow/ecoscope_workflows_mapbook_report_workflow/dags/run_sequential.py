@@ -940,7 +940,6 @@ def main(params: Params):
             dist_col="dist_meters",
             interpolation="mean",
             movement_covariate="speed",
-            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             **(params_dict.get("generate_speed_raster") or {}),
         )
         .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)

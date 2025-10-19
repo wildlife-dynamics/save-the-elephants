@@ -1797,6 +1797,7 @@ merge_hr_ecomap_widgets = (
 # parameters
 
 generate_speed_raster_params = dict(
+    output_dir=...,
     filename=...,
     resolution=...,
     radius=...,
@@ -1816,7 +1817,6 @@ generate_speed_raster = (
         dist_col="dist_meters",
         interpolation="mean",
         movement_covariate="speed",
-        output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         **generate_speed_raster_params,
     )
     .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)

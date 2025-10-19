@@ -844,7 +844,7 @@ workflow:
       dist_col: dist_meters
       interpolation: mean
       movement_covariate: speed
-      output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      # output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
     mapvalues:
       argnames: gdf 
       argvalues: ${{ workflow.split_trajectories_by_group.return }}

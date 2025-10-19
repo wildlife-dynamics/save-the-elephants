@@ -143,10 +143,15 @@ def generate_ecograph_raster(
 
     if (movement_covariate is None) == (network_metric is None):
         raise ValueError("`generate_ecograph_raster`:Provide exactly one of 'movement_covariate' or 'network_metric'.")
-    
+        
+    if output_dir is None or str(output_dir).strip() == "":
+        output_dir = os.getcwd()
+    else:
+        output_dir = str(output_dir).strip()
+
     if output_dir.startswith("file://"):
-        parsed = urlparse(output_dir_path)
-        output_path = url2pathname(parsed.path)
+        parsed = urlparse(output_dir)
+        output_dir = url2pathname(parsed.path)
 
     if not filename:
         df_hash = hashlib.sha256(pd.util.hash_pandas_object(gdf, index=True).values).hexdigest()
@@ -437,7 +442,6 @@ def download_file_and_persist(
     Returns the full path to the downloaded file, or if unzipped, the path to the extracted directory.
     """
 
-    # --- Set default to current working directory if not provided ---
     if output_path is None or str(output_path).strip() == "":
         output_path = os.getcwd()
     else:
