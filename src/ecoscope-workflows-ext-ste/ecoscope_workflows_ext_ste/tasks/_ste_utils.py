@@ -623,13 +623,18 @@ def create_context_page(
     Returns:
         str: Full path to the generated .docx file.
     """
+    # Convert file:// URLs to local paths
     if template_path.startswith("file://"):
         parsed = urlparse(template_path)
         template_path = url2pathname(parsed.path)
+        if os.name == 'nt' and template_path.startswith('/') and len(template_path) > 2 and template_path[2] == ':':
+            template_path = template_path[1:]
 
     if output_directory.startswith("file://"):
         parsed = urlparse(output_directory)
         output_directory = url2pathname(parsed.path)
+        if os.name == 'nt' and output_directory.startswith('/') and len(output_directory) > 2 and output_directory[2] == ':':
+            output_directory = output_directory[1:]
 
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template file not found: {template_path}")
