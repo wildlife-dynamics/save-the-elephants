@@ -601,6 +601,31 @@ def build_mapbook_report_template(
         "prepared_by": prepared_by,
     }
 
+def normalize_file_url(path: str) -> str:
+    """Convert file:// URL to local path, handling malformed Windows URLs."""
+    if not path.startswith("file://"):
+        return path
+    
+    # Remove file:// prefix (7 characters)
+    path = path[7:]
+    
+    if os.name == 'nt':
+        # Remove leading slash before drive letter: /C:/path -> C:/path
+        if path.startswith('/') and len(path) > 2 and path[2] in (':', '|'):
+            path = path[1:]
+        
+        # Convert forward slashes to backslashes
+        path = path.replace('/', '\\')
+        
+        # Handle pipe notation: C|/path -> C:/path
+        path = path.replace('|', ':')
+    else:
+        # Unix: ensure leading slash
+        if not path.startswith('/'):
+            path = '/' + path
+    
+    return path
+    
 @task
 def create_context_page(
     template_path: str,
@@ -623,23 +648,24 @@ def create_context_page(
     Returns:
         str: Full path to the generated .docx file.
     """
-    # Convert file:// URLs to local paths
-    if template_path.startswith("file://"):
-        parsed = urlparse(template_path)
-        template_path = url2pathname(parsed.path)
-        if os.name == 'nt' and template_path.startswith('/') and len(template_path) > 2 and template_path[2] == ':':
-            template_path = template_path[1:]
+    
 
-    if output_directory.startswith("file://"):
-        parsed = urlparse(output_directory)
-        output_directory = url2pathname(parsed.path)
-        if os.name == 'nt' and output_directory.startswith('/') and len(output_directory) > 2 and output_directory[2] == ':':
-            output_directory = output_directory[1:]
+    
+    # Normalize paths
+    template_path = normalize_file_url(template_path)
+    output_directory = normalize_file_url(output_directory)
+    
+    # Validate paths
+    if not template_path.strip():
+        raise ValueError("template_path is empty after normalization")
+    if not output_directory.strip():
+        raise ValueError("output_directory is empty after normalization")
 
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template file not found: {template_path}")
 
     os.makedirs(output_directory, exist_ok=True)
+    
     if not filename:
         filename = f"context_page_{uuid.uuid4().hex}.docx"
     output_path = Path(output_directory) / filename
