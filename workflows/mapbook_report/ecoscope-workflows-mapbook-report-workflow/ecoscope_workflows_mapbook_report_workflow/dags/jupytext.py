@@ -163,13 +163,95 @@ configure_base_maps = (
 
 
 # %% [markdown]
+# ## Download Mapbook cover page templates
+
+# %%
+# parameters
+
+download_mapbook_cover_page_params = dict(
+    retries=...,
+    unzip=...,
+)
+
+# %%
+# call the task
+
+
+download_mapbook_cover_page = (
+    download_file_and_persist.handle_errors(
+        task_instance_id="download_mapbook_cover_page"
+    )
+    .partial(
+        url="https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0",
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        overwrite_existing=False,
+        **download_mapbook_cover_page_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Download Mapbook section templates
+
+# %%
+# parameters
+
+download_sect_templates_params = dict(
+    retries=...,
+    unzip=...,
+)
+
+# %%
+# call the task
+
+
+download_sect_templates = (
+    download_file_and_persist.handle_errors(task_instance_id="download_sect_templates")
+    .partial(
+        url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0",
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        overwrite_existing=False,
+        **download_sect_templates_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Download Logo Path
+
+# %%
+# parameters
+
+download_logo_path_params = dict(
+    url=...,
+    retries=...,
+    unzip=...,
+)
+
+# %%
+# call the task
+
+
+download_logo_path = (
+    download_file_and_persist.handle_errors(task_instance_id="download_logo_path")
+    .partial(
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        overwrite_existing=False,
+        **download_logo_path_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Download LandDx Database and extract
 
 # %%
 # parameters
 
 download_ldx_db_params = dict(
-    output_path=...,
     retries=...,
 )
 
@@ -180,6 +262,7 @@ download_ldx_db_params = dict(
 download_ldx_db = (
     download_file_and_persist.handle_errors(task_instance_id="download_ldx_db")
     .partial(
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         url="https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
         overwrite_existing=False,
         unzip=True,
@@ -2669,86 +2752,6 @@ get_subject_name = (
     dataframe_column_first_unique_str.handle_errors(task_instance_id="get_subject_name")
     .partial(column_name="subject_name", **get_subject_name_params)
     .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
-)
-
-
-# %% [markdown]
-# ## Download Mapbook cover page templates
-
-# %%
-# parameters
-
-download_mapbook_cover_page_params = dict(
-    output_path=...,
-    retries=...,
-    unzip=...,
-)
-
-# %%
-# call the task
-
-
-download_mapbook_cover_page = (
-    download_file_and_persist.handle_errors(
-        task_instance_id="download_mapbook_cover_page"
-    )
-    .partial(
-        url="https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0",
-        overwrite_existing=False,
-        **download_mapbook_cover_page_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Download Mapbook section templates
-
-# %%
-# parameters
-
-download_sect_templates_params = dict(
-    output_path=...,
-    retries=...,
-    unzip=...,
-)
-
-# %%
-# call the task
-
-
-download_sect_templates = (
-    download_file_and_persist.handle_errors(task_instance_id="download_sect_templates")
-    .partial(
-        url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0",
-        overwrite_existing=False,
-        **download_sect_templates_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Download Logo Path
-
-# %%
-# parameters
-
-download_logo_path_params = dict(
-    url=...,
-    output_path=...,
-    retries=...,
-    unzip=...,
-)
-
-# %%
-# call the task
-
-
-download_logo_path = (
-    download_file_and_persist.handle_errors(task_instance_id="download_logo_path")
-    .partial(overwrite_existing=False, **download_logo_path_params)
-    .call()
 )
 
 

@@ -34,13 +34,40 @@ workflow:
   - name: Configure Base Map Layers
     id: configure_base_maps
     task: set_base_maps
+  
+  # Download cover template
+  - name: Download Mapbook cover page templates
+    id: download_mapbook_cover_page
+    task: download_file_and_persist
+    partial:
+      url: https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0
+      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      overwrite_existing: false
+
+  # Download section templates
+  - name: Download Mapbook section templates
+    id: download_sect_templates
+    task: download_file_and_persist
+    partial:
+      url: https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0
+      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      overwrite_existing: false
+
+  # Download Logo
+  - name: Download Logo Path 
+    id: download_logo_path
+    task: download_file_and_persist
+    partial:
+      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      overwrite_existing: false 
+
 
   # download LandDx database, unzip, and save to output directory
   - name: Download LandDx Database and extract
     id: download_ldx_db
     task: download_file_and_persist
     partial:
-      #output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
       overwrite_existing: false
       unzip: true
@@ -1283,32 +1310,6 @@ workflow:
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
-
-  # Download cover template
-  - name: Download Mapbook cover page templates
-    id: download_mapbook_cover_page
-    task: download_file_and_persist
-    partial:
-      url: https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0
-      #output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      overwrite_existing: false
-
-  # Download section templates
-  - name: Download Mapbook section templates
-    id: download_sect_templates
-    task: download_file_and_persist
-    partial:
-      url: https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0
-      #output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      overwrite_existing: false
-
-  # Download Logo
-  - name: Download Logo Path 
-    id: download_logo_path
-    task: download_file_and_persist
-    partial:
-      #output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      overwrite_existing: false 
 
   # Retrieve unique subjects extracted from relocs
   - name: Unique subjects on relocs

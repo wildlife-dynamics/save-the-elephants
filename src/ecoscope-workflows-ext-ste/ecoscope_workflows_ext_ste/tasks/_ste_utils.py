@@ -78,6 +78,26 @@ class CustomGridCellSize(BaseModel):
         ),
     ] = 5000
 
+def normalize_file_url(path: str) -> str:
+    """Convert file:// URL to local path, handling malformed Windows URLs."""
+    if not path.startswith("file://"):
+        return path
+
+    path = path[7:]
+    
+    if os.name == 'nt':
+        # Remove leading slash before drive letter: /C:/path -> C:/path
+        if path.startswith('/') and len(path) > 2 and path[2] in (':', '|'):
+            path = path[1:]
+
+        path = path.replace('/', '\\')
+        path = path.replace('|', ':')
+    else:
+        if not path.startswith('/'):
+            path = '/' + path
+    
+    return path
+
 @task
 def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
     """
@@ -275,11 +295,11 @@ def generate_mcp_gdf(
     valid_points_gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notnull()].copy()
     if valid_points_gdf.empty:
         raise ValueError("`generate_mcp_gdf`:No valid geometries in gdf.")
-
-    if not all(valid_points_gdf.geometry.geom_type.isin(["Point"])):
-        valid_points_gdf.geometry = valid_points_gdf.geometry.centroid
-
+    
     projected_gdf = valid_points_gdf.to_crs(planar_crs)
+    if not all(projected_gdf.geometry.geom_type.isin(["Point"])):
+        projected_gdf.geometry = projected_gdf.geometry.centroid
+
     convex_hull = projected_gdf.geometry.unary_union.convex_hull
 
     area_sq_meters = float(convex_hull.area)
@@ -305,7 +325,6 @@ def dataframe_column_first_unique_str(
     if df is None or df.empty:
         raise ValueError("`dataframe_column_first_unique_str`:df is empty.")
     return str(df[column_name].unique()[0])
-
 
 @task
 def assign_quarter_status_colors(
@@ -442,17 +461,12 @@ def download_file_and_persist(
     If output_path is not specified, saves to the current working directory.
     Returns the full path to the downloaded file, or if unzipped, the path to the extracted directory.
     """
-
     if output_path is None or str(output_path).strip() == "":
         output_path = os.getcwd()
     else:
         output_path = str(output_path).strip()
 
-    # support file:// URLs
-    if output_path.startswith("file://"):
-        parsed = urlparse(output_path)
-        output_path = url2pathname(parsed.path)
-
+    output_path = normalize_file_url(output_path)
     looks_like_dir = (
         output_path.endswith(os.sep)
         or output_path.endswith("/")
@@ -569,13 +583,10 @@ def build_mapbook_report_template(
     Returns:
         Dict[str, str]: Structured dictionary with formatted metadata.
     """
-    if org_logo_path.startswith("file://"):
-        parsed = urlparse(org_logo_path)
-        org_logo_path = url2pathname(parsed.path)
+    org_logo_path = normalize_file_url(org_logo_path)
 
-    if isinstance(org_logo_path, (str, Path)):
-        org_logo_path = Path(org_logo_path)
-        org_logo_path = str(org_logo_path.resolve()) if org_logo_path.exists() else str(org_logo_path)
+    if not org_logo_path.strip():
+        raise ValueError("org_logo_path is empty after normalization")
 
     formatted_date = datetime.now()
     formatted_date_str = formatted_date.strftime("%Y-%m-%d %H:%M:%S")
@@ -601,31 +612,7 @@ def build_mapbook_report_template(
         "prepared_by": prepared_by,
     }
 
-def normalize_file_url(path: str) -> str:
-    """Convert file:// URL to local path, handling malformed Windows URLs."""
-    if not path.startswith("file://"):
-        return path
-    
-    # Remove file:// prefix (7 characters)
-    path = path[7:]
-    
-    if os.name == 'nt':
-        # Remove leading slash before drive letter: /C:/path -> C:/path
-        if path.startswith('/') and len(path) > 2 and path[2] in (':', '|'):
-            path = path[1:]
-        
-        # Convert forward slashes to backslashes
-        path = path.replace('/', '\\')
-        
-        # Handle pipe notation: C|/path -> C:/path
-        path = path.replace('|', ':')
-    else:
-        # Unix: ensure leading slash
-        if not path.startswith('/'):
-            path = '/' + path
-    
-    return path
-    
+
 @task
 def create_context_page(
     template_path: str,
@@ -647,10 +634,7 @@ def create_context_page(
 
     Returns:
         str: Full path to the generated .docx file.
-    """
-    
-
-    
+    """    
     # Normalize paths
     template_path = normalize_file_url(template_path)
     output_directory = normalize_file_url(output_directory)
@@ -703,16 +687,19 @@ def create_mapbook_context(
     box_h_cm: float = 6.5,
     box_w_cm: float = 11.11,
 ) -> str:
-    if template_path.startswith("file://"):
-        parsed = urlparse(template_path)
-        template_path = url2pathname(parsed.path)
 
-    if output_directory.startswith("file://"):
-        parsed = urlparse(output_directory)
-        output_directory = url2pathname(parsed.path)
+    template_path = normalize_file_url(template_path)
+    output_directory = normalize_file_url(output_directory)
+    
+    # Validate paths
+    if not template_path.strip():
+        raise ValueError("template_path is empty after normalization")
+    if not output_directory.strip():
+        raise ValueError("output_directory is empty after normalization")
 
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template file not found: {template_path}")
+
     os.makedirs(output_directory, exist_ok=True)
     if not filename:
         filename = f"mapbook_context_{uuid.uuid4().hex}.docx"
@@ -838,12 +825,11 @@ def combine_docx_files(
         if not os.path.exists(p):
             raise FileNotFoundError(f"Context page file not found: {p}")
     
-    if output_directory.startswith("file://"):
-        parsed = urlparse(output_directory)
-        output_directory = url2pathname(parsed.path)
+    output_directory = normalize_file_url(output_directory)
+    if not output_directory.strip():
+        raise ValueError("output_directory is empty after normalization")
 
     os.makedirs(output_directory, exist_ok=True)
-
     if not filename:
         filename = f"overall_mapbook_{uuid.uuid4().hex}.docx"
     output_path = Path(output_directory) / filename

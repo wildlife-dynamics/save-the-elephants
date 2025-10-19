@@ -269,21 +269,72 @@
       "required": [],
       "title": "Configure Base Map Layers"
     },
+    "download_mapbook_cover_page": {
+      "additionalProperties": false,
+      "properties": {
+        "retries": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "unzip": {
+          "default": false,
+          "title": "Unzip",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Download Mapbook cover page templates"
+    },
+    "download_sect_templates": {
+      "additionalProperties": false,
+      "properties": {
+        "retries": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "unzip": {
+          "default": false,
+          "title": "Unzip",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Download Mapbook section templates"
+    },
+    "download_logo_path": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "retries": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "unzip": {
+          "default": false,
+          "title": "Unzip",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object",
+      "title": "Download Logo Path"
+    },
     "download_ldx_db": {
       "additionalProperties": false,
       "properties": {
-        "output_path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Output Path"
-        },
         "retries": {
           "default": 3,
           "minimum": 0,
@@ -593,105 +644,6 @@
       "type": "object",
       "title": "Calculate seasonal home range"
     },
-    "download_mapbook_cover_page": {
-      "additionalProperties": false,
-      "properties": {
-        "output_path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Output Path"
-        },
-        "retries": {
-          "default": 3,
-          "minimum": 0,
-          "title": "Retries",
-          "type": "integer"
-        },
-        "unzip": {
-          "default": false,
-          "title": "Unzip",
-          "type": "boolean"
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Download Mapbook cover page templates"
-    },
-    "download_sect_templates": {
-      "additionalProperties": false,
-      "properties": {
-        "output_path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Output Path"
-        },
-        "retries": {
-          "default": 3,
-          "minimum": 0,
-          "title": "Retries",
-          "type": "integer"
-        },
-        "unzip": {
-          "default": false,
-          "title": "Unzip",
-          "type": "boolean"
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Download Mapbook section templates"
-    },
-    "download_logo_path": {
-      "additionalProperties": false,
-      "properties": {
-        "url": {
-          "title": "Url",
-          "type": "string"
-        },
-        "output_path": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Output Path"
-        },
-        "retries": {
-          "default": 3,
-          "minimum": 0,
-          "title": "Retries",
-          "type": "integer"
-        },
-        "unzip": {
-          "default": false,
-          "title": "Unzip",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "url"
-      ],
-      "type": "object",
-      "title": "Download Logo Path"
-    },
     "persist_context_cover": {
       "additionalProperties": false,
       "properties": {
@@ -960,10 +912,23 @@
         "until"
       ]
     },
-    "download_ldx_db": {
+    "download_mapbook_cover_page": {
       "ui:order": [
-        "output_path",
-        "retries"
+        "retries",
+        "unzip"
+      ]
+    },
+    "download_sect_templates": {
+      "ui:order": [
+        "retries",
+        "unzip"
+      ]
+    },
+    "download_logo_path": {
+      "ui:order": [
+        "url",
+        "retries",
+        "unzip"
       ]
     },
     "generate_etd": {
@@ -991,28 +956,6 @@
         "auto_scale_or_custom_cell_size"
       ]
     },
-    "download_mapbook_cover_page": {
-      "ui:order": [
-        "output_path",
-        "retries",
-        "unzip"
-      ]
-    },
-    "download_sect_templates": {
-      "ui:order": [
-        "output_path",
-        "retries",
-        "unzip"
-      ]
-    },
-    "download_logo_path": {
-      "ui:order": [
-        "url",
-        "output_path",
-        "retries",
-        "unzip"
-      ]
-    },
     "individual_mapbook_context": {
       "ui:order": [
         "filename",
@@ -1026,6 +969,9 @@
       "define_time_range",
       "configure_grouping_strategy",
       "configure_base_maps",
+      "download_mapbook_cover_page",
+      "download_sect_templates",
+      "download_logo_path",
       "download_ldx_db",
       "load_aoi",
       "create_styled_landdx_layers",
@@ -1038,9 +984,6 @@
       "generate_speed_raster",
       "sort_speed_features_by_value",
       "seasonal_home_range",
-      "download_mapbook_cover_page",
-      "download_sect_templates",
-      "download_logo_path",
       "persist_context_cover",
       "individual_mapbook_context",
       "generate_mapbook_report"

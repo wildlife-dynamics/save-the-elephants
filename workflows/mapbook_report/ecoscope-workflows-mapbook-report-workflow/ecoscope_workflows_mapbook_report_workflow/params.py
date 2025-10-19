@@ -200,11 +200,35 @@ class ConfigureBaseMaps(BaseModel):
     )
 
 
+class DownloadMapbookCoverPage(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
+    unzip: Optional[bool] = Field(False, title="Unzip")
+
+
+class DownloadSectTemplates(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
+    unzip: Optional[bool] = Field(False, title="Unzip")
+
+
+class DownloadLogoPath(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    url: str = Field(..., title="Url")
+    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
+    unzip: Optional[bool] = Field(False, title="Unzip")
+
+
 class DownloadLdxDb(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    output_path: Optional[str] = Field(None, title="Output Path")
     retries: Optional[conint(ge=0)] = Field(3, title="Retries")
 
 
@@ -259,34 +283,6 @@ class SortSpeedFeaturesByValue(BaseModel):
     ascending: Optional[bool] = Field(
         True, description="Sort ascending if true", title="Ascending"
     )
-
-
-class DownloadMapbookCoverPage(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    output_path: Optional[str] = Field(None, title="Output Path")
-    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
-    unzip: Optional[bool] = Field(False, title="Unzip")
-
-
-class DownloadSectTemplates(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    output_path: Optional[str] = Field(None, title="Output Path")
-    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
-    unzip: Optional[bool] = Field(False, title="Unzip")
-
-
-class DownloadLogoPath(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    url: str = Field(..., title="Url")
-    output_path: Optional[str] = Field(None, title="Output Path")
-    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
-    unzip: Optional[bool] = Field(False, title="Unzip")
 
 
 class PersistContextCover(BaseModel):
@@ -487,6 +483,15 @@ class Params(BaseModel):
     configure_base_maps: Optional[ConfigureBaseMaps] = Field(
         None, title="Configure Base Map Layers"
     )
+    download_mapbook_cover_page: Optional[DownloadMapbookCoverPage] = Field(
+        None, title="Download Mapbook cover page templates"
+    )
+    download_sect_templates: Optional[DownloadSectTemplates] = Field(
+        None, title="Download Mapbook section templates"
+    )
+    download_logo_path: Optional[DownloadLogoPath] = Field(
+        None, title="Download Logo Path"
+    )
     download_ldx_db: Optional[DownloadLdxDb] = Field(
         None, title="Download LandDx Database and extract"
     )
@@ -518,15 +523,6 @@ class Params(BaseModel):
     )
     seasonal_home_range: Optional[SeasonalHomeRange] = Field(
         None, title="Calculate seasonal home range"
-    )
-    download_mapbook_cover_page: Optional[DownloadMapbookCoverPage] = Field(
-        None, title="Download Mapbook cover page templates"
-    )
-    download_sect_templates: Optional[DownloadSectTemplates] = Field(
-        None, title="Download Mapbook section templates"
-    )
-    download_logo_path: Optional[DownloadLogoPath] = Field(
-        None, title="Download Logo Path"
     )
     persist_context_cover: Optional[PersistContextCover] = Field(
         None, title="Persist context to cover template"

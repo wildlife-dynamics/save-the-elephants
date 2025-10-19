@@ -124,10 +124,46 @@ def main(params: Params):
         .call()
     )
 
+    download_mapbook_cover_page = (
+        download_file_and_persist.validate()
+        .handle_errors(task_instance_id="download_mapbook_cover_page")
+        .partial(
+            url="https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0",
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            overwrite_existing=False,
+            **(params_dict.get("download_mapbook_cover_page") or {}),
+        )
+        .call()
+    )
+
+    download_sect_templates = (
+        download_file_and_persist.validate()
+        .handle_errors(task_instance_id="download_sect_templates")
+        .partial(
+            url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0",
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            overwrite_existing=False,
+            **(params_dict.get("download_sect_templates") or {}),
+        )
+        .call()
+    )
+
+    download_logo_path = (
+        download_file_and_persist.validate()
+        .handle_errors(task_instance_id="download_logo_path")
+        .partial(
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            overwrite_existing=False,
+            **(params_dict.get("download_logo_path") or {}),
+        )
+        .call()
+    )
+
     download_ldx_db = (
         download_file_and_persist.validate()
         .handle_errors(task_instance_id="download_ldx_db")
         .partial(
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             url="https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
             overwrite_existing=False,
             unzip=True,
@@ -1398,37 +1434,6 @@ def main(params: Params):
             column_name="subject_name", **(params_dict.get("get_subject_name") or {})
         )
         .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
-    )
-
-    download_mapbook_cover_page = (
-        download_file_and_persist.validate()
-        .handle_errors(task_instance_id="download_mapbook_cover_page")
-        .partial(
-            url="https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0",
-            overwrite_existing=False,
-            **(params_dict.get("download_mapbook_cover_page") or {}),
-        )
-        .call()
-    )
-
-    download_sect_templates = (
-        download_file_and_persist.validate()
-        .handle_errors(task_instance_id="download_sect_templates")
-        .partial(
-            url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0",
-            overwrite_existing=False,
-            **(params_dict.get("download_sect_templates") or {}),
-        )
-        .call()
-    )
-
-    download_logo_path = (
-        download_file_and_persist.validate()
-        .handle_errors(task_instance_id="download_logo_path")
-        .partial(
-            overwrite_existing=False, **(params_dict.get("download_logo_path") or {})
-        )
-        .call()
     )
 
     unique_subjects = (
