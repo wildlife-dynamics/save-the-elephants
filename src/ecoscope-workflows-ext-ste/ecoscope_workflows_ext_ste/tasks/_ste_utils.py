@@ -92,7 +92,7 @@ def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
         'Present Quarter Movement' or 'Previous Quarter Movement'.
     """
     if gdf is None or gdf.empty:
-        raise ValueError("Input GeoDataFrame is empty.")
+        raise ValueError("`label_quarter_status`:gdf is empty.")
     
     gdf[timestamp_col] = pd.to_datetime(gdf[timestamp_col])
     latest_date = gdf[timestamp_col].max()
@@ -130,30 +130,31 @@ def generate_ecograph_raster(
     ] = None,
     network_metric: Optional[Literal["weight", "betweenness", "degree", "collective_influence"]] = None,
 ) -> str:
+
     if gdf is None or gdf.empty:
-        raise ValueError("gdf is empty.")
+        raise ValueError("`generate_ecograph_raster`:Trajectory gdf is empty.")
 
     if dist_col not in gdf.columns:
-        raise ValueError(f"Column '{dist_col}' not found in gdf.")
+        raise ValueError(f"`generate_ecograph_raster`:Column '{dist_col}' not found in gdf.")
 
     dist_series = pd.to_numeric(gdf[dist_col], errors="coerce")
     if dist_series.dropna().empty:
-        raise ValueError(f"Column '{dist_col}' has no numeric values to compute a mean resolution.")
+        raise ValueError(f"`generate_ecograph_raster`:Column '{dist_col}' has no numeric values to compute a mean resolution.")
 
     if (movement_covariate is None) == (network_metric is None):
-        raise ValueError("Provide exactly one of 'movement_covariate' or 'network_metric'.")
+        raise ValueError("`generate_ecograph_raster`:Provide exactly one of 'movement_covariate' or 'network_metric'.")
+    
+    if output_dir.startswith("file://"):
+        parsed = urlparse(output_dir_path)
+        output_path = url2pathname(parsed.path)
 
     if not filename:
         df_hash = hashlib.sha256(pd.util.hash_pandas_object(gdf, index=True).values).hexdigest()
         filename = df_hash[:7]
-        print(f"No filename provided. Generated filename: {filename}")
     if step_length is not None:
-        print(f"Using provided mean step length: {step_length}")
         resolution = float(step_length)
     else:
-        print("No step length provided, calculating from step distances.")
         step_length = float(dist_series.mean())
-        print(f"Mean step length: {step_length}")
     res = float(resolution) if resolution is not None else step_length
     if res <= 0:
         raise ValueError(f"Computed/Provided resolution must be > 0, got {res}.")
@@ -176,6 +177,9 @@ def generate_ecograph_raster(
 def retrieve_feature_gdf(
     file_path: Annotated[str, Field(description="Path to the saved Ecograph feature file")],
 ) -> AnyGeoDataFrame:
+    if not isinstance(file_path, str) or not file_path:
+        raise ValueError("retrieve_feature_gdf: 'file_path' must be a non-empty string.")
+
     if file_path.startswith("file://"):
         parsed = urlparse(file_path)
         file_path = url2pathname(parsed.path)
@@ -190,11 +194,12 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
     Applies to the entire trajectory without grouping.
     """
     try:
-        logger.info("Calculating seasonal ETD percentiles for entire trajectory")
-        logger.info(f"Total percentiles shape: {total_percentiles.shape}")
-        logger.info(f"Available seasons: {total_percentiles['season'].unique()}")
-        seasonal_wins = total_percentiles.copy()
+        if traj is None or traj.empty:
+            raise ValueError("`create_seasonal_labels`:traj gdf is empty.")
+        if total_percentiles is None or total_percentiles.empty:
+            raise ValueError("`create_seasonal_labels `:total_percentiles df is empty.")
 
+        seasonal_wins = total_percentiles.copy()
         traj_start = traj["segment_start"].min()
         traj_end = traj["segment_end"].max()
 
@@ -228,7 +233,6 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
         logger.error(f"Failed to apply seasonal label to trajectory: {e}")
         return None
 
-
 @task
 def split_gdf_by_column(
     gdf: Annotated[AnyGeoDataFrame, Field(description="The GeoDataFrame to split")],
@@ -237,8 +241,11 @@ def split_gdf_by_column(
     """
     Splits a GeoDataFrame into a dictionary of GeoDataFrames based on unique values in the specified column.
     """
+    if gdf is None or gdf.empty:
+        raise ValueError("`split_gdf_by_column`:gdf is empty.")
+
     if column not in gdf.columns:
-        raise ValueError(f"Column '{column}' not found in GeoDataFrame.")
+        raise ValueError(f"`split_gdf_by_column`:Column '{column}' not found in GeoDataFrame.")
 
     grouped = {str(k): v for k, v in gdf.groupby(column)}
     return grouped
@@ -252,16 +259,16 @@ def generate_mcp_gdf(
     Create a Minimum Convex Polygon (MCP) from input point geometries and compute its area.
     """
     if gdf is None or gdf.empty:
-        raise ValueError("Input GeoDataFrame is empty.")
+        raise ValueError("`generate_mcp_gdf`:gdf is empty.")
     if gdf.geometry is None:
-        raise ValueError("Input GeoDataFrame has no 'geometry' column.")
+        raise ValueError("`generate_mcp_gdf`:gdf has no 'geometry' column.")
     if gdf.crs is None:
-        raise ValueError("Input GeoDataFrame must have a CRS set (e.g., EPSG:4326).")
+        raise ValueError("`generate_mcp_gdf`:gdf must have a CRS set (e.g., EPSG:4326).")
 
     original_crs = gdf.crs
     valid_points_gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notnull()].copy()
     if valid_points_gdf.empty:
-        raise ValueError("No valid geometries in input GeoDataFrame.")
+        raise ValueError("`generate_mcp_gdf`:No valid geometries in gdf.")
 
     if not all(valid_points_gdf.geometry.geom_type.isin(["Point"])):
         valid_points_gdf.geometry = valid_points_gdf.geometry.centroid
@@ -289,6 +296,8 @@ def dataframe_column_first_unique_str(
     df: AnyDataFrame,
     column_name: Annotated[str, Field(description="Column to aggregate")],
 ) -> Annotated[str, Field(description="The first unique string value in the column")]:
+    if gdf is None or gdf.empty:
+        raise ValueError("`dataframe_column_first_unique_str`:df is empty.")
     return str(df[column_name].unique()[0])
 
 
@@ -298,14 +307,18 @@ def assign_quarter_status_colors(
     hex_column: str, 
     previous_color_hex: str
     ) -> AnyDataFrame:
-    df = gdf.copy()
+    if gdf is None or gdf.empty:
+        raise ValueError("`assign_quarter_status_colors`:gdf is empty.")
 
+    df = gdf.copy()
     if not isinstance(previous_color_hex, str) or not previous_color_hex.startswith("#"):
-        raise ValueError("Invalid hex color code for previous_color_hex.")
+        raise ValueError("`assign_quarter_status_colors`:Invalid hex color code for previous_color_hex.")
+
     if hex_column not in df.columns:
-        raise ValueError(f"Column '{hex_column}' not found in gdf.")
+        raise ValueError(f"`assign_quarter_status_colors`:Column '{hex_column}' not found in gdf.")
+    
     if "quarter_status" not in df.columns:
-        raise ValueError("Column 'quarter_status' not found in gdf. Please run label_quarter_status first.")
+        raise ValueError("`assign_quarter_status_colors`:Column 'quarter_status' not found in gdf.")
 
     prev_rgba = hex_to_rgba(previous_color_hex)
     df["quarter_status_hex_colors"] = np.where(
@@ -341,15 +354,14 @@ def calculate_seasonal_home_range(
         ),
     ] = None,
 ) -> AnyDataFrame:
+    if gdf is None or gdf.empty:
+        raise ValueError("`calculate_seasonal_home_range`:gdf is empty.")
 
     if groupby_cols is None:
         groupby_cols = ["groupby_col", "season"]
     
-    if gdf is None or gdf.empty:
-        raise ValueError("Input GeoDataFrame is empty.")
-    
     if 'season' not in gdf.columns:
-        raise ValueError("Input GeoDataFrame must have a 'season' column.")
+        raise ValueError("`calculate_seasonal_home_range`: gdf must have a 'season' column.")
     
     if auto_scale_or_custom_cell_size is None:
         auto_scale_or_custom_cell_size = AutoScaleGridCellSize()
@@ -376,7 +388,6 @@ def calculate_seasonal_home_range(
     # Reset index properly
     if isinstance(season_etd.index, pd.MultiIndex):
         season_etd = season_etd.reset_index()
-
     return season_etd
 
 @task
@@ -410,27 +421,27 @@ def get_duration(
         return months
 
     else:
-        raise ValueError("time_unit must be either 'days' or 'months'")
+        raise ValueError("`get_duration`:time_unit must be either 'days' or 'months'")
         
 @task
 def download_file_and_persist(
     url: Annotated[str, Field(description="URL to download the file from")],
-    output_path: Annotated[str, Field(description="Path to save the downloaded file or directory")],
+    output_path: Annotated[Optional[str], Field(description="Path to save the downloaded file or directory. Defaults to current working directory")] = None,
     retries: Annotated[int, Field(description="Number of retries on failure", ge=0)] = 3,
     overwrite_existing: Annotated[bool, Field(description="Whether to overwrite existing files")] = False,
     unzip: Annotated[bool, Field(description="Whether to unzip the file if it's a zip archive")] = False,
 ) -> str:
     """
     Downloads a file from the provided URL and persists it locally.
+    If output_path is not specified, saves to the current working directory.
     Returns the full path to the downloaded file, or if unzipped, the path to the extracted directory.
     """
 
-    # --- Validate input early ---
-    if output_path is None:
-        raise ValueError("output_path must be provided and non-empty.")
-    output_path = str(output_path).strip()
-    if output_path == "":
-        raise ValueError("output_path must be a non-empty path (got empty string).")
+    # --- Set default to current working directory if not provided ---
+    if output_path is None or str(output_path).strip() == "":
+        output_path = os.getcwd()
+    else:
+        output_path = str(output_path).strip()
 
     # support file:// URLs
     if output_path.startswith("file://"):
@@ -497,39 +508,29 @@ def download_file_and_persist(
 
     # Determine the final persisted path
     if unzip and zipfile.is_zipfile(target_path):
-        # Find what was extracted by comparing directory contents
         after_extraction = set(os.listdir(parent_dir))
         new_items = after_extraction - before_extraction
-        
-        # Remove the zip file itself from new items if it's there
         zip_filename = os.path.basename(target_path)
         new_items.discard(zip_filename)
         
-        # If exactly one new directory was created, return that
         if len(new_items) == 1:
             new_item = new_items.pop()
             new_item_path = os.path.join(parent_dir, new_item)
             if os.path.isdir(new_item_path):
                 persisted_path = str(Path(new_item_path).resolve())
             else:
-                # Single file was extracted, return parent directory
                 persisted_path = str(Path(parent_dir).resolve())
         elif len(new_items) > 1:
-            # Multiple items extracted - return parent directory containing all
             persisted_path = str(Path(parent_dir).resolve())
         else:
-            # No new items detected, fallback to checking common extraction pattern
-            # Try removing .zip extension as fallback
             extracted_dir = target_path.rsplit('.zip', 1)[0]
             if os.path.isdir(extracted_dir):
                 persisted_path = str(Path(extracted_dir).resolve())
             else:
                 persisted_path = str(Path(parent_dir).resolve())
     else:
-        # No unzipping, return the downloaded file path
         persisted_path = str(Path(target_path).resolve())
 
-    # Verify the path exists
     if not os.path.exists(persisted_path):
         parent = os.path.dirname(persisted_path)
         if os.path.exists(parent):
@@ -542,8 +543,6 @@ def download_file_and_persist(
             raise FileNotFoundError(
                 f"Download failed — {persisted_path}. Parent dir missing: {parent}"
             )
-
-    print(f"Path: {persisted_path}")
     return persisted_path
 
 @task
@@ -813,11 +812,8 @@ def combine_docx_files(
         filename = f"overall_mapbook_{uuid.uuid4().hex}.docx"
     output_path = Path(output_directory) / filename
 
-    # Load master document
     master = Document(cover_page_path)
     composer = Composer(master)
-
-    # Append each context page with explicit page break
     for doc_path in final_paths:
         doc = Document(doc_path)
         composer.append(doc) 
