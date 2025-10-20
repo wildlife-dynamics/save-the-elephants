@@ -182,7 +182,7 @@ download_mapbook_cover_page = (
         task_instance_id="download_mapbook_cover_page"
     )
     .partial(
-        url="https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0",
+        url="https://www.dropbox.com/scl/fi/1373gi65ji918rxele5h9/cover_page_v3.docx?rlkey=ur01wtpa98tcyq8f0f6dtksl8&st=eq39sgwz&dl=0",
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         **download_mapbook_cover_page_params,
@@ -209,7 +209,7 @@ download_sect_templates_params = dict(
 download_sect_templates = (
     download_file_and_persist.handle_errors(task_instance_id="download_sect_templates")
     .partial(
-        url="https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0",
+        url="https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0",
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         **download_sect_templates_params,
@@ -1680,12 +1680,12 @@ generate_mcp_layers = (
     .partial(
         layer_style={
             "get_fill_color": "#FFFFFF00",
-            "get_line_color": "#dc143c",
-            "get_line_width": 2,
-            "opacity": 0.55,
+            "get_line_color": "#ff1493",
+            "get_line_width": 3,
+            "opacity": 0.75,
             "stroked": True,
         },
-        legend={"labels": ["mcp"], "colors": ["#dc143c"]},
+        legend={"labels": ["mcp"], "colors": ["#ff1493"]},
         tooltip_columns=["area_km2"],
         **generate_mcp_layers_params,
     )
@@ -2140,7 +2140,7 @@ draw_speed_raster_ecomaps = (
     .partial(
         tile_layers=configure_base_maps,
         north_arrow_style={"placement": "top-left"},
-        legend_style={"placement": "bottom-right", "title": "Mean Raster Value(Km/h)"},
+        legend_style={"placement": "bottom-right", "title": "Mean Speed Value (km/h)"},
         static=False,
         title=None,
         max_zoom=20,
@@ -2267,7 +2267,7 @@ season_colormap = (
     .partial(
         input_column_name="season",
         output_column_name="season_colormap",
-        colormap=["#f57c00", "#4cf3f7"],
+        colormap=["#f57c00", "#255084"],
         **season_colormap_params,
     )
     .mapvalues(argnames=["df"], argvalues=seasonal_home_range)
@@ -2818,7 +2818,7 @@ persist_context_cover_params = dict(
 persist_context_cover = (
     create_context_page.handle_errors(task_instance_id="persist_context_cover")
     .partial(
-        logo_width_cm=5.05,
+        logo_width_cm=4.5,
         logo_height_cm=1.93,
         template_path=download_mapbook_cover_page,
         output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],

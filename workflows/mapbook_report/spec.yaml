@@ -40,7 +40,7 @@ workflow:
     id: download_mapbook_cover_page
     task: download_file_and_persist
     partial:
-      url: https://www.dropbox.com/scl/fi/ky7lbuccf80pf1bsulzbh/cover_page_v2.docx?rlkey=zqdn23e7n9lgm2potqw880c9d&st=ehh51990&dl=0
+      url: https://www.dropbox.com/scl/fi/1373gi65ji918rxele5h9/cover_page_v3.docx?rlkey=ur01wtpa98tcyq8f0f6dtksl8&st=eq39sgwz&dl=0
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false
 
@@ -49,7 +49,7 @@ workflow:
     id: download_sect_templates
     task: download_file_and_persist
     partial:
-      url: https://www.dropbox.com/scl/fi/ellj1775r4mum7wx44fz3/mapbook_subject_template_v2.docx?rlkey=9618t5pxrnqflyzp9139qc5dy&st=9dvb8mgc&dl=0
+      url: https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false
 
@@ -758,15 +758,15 @@ workflow:
     partial:
       layer_style:
         get_fill_color: '#FFFFFF00' # transparent fill
-        get_line_color: '#dc143c'
-        get_line_width: 2
-        opacity: 0.55
+        get_line_color: '#ff1493'
+        get_line_width: 3
+        opacity: 0.75
         stroked: true
       legend:
         labels: 
           - mcp
         colors: 
-          - '#dc143c'
+          - '#ff1493'
       tooltip_columns:
         - area_km2
       
@@ -820,7 +820,7 @@ workflow:
         placement: top-left
       legend_style:
         placement: bottom-right
-        title: ETD Metrics
+        title: "ETD Metrics"
       static: false
       title: null
       max_zoom: 20
@@ -1006,7 +1006,7 @@ workflow:
         placement: top-left
       legend_style:
         placement: bottom-right
-        title: Mean Raster Value(Km/h)
+        title: Mean Speed Value (km/h)
       static: false
       title: null
       max_zoom: 20
@@ -1073,7 +1073,7 @@ workflow:
       output_column_name: season_colormap
       colormap: 
         - '#f57c00' 
-        - '#4cf3f7' 
+        - '#255084' 
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.seasonal_home_range.return }}
@@ -1333,7 +1333,7 @@ workflow:
     id: persist_context_cover
     task: create_context_page
     partial:
-      logo_width_cm: 5.05
+      logo_width_cm: 4.50
       logo_height_cm: 1.93
       template_path: ${{ workflow.download_mapbook_cover_page.return }}
       output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
