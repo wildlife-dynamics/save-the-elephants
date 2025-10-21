@@ -84,7 +84,7 @@
             }
           ],
           "items": {
-            "title": "Base Layer or Custom Layer",
+            "title": "Base Layer",
             "anyOf": [
               {
                 "properties": {
@@ -259,7 +259,7 @@
               }
             ]
           },
-          "title": "Set Map Base Layers",
+          "title": " ",
           "type": "array",
           "description": "Select tile layers to use as base layers in map outputs. The first layer in the list will be the bottommost layer displayed.",
           "ecoscope:advanced": true
@@ -269,61 +269,103 @@
       "required": [],
       "title": "Configure Base Map Layers"
     },
-    "create_output_directory": {
+    "download_mapbook_cover_page": {
       "additionalProperties": false,
       "properties": {
-        "path_name": {
-          "default": "/home/ttemu/ecoscope-workflows/save-the-elephants/.pixi/envs/compile/lib/python3.12/site-packages/ecoscope_workflows_ext_ste/tasks/output",
-          "title": "Path Name",
-          "type": "string",
-          "description": "Path to the directory that should be created"
+        "retries": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "unzip": {
+          "default": false,
+          "title": "Unzip",
+          "type": "boolean"
         }
       },
-      "type": "object",
       "required": [],
-      "title": "Create Output Directory"
+      "type": "object",
+      "title": "Download Mapbook cover page templates"
     },
-    "retrieve_landdx_database": {
+    "download_sect_templates": {
+      "additionalProperties": false,
+      "properties": {
+        "retries": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "unzip": {
+          "default": false,
+          "title": "Unzip",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Download Mapbook section templates"
+    },
+    "download_logo_path": {
       "additionalProperties": false,
       "properties": {
         "url": {
           "title": "Url",
-          "type": "string",
-          "description": "URL to retrieve the LandDx database"
+          "type": "string"
         },
-        "overwrite_existing": {
-          "default": false,
-          "title": "Overwrite Existing",
-          "type": "boolean",
-          "description": "Overwrite the existing file if it exists"
+        "retries": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
         },
         "unzip": {
-          "default": true,
+          "default": false,
           "title": "Unzip",
-          "type": "boolean",
-          "description": "Whether to unzip the downloaded file"
+          "type": "boolean"
         }
       },
       "required": [
         "url"
       ],
       "type": "object",
-      "title": "Retrieve and Unpack LandDx Database"
+      "title": "Download Logo Path"
+    },
+    "download_ldx_db": {
+      "additionalProperties": false,
+      "properties": {
+        "retries": {
+          "default": 3,
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Download LandDx Database and extract"
     },
     "load_aoi": {
       "additionalProperties": false,
       "properties": {
         "aoi": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Aoi",
-          "type": "array"
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aoi"
         }
       },
-      "required": [
-        "aoi"
-      ],
+      "required": [],
       "type": "object",
       "title": "Load AOI from landDx"
     },
@@ -376,8 +418,7 @@
       "properties": {
         "subject_group_name": {
           "title": "Subject Group Name",
-          "type": "string",
-          "description": "Name of EarthRanger Subject"
+          "type": "string"
         }
       },
       "required": [
@@ -403,7 +444,7 @@
             "min_speed_kmhr": 0.01,
             "max_speed_kmhr": 500
           },
-          "title": "Trajectory Segment Filter",
+          "title": " ",
           "description": "Filter track data by setting limits on track segment length, duration, and speed. Segments outside these bounds are removed, reducing noise and to focus on meaningful movement patterns.",
           "ecoscope:advanced": true
         }
@@ -411,43 +452,6 @@
       "required": [],
       "type": "object",
       "title": "Convert Relocations to Trajectories"
-    },
-    "generate_seasonal_etd": {
-      "additionalProperties": false,
-      "properties": {
-        "auto_scale_or_custom_cell_size": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AutoScaleGridCellSize"
-            },
-            {
-              "$ref": "#/$defs/CustomGridCellSize"
-            }
-          ],
-          "default": {
-            "auto_scale_or_custom": "Auto-scale"
-          },
-          "title": "Auto Scale Or Custom Grid Cell Size",
-          "ecoscope:advanced": true
-        },
-        "max_speed_factor": {
-          "default": 1.05,
-          "title": "Max Speed Factor (Kilometers per Hour)",
-          "type": "number",
-          "description": "An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
-          "ecoscope:advanced": true
-        },
-        "expansion_factor": {
-          "default": 1.05,
-          "title": "Shape Buffer Expansion Factor",
-          "type": "number",
-          "description": "Controls how far time density values spread across the grid, affecting the smoothness of the output.",
-          "ecoscope:advanced": true
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Generate Seasonal Home Range ETD"
     },
     "sort_trajectories_by_speed": {
       "additionalProperties": false,
@@ -478,31 +482,55 @@
           "default": {
             "auto_scale_or_custom": "Auto-scale"
           },
-          "title": "Auto Scale Or Custom Grid Cell Size",
+          "title": "Grid Cell Size",
           "ecoscope:advanced": true
         },
         "max_speed_factor": {
           "default": 1.05,
           "title": "Max Speed Factor (Kilometers per Hour)",
           "type": "number",
-          "description": "An estimate of the subject's maximum speed.",
+          "description": "An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
           "ecoscope:advanced": true
         },
         "expansion_factor": {
-          "default": 1.3,
+          "default": 1.05,
           "title": "Shape Buffer Expansion Factor",
           "type": "number",
-          "description": "Controls how far time density values spread across the grid.",
+          "description": "Controls how far time density values spread across the grid, affecting the smoothness of the output.",
           "ecoscope:advanced": true
         }
       },
       "required": [],
       "type": "object",
-      "title": "Generate Home Range Ecomaps"
+      "title": "Generate Home Range Ecomap"
     },
     "generate_speed_raster": {
       "additionalProperties": false,
       "properties": {
+        "output_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Dir"
+        },
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        },
         "resolution": {
           "anyOf": [
             {
@@ -513,14 +541,12 @@
             }
           ],
           "default": null,
-          "title": "Resolution",
-          "description": "Raster resolution; if None, uses the mean of dist_col."
+          "title": "Resolution"
         },
         "radius": {
           "default": 2,
           "title": "Radius",
-          "type": "integer",
-          "description": "Radius for kernel smoothing"
+          "type": "integer"
         },
         "cutoff": {
           "anyOf": [
@@ -532,14 +558,24 @@
             }
           ],
           "default": null,
-          "title": "Cutoff",
-          "description": "Cutoff distance for kernel"
+          "title": "Cutoff"
         },
         "tortuosity_length": {
           "default": 3,
           "title": "Tortuosity Length",
-          "type": "integer",
-          "description": "Length scale for tortuosity smoothing"
+          "type": "integer"
+        },
+        "step_length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step Length"
         },
         "network_metric": {
           "anyOf": [
@@ -562,7 +598,7 @@
       },
       "required": [],
       "type": "object",
-      "title": "Generate Subject Speed Rasters"
+      "title": "Generate Speed Rasters"
     },
     "sort_speed_features_by_value": {
       "additionalProperties": false,
@@ -577,6 +613,104 @@
       "required": [],
       "type": "object",
       "title": "Sort Speed Features by Value"
+    },
+    "seasonal_home_range": {
+      "additionalProperties": false,
+      "properties": {
+        "percentiles": {
+          "default": [
+            99.9
+          ],
+          "items": {
+            "type": "number"
+          },
+          "title": "Percentiles",
+          "type": "array"
+        },
+        "auto_scale_or_custom_cell_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoScaleGridCellSize"
+            },
+            {
+              "$ref": "#/$defs/CustomGridCellSize"
+            }
+          ],
+          "default": null,
+          "title": "Auto Scale Or Custom Cell Size"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Calculate seasonal home range"
+    },
+    "persist_context_cover": {
+      "additionalProperties": false,
+      "properties": {
+        "filename": {
+          "default": null,
+          "title": "Filename",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Persist context to cover template"
+    },
+    "individual_mapbook_context": {
+      "additionalProperties": false,
+      "properties": {
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        },
+        "validate_images": {
+          "default": true,
+          "title": "Validate Images",
+          "type": "boolean"
+        },
+        "box_h_cm": {
+          "default": 6.5,
+          "title": "Box H Cm",
+          "type": "number"
+        },
+        "box_w_cm": {
+          "default": 11.11,
+          "title": "Box W Cm",
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Create individual mapbook context"
+    },
+    "generate_mapbook_report": {
+      "additionalProperties": false,
+      "properties": {
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Generate final mapbook report"
     }
   },
   "$defs": {
@@ -684,6 +818,7 @@
         "max_length_meters": {
           "default": 100000,
           "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
           "title": "Maximum Segment Length (Meters)",
           "type": "number"
         },
@@ -697,6 +832,7 @@
         "max_time_secs": {
           "default": 172800,
           "ecoscope:advanced": true,
+          "exclusiveMinimum": 1,
           "title": "Maximum Segment Duration (Seconds)",
           "type": "number"
         },
@@ -710,6 +846,7 @@
         "max_speed_kmhr": {
           "default": 500,
           "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
           "title": "Maximum Segment Speed (Kilometers per Hour)",
           "type": "number"
         }
@@ -775,18 +912,23 @@
         "until"
       ]
     },
-    "retrieve_landdx_database": {
+    "download_mapbook_cover_page": {
       "ui:order": [
-        "url",
-        "overwrite_existing",
+        "retries",
         "unzip"
       ]
     },
-    "generate_seasonal_etd": {
+    "download_sect_templates": {
       "ui:order": [
-        "auto_scale_or_custom_cell_size",
-        "max_speed_factor",
-        "expansion_factor"
+        "retries",
+        "unzip"
+      ]
+    },
+    "download_logo_path": {
+      "ui:order": [
+        "url",
+        "retries",
+        "unzip"
       ]
     },
     "generate_etd": {
@@ -798,11 +940,28 @@
     },
     "generate_speed_raster": {
       "ui:order": [
+        "output_dir",
+        "filename",
         "resolution",
         "radius",
         "cutoff",
         "tortuosity_length",
+        "step_length",
         "network_metric"
+      ]
+    },
+    "seasonal_home_range": {
+      "ui:order": [
+        "percentiles",
+        "auto_scale_or_custom_cell_size"
+      ]
+    },
+    "individual_mapbook_context": {
+      "ui:order": [
+        "filename",
+        "validate_images",
+        "box_h_cm",
+        "box_w_cm"
       ]
     },
     "ui:order": [
@@ -810,19 +969,24 @@
       "define_time_range",
       "configure_grouping_strategy",
       "configure_base_maps",
-      "create_output_directory",
-      "retrieve_landdx_database",
+      "download_mapbook_cover_page",
+      "download_sect_templates",
+      "download_logo_path",
+      "download_ldx_db",
       "load_aoi",
       "create_styled_landdx_layers",
       "er_client_name",
       "gee_project_name",
       "subject_observations",
       "convert_to_trajectories",
-      "generate_seasonal_etd",
       "sort_trajectories_by_speed",
       "generate_etd",
       "generate_speed_raster",
-      "sort_speed_features_by_value"
+      "sort_speed_features_by_value",
+      "seasonal_home_range",
+      "persist_context_cover",
+      "individual_mapbook_context",
+      "generate_mapbook_report"
     ]
   },
   "additionalProperties": false

@@ -13,6 +13,7 @@ from pydantic import (
     Field,
     RootModel,
     confloat,
+    conint,
     constr,
 )
 
@@ -195,52 +196,54 @@ class ConfigureBaseMaps(BaseModel):
             },
         ],
         description="Select tile layers to use as base layers in map outputs. The first layer in the list will be the bottommost layer displayed.",
-        title="Set Map Base Layers",
+        title=" ",
     )
 
 
-class CreateOutputDirectory(BaseModel):
+class DownloadMapbookCoverPage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    path_name: Optional[str] = Field(
-        "/home/ttemu/ecoscope-workflows/save-the-elephants/.pixi/envs/compile/lib/python3.12/site-packages/ecoscope_workflows_ext_ste/tasks/output",
-        description="Path to the directory that should be created",
-        title="Path Name",
-    )
+    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
+    unzip: Optional[bool] = Field(False, title="Unzip")
 
 
-class RetrieveLanddxDatabase(BaseModel):
+class DownloadSectTemplates(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    url: str = Field(
-        ..., description="URL to retrieve the LandDx database", title="Url"
+    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
+    unzip: Optional[bool] = Field(False, title="Unzip")
+
+
+class DownloadLogoPath(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
     )
-    overwrite_existing: Optional[bool] = Field(
-        False,
-        description="Overwrite the existing file if it exists",
-        title="Overwrite Existing",
+    url: str = Field(..., title="Url")
+    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
+    unzip: Optional[bool] = Field(False, title="Unzip")
+
+
+class DownloadLdxDb(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
     )
-    unzip: Optional[bool] = Field(
-        True, description="Whether to unzip the downloaded file", title="Unzip"
-    )
+    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
 
 
 class LoadAoi(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    aoi: List[str] = Field(..., title="Aoi")
+    aoi: Optional[List[str]] = Field(None, title="Aoi")
 
 
 class SubjectObservations(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    subject_group_name: str = Field(
-        ..., description="Name of EarthRanger Subject", title="Subject Group Name"
-    )
+    subject_group_name: str = Field(..., title="Subject Group Name")
 
 
 class SortTrajectoriesBySpeed(BaseModel):
@@ -263,22 +266,13 @@ class GenerateSpeedRaster(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    resolution: Optional[float] = Field(
-        None,
-        description="Raster resolution; if None, uses the mean of dist_col.",
-        title="Resolution",
-    )
-    radius: Optional[int] = Field(
-        2, description="Radius for kernel smoothing", title="Radius"
-    )
-    cutoff: Optional[float] = Field(
-        None, description="Cutoff distance for kernel", title="Cutoff"
-    )
-    tortuosity_length: Optional[int] = Field(
-        3,
-        description="Length scale for tortuosity smoothing",
-        title="Tortuosity Length",
-    )
+    output_dir: Optional[str] = Field(None, title="Output Dir")
+    filename: Optional[str] = Field(None, title="Filename")
+    resolution: Optional[float] = Field(None, title="Resolution")
+    radius: Optional[int] = Field(2, title="Radius")
+    cutoff: Optional[float] = Field(None, title="Cutoff")
+    tortuosity_length: Optional[int] = Field(3, title="Tortuosity Length")
+    step_length: Optional[int] = Field(None, title="Step Length")
     network_metric: Optional[NetworkMetric] = Field(None, title="Network Metric")
 
 
@@ -289,6 +283,30 @@ class SortSpeedFeaturesByValue(BaseModel):
     ascending: Optional[bool] = Field(
         True, description="Sort ascending if true", title="Ascending"
     )
+
+
+class PersistContextCover(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    filename: Optional[str] = Field(None, title="Filename")
+
+
+class IndividualMapbookContext(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    filename: Optional[str] = Field(None, title="Filename")
+    validate_images: Optional[bool] = Field(True, title="Validate Images")
+    box_h_cm: Optional[float] = Field(6.5, title="Box H Cm")
+    box_w_cm: Optional[float] = Field(11.11, title="Box W Cm")
+
+
+class GenerateMapbookReport(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    filename: Optional[str] = Field(None, title="Filename")
 
 
 class TemporalGrouper(RootModel[str]):
@@ -316,19 +334,19 @@ class TrajectorySegmentFilter(BaseModel):
     min_length_meters: Optional[confloat(ge=0.001)] = Field(
         0.001, title="Minimum Segment Length (Meters)"
     )
-    max_length_meters: Optional[float] = Field(
+    max_length_meters: Optional[confloat(gt=0.001)] = Field(
         100000, title="Maximum Segment Length (Meters)"
     )
     min_time_secs: Optional[confloat(ge=1.0)] = Field(
         1, title="Minimum Segment Duration (Seconds)"
     )
-    max_time_secs: Optional[float] = Field(
+    max_time_secs: Optional[confloat(gt=1.0)] = Field(
         172800, title="Maximum Segment Duration (Seconds)"
     )
     min_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
         0.01, title="Minimum Segment Speed (Kilometers per Hour)"
     )
-    max_speed_kmhr: Optional[float] = Field(
+    max_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
         500, title="Maximum Segment Speed (Kilometers per Hour)"
     )
 
@@ -412,20 +430,17 @@ class ConvertToTrajectories(BaseModel):
             }
         ),
         description="Filter track data by setting limits on track segment length, duration, and speed. Segments outside these bounds are removed, reducing noise and to focus on meaningful movement patterns.",
-        title="Trajectory Segment Filter",
+        title=" ",
     )
 
 
-class GenerateSeasonalEtd(BaseModel):
+class GenerateEtd(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     auto_scale_or_custom_cell_size: Optional[
         Union[AutoScaleGridCellSize, CustomGridCellSize]
-    ] = Field(
-        {"auto_scale_or_custom": "Auto-scale"},
-        title="Auto Scale Or Custom Grid Cell Size",
-    )
+    ] = Field({"auto_scale_or_custom": "Auto-scale"}, title="Grid Cell Size")
     max_speed_factor: Optional[float] = Field(
         1.05,
         description="An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
@@ -438,26 +453,14 @@ class GenerateSeasonalEtd(BaseModel):
     )
 
 
-class GenerateEtd(BaseModel):
+class SeasonalHomeRange(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
+    percentiles: Optional[List[float]] = Field([99.9], title="Percentiles")
     auto_scale_or_custom_cell_size: Optional[
         Union[AutoScaleGridCellSize, CustomGridCellSize]
-    ] = Field(
-        {"auto_scale_or_custom": "Auto-scale"},
-        title="Auto Scale Or Custom Grid Cell Size",
-    )
-    max_speed_factor: Optional[float] = Field(
-        1.05,
-        description="An estimate of the subject's maximum speed.",
-        title="Max Speed Factor (Kilometers per Hour)",
-    )
-    expansion_factor: Optional[float] = Field(
-        1.3,
-        description="Controls how far time density values spread across the grid.",
-        title="Shape Buffer Expansion Factor",
-    )
+    ] = Field(None, title="Auto Scale Or Custom Cell Size")
 
 
 class FormData(BaseModel):
@@ -480,11 +483,17 @@ class FormData(BaseModel):
     configure_base_maps: Optional[ConfigureBaseMaps] = Field(
         None, title="Configure Base Map Layers"
     )
-    create_output_directory: Optional[CreateOutputDirectory] = Field(
-        None, title="Create Output Directory"
+    download_mapbook_cover_page: Optional[DownloadMapbookCoverPage] = Field(
+        None, title="Download Mapbook cover page templates"
     )
-    retrieve_landdx_database: Optional[RetrieveLanddxDatabase] = Field(
-        None, title="Retrieve and Unpack LandDx Database"
+    download_sect_templates: Optional[DownloadSectTemplates] = Field(
+        None, title="Download Mapbook section templates"
+    )
+    download_logo_path: Optional[DownloadLogoPath] = Field(
+        None, title="Download Logo Path"
+    )
+    download_ldx_db: Optional[DownloadLdxDb] = Field(
+        None, title="Download LandDx Database and extract"
     )
     load_aoi: Optional[LoadAoi] = Field(None, title="Load AOI from landDx")
     create_styled_landdx_layers: Optional[CreateStyledLanddxLayers] = Field(
@@ -500,18 +509,27 @@ class FormData(BaseModel):
     convert_to_trajectories: Optional[ConvertToTrajectories] = Field(
         None, title="Convert Relocations to Trajectories"
     )
-    generate_seasonal_etd: Optional[GenerateSeasonalEtd] = Field(
-        None, title="Generate Seasonal Home Range ETD"
-    )
     sort_trajectories_by_speed: Optional[SortTrajectoriesBySpeed] = Field(
         None, title="Sort Trajectories by Speed Bins"
     )
     generate_etd: Optional[GenerateEtd] = Field(
-        None, title="Generate Home Range Ecomaps"
+        None, title="Generate Home Range Ecomap"
     )
     generate_speed_raster: Optional[GenerateSpeedRaster] = Field(
-        None, title="Generate Subject Speed Rasters"
+        None, title="Generate Speed Rasters"
     )
     sort_speed_features_by_value: Optional[SortSpeedFeaturesByValue] = Field(
         None, title="Sort Speed Features by Value"
+    )
+    seasonal_home_range: Optional[SeasonalHomeRange] = Field(
+        None, title="Calculate seasonal home range"
+    )
+    persist_context_cover: Optional[PersistContextCover] = Field(
+        None, title="Persist context to cover template"
+    )
+    individual_mapbook_context: Optional[IndividualMapbookContext] = Field(
+        None, title="Create individual mapbook context"
+    )
+    generate_mapbook_report: Optional[GenerateMapbookReport] = Field(
+        None, title="Generate final mapbook report"
     )

@@ -32,6 +32,8 @@ requirements:
     - shapely
     - python-igraph
     - earthengine-api
+    - docxtpl # for word document template generation
+    - playwright # html to image conversion
     
 about:
   license: BSD-3-Clause

@@ -8,8 +8,7 @@ from ecoscope_workflows_core.tasks.config import set_workflow_details
 from ecoscope_workflows_core.tasks.filter import set_time_range
 from ecoscope_workflows_core.tasks.groupby import set_groupers
 from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps
-from ecoscope_workflows_ext_ste.tasks import create_directory
-from ecoscope_workflows_ext_ste.tasks import download_land_dx
+from ecoscope_workflows_ext_ste.tasks import download_file_and_persist
 from ecoscope_workflows_ext_ste.tasks import load_landdx_aoi
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column
 from ecoscope_workflows_ext_ste.tasks import annotate_gdf_dict_with_geometry_type
@@ -25,11 +24,8 @@ from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
 from ecoscope_workflows_core.tasks.transformation import add_temporal_index
 from ecoscope_workflows_ext_ecoscope.tasks.transformation import apply_classification
 from ecoscope_workflows_ext_ste.tasks import label_quarter_status
-from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
-    calculate_elliptical_time_density,
-)
-from ecoscope_workflows_ext_ecoscope.tasks.io import determine_season_windows
-from ecoscope_workflows_ext_ste.tasks import create_seasonal_labels
+from ecoscope_workflows_ext_ste.tasks import assign_quarter_status_colors
+from ecoscope_workflows_core.tasks.transformation import map_columns
 from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
 from ecoscope_workflows_core.tasks.groupby import split_groups
 from ecoscope_workflows_core.tasks.transformation import sort_values
@@ -46,15 +42,30 @@ from ecoscope_workflows_core.tasks.io import persist_text
 from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
 from ecoscope_workflows_core.tasks.skip import never
 from ecoscope_workflows_core.tasks.results import merge_widget_views
-from ecoscope_workflows_ext_ste.tasks import calculate_etd_by_groups
+from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
+    calculate_elliptical_time_density,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.io import determine_season_windows
+from ecoscope_workflows_ext_ste.tasks import create_seasonal_labels
 from ecoscope_workflows_ext_ste.tasks import generate_mcp_gdf
 from ecoscope_workflows_ext_ecoscope.tasks.results import create_polygon_layer
 from ecoscope_workflows_ext_ste.tasks import generate_ecograph_raster
 from ecoscope_workflows_ext_ste.tasks import retrieve_feature_gdf
+from ecoscope_workflows_ext_ste.tasks import calculate_seasonal_home_range
+from ecoscope_workflows_ext_ecoscope.tasks.skip import all_geometry_are_none
 from ecoscope_workflows_core.tasks.analysis import dataframe_column_sum
+from ecoscope_workflows_ext_ste.tasks import round_off_values
 from ecoscope_workflows_core.tasks.results import create_single_value_widget_single_view
 from ecoscope_workflows_ext_ste.tasks import dataframe_column_first_unique_str
 from ecoscope_workflows_core.tasks.results import create_text_widget_single_view
+from ecoscope_workflows_ext_ste.tasks import get_duration
+from ecoscope_workflows_core.tasks.analysis import dataframe_column_nunique
+from ecoscope_workflows_ext_ste.tasks import build_mapbook_report_template
+from ecoscope_workflows_ext_ste.tasks import create_context_page
+from ecoscope_workflows_ext_custom.tasks import html_to_png
+from ecoscope_workflows_ext_ste.tasks import flatten_tuple
+from ecoscope_workflows_ext_ste.tasks import create_mapbook_context
+from ecoscope_workflows_ext_ste.tasks import combine_docx_files
 from ecoscope_workflows_core.tasks.results import gather_dashboard
 
 from ..params import Params
@@ -68,9 +79,11 @@ def main(params: Params):
         "define_time_range": [],
         "configure_grouping_strategy": [],
         "configure_base_maps": [],
-        "create_output_directory": [],
-        "retrieve_landdx_database": ["create_output_directory"],
-        "load_aoi": ["retrieve_landdx_database"],
+        "download_mapbook_cover_page": [],
+        "download_sect_templates": [],
+        "download_logo_path": [],
+        "download_ldx_db": [],
+        "load_aoi": ["download_ldx_db"],
         "split_landdx_by_type": ["load_aoi"],
         "annotate_geometry_types": ["split_landdx_by_type"],
         "create_styled_landdx_layers": ["annotate_geometry_types"],
@@ -86,64 +99,62 @@ def main(params: Params):
         ],
         "classify_trajectory_speed_bins": ["add_temporal_index_to_traj"],
         "label_trajectory_quarters": ["classify_trajectory_speed_bins"],
-        "generate_seasonal_etd": ["label_trajectory_quarters"],
-        "determine_seasonal_windows": [
-            "gee_project_name",
-            "generate_seasonal_etd",
-            "define_time_range",
-        ],
-        "add_season_labels": [
-            "label_trajectory_quarters",
-            "determine_seasonal_windows",
-        ],
-        "persist_traj_df": ["add_season_labels", "create_output_directory"],
-        "persist_relocs_df": ["annotate_day_night", "create_output_directory"],
+        "assign_quarter_colors_traj": ["label_trajectory_quarters"],
+        "rename_reloc_cols": ["assign_quarter_colors_traj"],
+        "persist_trajectory_df": ["rename_reloc_cols"],
+        "persist_relocs_df": ["annotate_day_night"],
         "split_trajectories_by_group": [
-            "add_season_labels",
+            "rename_reloc_cols",
             "configure_grouping_strategy",
         ],
         "sort_trajectories_by_speed": ["split_trajectories_by_group"],
         "apply_speed_colormap": ["sort_trajectories_by_speed"],
         "format_speed_bin_labels": ["apply_speed_colormap"],
         "format_speed_values": ["format_speed_bin_labels"],
-        "generate_speed_ecomap_layers": ["format_speed_values"],
-        "zoom_traj_view": ["format_speed_values"],
-        "combine_landdx_speed_layers": [
-            "create_styled_landdx_layers",
-            "generate_speed_ecomap_layers",
-        ],
-        "speedvalues_view_zip": ["combine_landdx_speed_layers", "zoom_traj_view"],
-        "draw_speed_ecomaps": ["configure_base_maps", "speedvalues_view_zip"],
-        "persist_speed_ecomap_urls": ["draw_speed_ecomaps"],
-        "create_speed_ecomap_widgets": ["persist_speed_ecomap_urls"],
-        "merge_speed_ecomap_widgets": ["create_speed_ecomap_widgets"],
-        "sort_trajectories_by_day_night": ["split_trajectories_by_group"],
-        "apply_day_night_colormap": ["sort_trajectories_by_day_night"],
+        "generate_speedmap_layers": ["format_speed_values"],
+        "zoom_speed_traj_view": ["format_speed_values"],
+        "ldx_speed_layers": ["create_styled_landdx_layers", "generate_speedmap_layers"],
+        "zip_speed_zoom_values": ["ldx_speed_layers", "zoom_speed_traj_view"],
+        "draw_speed_ecomap": ["configure_base_maps", "zip_speed_zoom_values"],
+        "persist_speed_ecomap_urls": ["draw_speed_ecomap"],
+        "create_speedmap_widgets": ["persist_speed_ecomap_urls"],
+        "merge_speedmap_widgets": ["create_speedmap_widgets"],
+        "sort_trajs_by_day_night": ["split_trajectories_by_group"],
+        "apply_day_night_colormap": ["sort_trajs_by_day_night"],
         "generate_day_night_ecomap_layers": ["apply_day_night_colormap"],
         "zoom_dn_view": ["apply_day_night_colormap"],
-        "combine_landdx_dn_layers": [
+        "ldx_dn_layers": [
             "create_styled_landdx_layers",
             "generate_day_night_ecomap_layers",
         ],
-        "dn_view_zip": ["combine_landdx_dn_layers", "zoom_dn_view"],
-        "draw_day_night_ecomaps": ["configure_base_maps", "dn_view_zip"],
-        "persist_day_night_ecomap_urls": ["draw_day_night_ecomaps"],
+        "dn_view_zip": ["ldx_dn_layers", "zoom_dn_view"],
+        "draw_day_night_ecomap": ["configure_base_maps", "dn_view_zip"],
+        "persist_day_night_ecomap_urls": ["draw_day_night_ecomap"],
         "create_day_night_ecomap_widgets": ["persist_day_night_ecomap_urls"],
         "merge_day_night_ecomap_widgets": ["create_day_night_ecomap_widgets"],
         "sort_trajs_by_quarter_status": ["split_trajectories_by_group"],
-        "apply_quarter_status_colormap": ["sort_trajs_by_quarter_status"],
-        "generate_quarter_ecomap_layers": ["apply_quarter_status_colormap"],
+        "generate_quarter_ecomap_layers": ["sort_trajs_by_quarter_status"],
         "zoom_qm_view": ["format_speed_values"],
         "combine_quarter_ecomap_layers": [
             "create_styled_landdx_layers",
             "generate_quarter_ecomap_layers",
         ],
         "qm_view_zip": ["combine_quarter_ecomap_layers", "zoom_qm_view"],
-        "draw_quarter_status_ecomaps": ["configure_base_maps", "qm_view_zip"],
-        "persist_quarter_ecomap_urls": ["draw_quarter_status_ecomaps"],
+        "draw_quarter_status_ecomap": ["configure_base_maps", "qm_view_zip"],
+        "persist_quarter_ecomap_urls": ["draw_quarter_status_ecomap"],
         "create_quarter_ecomap_widgets": ["persist_quarter_ecomap_urls"],
         "merge_quarter_ecomap_widgets": ["create_quarter_ecomap_widgets"],
         "generate_etd": ["split_trajectories_by_group"],
+        "determine_seasonal_windows": [
+            "gee_project_name",
+            "define_time_range",
+            "generate_etd",
+        ],
+        "zip_etd_and_grouped_trajs": [
+            "determine_seasonal_windows",
+            "split_trajectories_by_group",
+        ],
+        "add_season_labels": ["zip_etd_and_grouped_trajs"],
         "calculate_mcp": ["split_trajectories_by_group"],
         "apply_etd_percentile_colormap": ["generate_etd"],
         "generate_etd_ecomap_layers": ["apply_etd_percentile_colormap"],
@@ -155,14 +166,11 @@ def main(params: Params):
             "zip_mcp_hr",
         ],
         "hr_view_zip": ["combine_landdx_hr_ecomap_layers", "zoom_hr_view"],
-        "draw_hr_ecomaps": ["configure_base_maps", "hr_view_zip"],
-        "persist_hr_ecomap_urls": ["draw_hr_ecomaps"],
+        "draw_hr_ecomap": ["configure_base_maps", "hr_view_zip"],
+        "persist_hr_ecomap_urls": ["draw_hr_ecomap"],
         "create_hr_ecomap_widgets": ["persist_hr_ecomap_urls"],
         "merge_hr_ecomap_widgets": ["create_hr_ecomap_widgets"],
-        "generate_speed_raster": [
-            "create_output_directory",
-            "split_trajectories_by_group",
-        ],
+        "generate_speed_raster": ["split_trajectories_by_group"],
         "extract_speed_rasters": ["generate_speed_raster"],
         "sort_speed_features_by_value": ["extract_speed_rasters"],
         "classify_speed_features": ["sort_speed_features_by_value"],
@@ -182,7 +190,8 @@ def main(params: Params):
         "speed_raster_ecomap_urls": ["draw_speed_raster_ecomaps"],
         "speed_raster_ecomap_widgets": ["speed_raster_ecomap_urls"],
         "speedraster_ecomap_widgets": ["speed_raster_ecomap_widgets"],
-        "season_colormap": ["generate_etd"],
+        "seasonal_home_range": ["add_season_labels"],
+        "season_colormap": ["seasonal_home_range"],
         "season_etd_map_layer": ["season_colormap"],
         "zoom_season_view": ["season_colormap"],
         "comb_season_map_layers": [
@@ -195,20 +204,70 @@ def main(params: Params):
         "season_etd_widgets_single_view": ["season_etd_ecomap_html_url"],
         "season_grouped_map_widget": ["season_etd_widgets_single_view"],
         "total_mcp_area": ["calculate_mcp"],
+        "round_mcp_area": ["total_mcp_area"],
         "total_grid_area": ["generate_etd"],
-        "total_mcp_sv_widgets": ["total_mcp_area"],
+        "round_grid_area": ["total_grid_area"],
+        "total_mcp_sv_widgets": ["round_mcp_area"],
         "total_mcp_grouped_sv_widget": ["total_mcp_sv_widgets"],
-        "total_grid_sv_widgets": ["total_grid_area"],
+        "total_grid_sv_widgets": ["round_grid_area"],
         "total_grid_grouped_sv_widget": ["total_grid_sv_widgets"],
         "subject_gender": ["split_trajectories_by_group"],
         "gender_widgets": ["subject_gender"],
         "gender_sv_widget": ["gender_widgets"],
+        "report_duration": ["define_time_range"],
+        "round_report_duration": ["report_duration"],
+        "get_subject_name": ["split_trajectories_by_group"],
+        "unique_subjects": ["rename_reloc_cols"],
+        "create_cover_template_context": [
+            "unique_subjects",
+            "download_logo_path",
+            "define_time_range",
+        ],
+        "persist_context_cover": [
+            "download_mapbook_cover_page",
+            "create_cover_template_context",
+        ],
+        "convert_speedmap_html_to_png": ["persist_speed_ecomap_urls"],
+        "convert_day_night_html_to_png": ["persist_day_night_ecomap_urls"],
+        "convert_quarter_html_to_png": ["persist_quarter_ecomap_urls"],
+        "convert_hr_html_to_png": ["persist_hr_ecomap_urls"],
+        "convert_speed_raster_html_to_png": ["speed_raster_ecomap_urls"],
+        "convert_seasonal_hr_html_to_png": ["season_etd_ecomap_html_url"],
+        "zip_grid_mcp": ["round_grid_area", "round_mcp_area"],
+        "zip_grid_mcp_quarter": ["zip_grid_mcp", "convert_quarter_html_to_png"],
+        "zip_grid_mcp_quarter_hr": ["zip_grid_mcp_quarter", "convert_hr_html_to_png"],
+        "zip_grid_mcp_speedraster": [
+            "zip_grid_mcp_quarter_hr",
+            "convert_speed_raster_html_to_png",
+        ],
+        "zip_grid_mcp_dn": [
+            "zip_grid_mcp_speedraster",
+            "convert_day_night_html_to_png",
+        ],
+        "zip_grid_dn_speedmap": ["zip_grid_mcp_dn", "convert_speedmap_html_to_png"],
+        "zip_all_mapbook_context_inputs": [
+            "zip_grid_dn_speedmap",
+            "convert_seasonal_hr_html_to_png",
+        ],
+        "zip_all_with_name": ["zip_all_mapbook_context_inputs", "get_subject_name"],
+        "flatten_mbook_context": ["zip_all_with_name"],
+        "individual_mapbook_context": [
+            "download_sect_templates",
+            "get_subject_name",
+            "define_time_range",
+            "round_report_duration",
+            "flatten_mbook_context",
+        ],
+        "generate_mapbook_report": [
+            "persist_context_cover",
+            "individual_mapbook_context",
+        ],
         "mapbook_dashboard": [
             "initialize_workflow_metadata",
             "gender_sv_widget",
             "total_mcp_grouped_sv_widget",
             "total_grid_grouped_sv_widget",
-            "merge_speed_ecomap_widgets",
+            "merge_speedmap_widgets",
             "merge_day_night_ecomap_widgets",
             "merge_quarter_ecomap_widgets",
             "merge_hr_ecomap_widgets",
@@ -251,21 +310,52 @@ def main(params: Params):
             partial=(params_dict.get("configure_base_maps") or {}),
             method="call",
         ),
-        "create_output_directory": Node(
-            async_task=create_directory.validate()
-            .handle_errors(task_instance_id="create_output_directory")
-            .set_executor("lithops"),
-            partial=(params_dict.get("create_output_directory") or {}),
-            method="call",
-        ),
-        "retrieve_landdx_database": Node(
-            async_task=download_land_dx.validate()
-            .handle_errors(task_instance_id="retrieve_landdx_database")
+        "download_mapbook_cover_page": Node(
+            async_task=download_file_and_persist.validate()
+            .handle_errors(task_instance_id="download_mapbook_cover_page")
             .set_executor("lithops"),
             partial={
-                "path": DependsOn("create_output_directory"),
+                "url": "https://www.dropbox.com/scl/fi/1373gi65ji918rxele5h9/cover_page_v3.docx?rlkey=ur01wtpa98tcyq8f0f6dtksl8&st=eq39sgwz&dl=0",
+                "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "overwrite_existing": False,
             }
-            | (params_dict.get("retrieve_landdx_database") or {}),
+            | (params_dict.get("download_mapbook_cover_page") or {}),
+            method="call",
+        ),
+        "download_sect_templates": Node(
+            async_task=download_file_and_persist.validate()
+            .handle_errors(task_instance_id="download_sect_templates")
+            .set_executor("lithops"),
+            partial={
+                "url": "https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0",
+                "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "overwrite_existing": False,
+            }
+            | (params_dict.get("download_sect_templates") or {}),
+            method="call",
+        ),
+        "download_logo_path": Node(
+            async_task=download_file_and_persist.validate()
+            .handle_errors(task_instance_id="download_logo_path")
+            .set_executor("lithops"),
+            partial={
+                "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "overwrite_existing": False,
+            }
+            | (params_dict.get("download_logo_path") or {}),
+            method="call",
+        ),
+        "download_ldx_db": Node(
+            async_task=download_file_and_persist.validate()
+            .handle_errors(task_instance_id="download_ldx_db")
+            .set_executor("lithops"),
+            partial={
+                "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "url": "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
+                "overwrite_existing": False,
+                "unzip": True,
+            }
+            | (params_dict.get("download_ldx_db") or {}),
             method="call",
         ),
         "load_aoi": Node(
@@ -273,7 +363,7 @@ def main(params: Params):
             .handle_errors(task_instance_id="load_aoi")
             .set_executor("lithops"),
             partial={
-                "map_path": DependsOn("retrieve_landdx_database"),
+                "map_path": DependsOn("download_ldx_db"),
             }
             | (params_dict.get("load_aoi") or {}),
             method="call",
@@ -349,9 +439,10 @@ def main(params: Params):
                     "junk_status",
                     "geometry",
                     "extra__subject__name",
-                    "extra__subject__subject_subtype",
+                    "extra__subject__hex",
                     "extra__subject__sex",
                     "extra__created_at",
+                    "extra__subject__subject_subtype",
                 ],
                 "filter_point_coords": [
                     {"x": 180.0, "y": 90.0},
@@ -421,53 +512,48 @@ def main(params: Params):
             | (params_dict.get("label_trajectory_quarters") or {}),
             method="call",
         ),
-        "generate_seasonal_etd": Node(
-            async_task=calculate_elliptical_time_density.validate()
-            .handle_errors(task_instance_id="generate_seasonal_etd")
+        "assign_quarter_colors_traj": Node(
+            async_task=assign_quarter_status_colors.validate()
+            .handle_errors(task_instance_id="assign_quarter_colors_traj")
             .set_executor("lithops"),
             partial={
-                "crs": "ESRI:53042",
-                "percentiles": [50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.0],
-                "nodata_value": "nan",
-                "band_count": 1,
-                "trajectory_gdf": DependsOn("label_trajectory_quarters"),
+                "gdf": DependsOn("label_trajectory_quarters"),
+                "hex_column": "extra__hex",
+                "previous_color_hex": "#808080",
             }
-            | (params_dict.get("generate_seasonal_etd") or {}),
+            | (params_dict.get("assign_quarter_colors_traj") or {}),
             method="call",
         ),
-        "determine_seasonal_windows": Node(
-            async_task=determine_season_windows.validate()
-            .handle_errors(task_instance_id="determine_seasonal_windows")
+        "rename_reloc_cols": Node(
+            async_task=map_columns.validate()
+            .handle_errors(task_instance_id="rename_reloc_cols")
             .set_executor("lithops"),
             partial={
-                "client": DependsOn("gee_project_name"),
-                "roi": DependsOn("generate_seasonal_etd"),
-                "time_range": DependsOn("define_time_range"),
+                "drop_columns": [],
+                "retain_columns": [],
+                "rename_columns": {
+                    "extra__hex": "hex_color",
+                    "extra__is_night": "is_night",
+                    "extra__name": "subject_name",
+                    "extra__sex": "subject_sex",
+                    "extra__subject_subtype": "subject_subtype",
+                    "extra__created_at": "created_at",
+                },
+                "df": DependsOn("assign_quarter_colors_traj"),
             }
-            | (params_dict.get("determine_seasonal_windows") or {}),
+            | (params_dict.get("rename_reloc_cols") or {}),
             method="call",
         ),
-        "add_season_labels": Node(
-            async_task=create_seasonal_labels.validate()
-            .handle_errors(task_instance_id="add_season_labels")
-            .set_executor("lithops"),
-            partial={
-                "traj": DependsOn("label_trajectory_quarters"),
-                "total_percentiles": DependsOn("determine_seasonal_windows"),
-            }
-            | (params_dict.get("add_season_labels") or {}),
-            method="call",
-        ),
-        "persist_traj_df": Node(
+        "persist_trajectory_df": Node(
             async_task=persist_df.validate()
-            .handle_errors(task_instance_id="persist_traj_df")
+            .handle_errors(task_instance_id="persist_trajectory_df")
             .set_executor("lithops"),
             partial={
-                "df": DependsOn("add_season_labels"),
+                "df": DependsOn("rename_reloc_cols"),
                 "filetype": "gpkg",
-                "root_path": DependsOn("create_output_directory"),
+                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             }
-            | (params_dict.get("persist_traj_df") or {}),
+            | (params_dict.get("persist_trajectory_df") or {}),
             method="call",
         ),
         "persist_relocs_df": Node(
@@ -477,7 +563,7 @@ def main(params: Params):
             partial={
                 "df": DependsOn("annotate_day_night"),
                 "filetype": "gpkg",
-                "root_path": DependsOn("create_output_directory"),
+                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             }
             | (params_dict.get("persist_relocs_df") or {}),
             method="call",
@@ -487,7 +573,7 @@ def main(params: Params):
             .handle_errors(task_instance_id="split_trajectories_by_group")
             .set_executor("lithops"),
             partial={
-                "df": DependsOn("add_season_labels"),
+                "df": DependsOn("rename_reloc_cols"),
                 "groupers": DependsOn("configure_grouping_strategy"),
             }
             | (params_dict.get("split_trajectories_by_group") or {}),
@@ -567,9 +653,9 @@ def main(params: Params):
                 "argvalues": DependsOn("format_speed_bin_labels"),
             },
         ),
-        "generate_speed_ecomap_layers": Node(
+        "generate_speedmap_layers": Node(
             async_task=create_polyline_layer.validate()
-            .handle_errors(task_instance_id="generate_speed_ecomap_layers")
+            .handle_errors(task_instance_id="generate_speedmap_layers")
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -585,64 +671,64 @@ def main(params: Params):
                     "color_column": "speed_bins_colormap",
                 },
                 "tooltip_columns": [
-                    "extra__is_night",
-                    "extra__name",
+                    "is_night",
+                    "subject_name",
                     "segment_start",
                     "dist_meters",
                     "timespan_seconds",
-                    "extra__sex",
+                    "subject_sex",
                 ],
             }
-            | (params_dict.get("generate_speed_ecomap_layers") or {}),
+            | (params_dict.get("generate_speedmap_layers") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
                 "argvalues": DependsOn("format_speed_values"),
             },
         ),
-        "zoom_traj_view": Node(
+        "zoom_speed_traj_view": Node(
             async_task=create_view_state_from_gdf.validate()
-            .handle_errors(task_instance_id="zoom_traj_view")
+            .handle_errors(task_instance_id="zoom_speed_traj_view")
             .set_executor("lithops"),
             partial={
                 "pitch": 0,
                 "bearing": 0,
             }
-            | (params_dict.get("zoom_traj_view") or {}),
+            | (params_dict.get("zoom_speed_traj_view") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["gdf"],
                 "argvalues": DependsOn("format_speed_values"),
             },
         ),
-        "combine_landdx_speed_layers": Node(
+        "ldx_speed_layers": Node(
             async_task=combine_map_layers.validate()
-            .handle_errors(task_instance_id="combine_landdx_speed_layers")
+            .handle_errors(task_instance_id="ldx_speed_layers")
             .set_executor("lithops"),
             partial={
                 "static_layers": DependsOn("create_styled_landdx_layers"),
             }
-            | (params_dict.get("combine_landdx_speed_layers") or {}),
+            | (params_dict.get("ldx_speed_layers") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["grouped_layers"],
-                "argvalues": DependsOn("generate_speed_ecomap_layers"),
+                "argvalues": DependsOn("generate_speedmap_layers"),
             },
         ),
-        "speedvalues_view_zip": Node(
+        "zip_speed_zoom_values": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="speedvalues_view_zip")
+            .handle_errors(task_instance_id="zip_speed_zoom_values")
             .set_executor("lithops"),
             partial={
-                "left": DependsOn("combine_landdx_speed_layers"),
-                "right": DependsOn("zoom_traj_view"),
+                "left": DependsOn("ldx_speed_layers"),
+                "right": DependsOn("zoom_speed_traj_view"),
             }
-            | (params_dict.get("speedvalues_view_zip") or {}),
+            | (params_dict.get("zip_speed_zoom_values") or {}),
             method="call",
         ),
-        "draw_speed_ecomaps": Node(
+        "draw_speed_ecomap": Node(
             async_task=draw_ecomap.validate()
-            .handle_errors(task_instance_id="draw_speed_ecomaps")
+            .handle_errors(task_instance_id="draw_speed_ecomap")
             .set_executor("lithops"),
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
@@ -655,11 +741,11 @@ def main(params: Params):
                 "title": None,
                 "max_zoom": 20,
             }
-            | (params_dict.get("draw_speed_ecomaps") or {}),
+            | (params_dict.get("draw_speed_ecomap") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["geo_layers", "view_state"],
-                "argvalues": DependsOn("speedvalues_view_zip"),
+                "argvalues": DependsOn("zip_speed_zoom_values"),
             },
         ),
         "persist_speed_ecomap_urls": Node(
@@ -673,12 +759,12 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["text"],
-                "argvalues": DependsOn("draw_speed_ecomaps"),
+                "argvalues": DependsOn("draw_speed_ecomap"),
             },
         ),
-        "create_speed_ecomap_widgets": Node(
+        "create_speedmap_widgets": Node(
             async_task=create_map_widget_single_view.validate()
-            .handle_errors(task_instance_id="create_speed_ecomap_widgets")
+            .handle_errors(task_instance_id="create_speedmap_widgets")
             .skipif(
                 conditions=[
                     never,
@@ -689,33 +775,33 @@ def main(params: Params):
             partial={
                 "title": "Speedmap",
             }
-            | (params_dict.get("create_speed_ecomap_widgets") or {}),
+            | (params_dict.get("create_speedmap_widgets") or {}),
             method="map",
             kwargs={
                 "argnames": ["view", "data"],
                 "argvalues": DependsOn("persist_speed_ecomap_urls"),
             },
         ),
-        "merge_speed_ecomap_widgets": Node(
+        "merge_speedmap_widgets": Node(
             async_task=merge_widget_views.validate()
-            .handle_errors(task_instance_id="merge_speed_ecomap_widgets")
+            .handle_errors(task_instance_id="merge_speedmap_widgets")
             .set_executor("lithops"),
             partial={
-                "widgets": DependsOn("create_speed_ecomap_widgets"),
+                "widgets": DependsOn("create_speedmap_widgets"),
             }
-            | (params_dict.get("merge_speed_ecomap_widgets") or {}),
+            | (params_dict.get("merge_speedmap_widgets") or {}),
             method="call",
         ),
-        "sort_trajectories_by_day_night": Node(
+        "sort_trajs_by_day_night": Node(
             async_task=sort_values.validate()
-            .handle_errors(task_instance_id="sort_trajectories_by_day_night")
+            .handle_errors(task_instance_id="sort_trajs_by_day_night")
             .set_executor("lithops"),
             partial={
-                "column_name": "extra__is_night",
+                "column_name": "is_night",
                 "ascending": False,
                 "na_position": "last",
             }
-            | (params_dict.get("sort_trajectories_by_day_night") or {}),
+            | (params_dict.get("sort_trajs_by_day_night") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["df"],
@@ -728,14 +814,14 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "colormap": ["#292965", "#e7a553"],
-                "input_column_name": "extra__is_night",
+                "input_column_name": "is_night",
                 "output_column_name": "day_night_colors",
             }
             | (params_dict.get("apply_day_night_colormap") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["df"],
-                "argvalues": DependsOn("sort_trajectories_by_day_night"),
+                "argvalues": DependsOn("sort_trajs_by_day_night"),
             },
         ),
         "generate_day_night_ecomap_layers": Node(
@@ -755,7 +841,7 @@ def main(params: Params):
                     "labels": ["Night", "Day"],
                     "colors": ["#292965", "#e7a553"],
                 },
-                "tooltip_columns": ["extra__is_night", "extra__name", "extra__sex"],
+                "tooltip_columns": ["is_night", "subject_name", "subject_sex"],
             }
             | (params_dict.get("generate_day_night_ecomap_layers") or {}),
             method="mapvalues",
@@ -779,14 +865,14 @@ def main(params: Params):
                 "argvalues": DependsOn("apply_day_night_colormap"),
             },
         ),
-        "combine_landdx_dn_layers": Node(
+        "ldx_dn_layers": Node(
             async_task=combine_map_layers.validate()
-            .handle_errors(task_instance_id="combine_landdx_dn_layers")
+            .handle_errors(task_instance_id="ldx_dn_layers")
             .set_executor("lithops"),
             partial={
                 "static_layers": DependsOn("create_styled_landdx_layers"),
             }
-            | (params_dict.get("combine_landdx_dn_layers") or {}),
+            | (params_dict.get("ldx_dn_layers") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["grouped_layers"],
@@ -798,28 +884,28 @@ def main(params: Params):
             .handle_errors(task_instance_id="dn_view_zip")
             .set_executor("lithops"),
             partial={
-                "left": DependsOn("combine_landdx_dn_layers"),
+                "left": DependsOn("ldx_dn_layers"),
                 "right": DependsOn("zoom_dn_view"),
             }
             | (params_dict.get("dn_view_zip") or {}),
             method="call",
         ),
-        "draw_day_night_ecomaps": Node(
+        "draw_day_night_ecomap": Node(
             async_task=draw_ecomap.validate()
-            .handle_errors(task_instance_id="draw_day_night_ecomaps")
+            .handle_errors(task_instance_id="draw_day_night_ecomap")
             .set_executor("lithops"),
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
                 "north_arrow_style": {"placement": "top-left"},
                 "legend_style": {
                     "placement": "bottom-right",
-                    "title": "Day-Night Tracks",
+                    "title": "Night Day Tracks",
                 },
                 "static": False,
                 "title": None,
                 "max_zoom": 20,
             }
-            | (params_dict.get("draw_day_night_ecomaps") or {}),
+            | (params_dict.get("draw_day_night_ecomap") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["geo_layers", "view_state"],
@@ -837,7 +923,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["text"],
-                "argvalues": DependsOn("draw_day_night_ecomaps"),
+                "argvalues": DependsOn("draw_day_night_ecomap"),
             },
         ),
         "create_day_night_ecomap_widgets": Node(
@@ -851,7 +937,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Day/Night Ecomap",
+                "title": "Night Day Tracks",
             }
             | (params_dict.get("create_day_night_ecomap_widgets") or {}),
             method="map",
@@ -886,22 +972,6 @@ def main(params: Params):
                 "argvalues": DependsOn("split_trajectories_by_group"),
             },
         ),
-        "apply_quarter_status_colormap": Node(
-            async_task=apply_color_map.validate()
-            .handle_errors(task_instance_id="apply_quarter_status_colormap")
-            .set_executor("lithops"),
-            partial={
-                "colormap": ["#2f4f4f", "#ff8c00"],
-                "input_column_name": "quarter_status",
-                "output_column_name": "quarter_status_colors",
-            }
-            | (params_dict.get("apply_quarter_status_colormap") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("sort_trajs_by_quarter_status"),
-            },
-        ),
         "generate_quarter_ecomap_layers": Node(
             async_task=create_polyline_layer.validate()
             .handle_errors(task_instance_id="generate_quarter_ecomap_layers")
@@ -916,22 +986,21 @@ def main(params: Params):
             partial={
                 "layer_style": {"color_column": "quarter_status_colors"},
                 "legend": {
-                    "labels": ["Previous Quarter", "Current Quarter"],
-                    "colors": ["#2f4f4f", "#ff8c00"],
+                    "label_column": "quarter_status",
+                    "color_column": "quarter_status_colors",
                 },
                 "tooltip_columns": [
-                    "extra__is_night",
-                    "extra__name",
-                    "extra__sex",
+                    "is_night",
+                    "subject_name",
+                    "subject_sex",
                     "quarter_status",
-                    "day_night_colors",
                 ],
             }
             | (params_dict.get("generate_quarter_ecomap_layers") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("apply_quarter_status_colormap"),
+                "argvalues": DependsOn("sort_trajs_by_quarter_status"),
             },
         ),
         "zoom_qm_view": Node(
@@ -974,22 +1043,19 @@ def main(params: Params):
             | (params_dict.get("qm_view_zip") or {}),
             method="call",
         ),
-        "draw_quarter_status_ecomaps": Node(
+        "draw_quarter_status_ecomap": Node(
             async_task=draw_ecomap.validate()
-            .handle_errors(task_instance_id="draw_quarter_status_ecomaps")
+            .handle_errors(task_instance_id="draw_quarter_status_ecomap")
             .set_executor("lithops"),
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
                 "north_arrow_style": {"placement": "top-left"},
-                "legend_style": {
-                    "placement": "bottom-right",
-                    "title": "Quarter Movement Tracks",
-                },
+                "legend_style": {"placement": "bottom-right", "title": "Legend"},
                 "static": False,
                 "title": None,
                 "max_zoom": 20,
             }
-            | (params_dict.get("draw_quarter_status_ecomaps") or {}),
+            | (params_dict.get("draw_quarter_status_ecomap") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["geo_layers", "view_state"],
@@ -1007,7 +1073,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["text"],
-                "argvalues": DependsOn("draw_quarter_status_ecomaps"),
+                "argvalues": DependsOn("draw_quarter_status_ecomap"),
             },
         ),
         "create_quarter_ecomap_widgets": Node(
@@ -1021,7 +1087,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Subject Group Quarter Movement Map",
+                "title": "Movement Overview",
             }
             | (params_dict.get("create_quarter_ecomap_widgets") or {}),
             method="map",
@@ -1041,16 +1107,14 @@ def main(params: Params):
             method="call",
         ),
         "generate_etd": Node(
-            async_task=calculate_etd_by_groups.validate()
+            async_task=calculate_elliptical_time_density.validate()
             .handle_errors(task_instance_id="generate_etd")
             .set_executor("lithops"),
             partial={
                 "crs": "ESRI:53042",
-                "percentiles": [50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.0],
+                "percentiles": [50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
                 "nodata_value": "nan",
                 "band_count": 1,
-                "include_groups": True,
-                "groupby_cols": ["season"],
             }
             | (params_dict.get("generate_etd") or {}),
             method="mapvalues",
@@ -1059,12 +1123,49 @@ def main(params: Params):
                 "argvalues": DependsOn("split_trajectories_by_group"),
             },
         ),
+        "determine_seasonal_windows": Node(
+            async_task=determine_season_windows.validate()
+            .handle_errors(task_instance_id="determine_seasonal_windows")
+            .set_executor("lithops"),
+            partial={
+                "client": DependsOn("gee_project_name"),
+                "time_range": DependsOn("define_time_range"),
+            }
+            | (params_dict.get("determine_seasonal_windows") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["roi"],
+                "argvalues": DependsOn("generate_etd"),
+            },
+        ),
+        "zip_etd_and_grouped_trajs": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="zip_etd_and_grouped_trajs")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("determine_seasonal_windows"),
+                "right": DependsOn("split_trajectories_by_group"),
+            }
+            | (params_dict.get("zip_etd_and_grouped_trajs") or {}),
+            method="call",
+        ),
+        "add_season_labels": Node(
+            async_task=create_seasonal_labels.validate()
+            .handle_errors(task_instance_id="add_season_labels")
+            .set_executor("lithops"),
+            partial=(params_dict.get("add_season_labels") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["total_percentiles", "traj"],
+                "argvalues": DependsOn("zip_etd_and_grouped_trajs"),
+            },
+        ),
         "calculate_mcp": Node(
             async_task=generate_mcp_gdf.validate()
             .handle_errors(task_instance_id="calculate_mcp")
             .set_executor("lithops"),
             partial={
-                "planar_crs": "ESRI:102022",
+                "planar_crs": "ESRI:53042",
             }
             | (params_dict.get("calculate_mcp") or {}),
             method="mapvalues",
@@ -1132,11 +1233,12 @@ def main(params: Params):
             partial={
                 "layer_style": {
                     "get_fill_color": "#FFFFFF00",
-                    "get_line_color": "#dc143c",
-                    "opacity": 0.55,
+                    "get_line_color": "#ff1493",
+                    "get_line_width": 3,
+                    "opacity": 0.75,
                     "stroked": True,
                 },
-                "legend": {"labels": ["mcp"], "colors": ["#dc143c"]},
+                "legend": {"labels": ["mcp"], "colors": ["#ff1493"]},
                 "tooltip_columns": ["area_km2"],
             }
             | (params_dict.get("generate_mcp_layers") or {}),
@@ -1197,22 +1299,19 @@ def main(params: Params):
             | (params_dict.get("hr_view_zip") or {}),
             method="call",
         ),
-        "draw_hr_ecomaps": Node(
+        "draw_hr_ecomap": Node(
             async_task=draw_ecomap.validate()
-            .handle_errors(task_instance_id="draw_hr_ecomaps")
+            .handle_errors(task_instance_id="draw_hr_ecomap")
             .set_executor("lithops"),
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
                 "north_arrow_style": {"placement": "top-left"},
-                "legend_style": {
-                    "placement": "bottom-right",
-                    "title": "Home Range Metrics",
-                },
+                "legend_style": {"placement": "bottom-right", "title": "ETD Metrics"},
                 "static": False,
                 "title": None,
                 "max_zoom": 20,
             }
-            | (params_dict.get("draw_hr_ecomaps") or {}),
+            | (params_dict.get("draw_hr_ecomap") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["geo_layers", "view_state"],
@@ -1230,7 +1329,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["text"],
-                "argvalues": DependsOn("draw_hr_ecomaps"),
+                "argvalues": DependsOn("draw_hr_ecomap"),
             },
         ),
         "create_hr_ecomap_widgets": Node(
@@ -1244,7 +1343,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Home Range Ecomap",
+                "title": "Home Range",
             }
             | (params_dict.get("create_hr_ecomap_widgets") or {}),
             method="map",
@@ -1271,7 +1370,6 @@ def main(params: Params):
                 "dist_col": "dist_meters",
                 "interpolation": "mean",
                 "movement_covariate": "speed",
-                "output_dir": DependsOn("create_output_directory"),
             }
             | (params_dict.get("generate_speed_raster") or {}),
             method="mapvalues",
@@ -1442,7 +1540,7 @@ def main(params: Params):
                 "north_arrow_style": {"placement": "top-left"},
                 "legend_style": {
                     "placement": "bottom-right",
-                    "title": "Raster Value(Km/h)",
+                    "title": "Mean Speed Value (km/h)",
                 },
                 "static": False,
                 "title": None,
@@ -1499,6 +1597,28 @@ def main(params: Params):
             | (params_dict.get("speedraster_ecomap_widgets") or {}),
             method="call",
         ),
+        "seasonal_home_range": Node(
+            async_task=calculate_seasonal_home_range.validate()
+            .handle_errors(task_instance_id="seasonal_home_range")
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                    all_geometry_are_none,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "groupby_cols": ["subject_name", "season"],
+            }
+            | (params_dict.get("seasonal_home_range") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("add_season_labels"),
+            },
+        ),
         "season_colormap": Node(
             async_task=apply_color_map.validate()
             .handle_errors(task_instance_id="season_colormap")
@@ -1506,13 +1626,13 @@ def main(params: Params):
             partial={
                 "input_column_name": "season",
                 "output_column_name": "season_colormap",
-                "colormap": ["#f57c00", "#4cf3f7"],
+                "colormap": ["#f57c00", "#255084"],
             }
             | (params_dict.get("season_colormap") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["df"],
-                "argvalues": DependsOn("generate_etd"),
+                "argvalues": DependsOn("seasonal_home_range"),
             },
         ),
         "season_etd_map_layer": Node(
@@ -1625,7 +1745,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Subject Group Home Range Map (Seasons)",
+                "title": "Seasonal Home Range",
             }
             | (params_dict.get("season_etd_widgets_single_view") or {}),
             method="map",
@@ -1658,6 +1778,20 @@ def main(params: Params):
                 "argvalues": DependsOn("calculate_mcp"),
             },
         ),
+        "round_mcp_area": Node(
+            async_task=round_off_values.validate()
+            .handle_errors(task_instance_id="round_mcp_area")
+            .set_executor("lithops"),
+            partial={
+                "dp": 2,
+            }
+            | (params_dict.get("round_mcp_area") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["value"],
+                "argvalues": DependsOn("total_mcp_area"),
+            },
+        ),
         "total_grid_area": Node(
             async_task=dataframe_column_sum.validate()
             .handle_errors(task_instance_id="total_grid_area")
@@ -1672,6 +1806,20 @@ def main(params: Params):
                 "argvalues": DependsOn("generate_etd"),
             },
         ),
+        "round_grid_area": Node(
+            async_task=round_off_values.validate()
+            .handle_errors(task_instance_id="round_grid_area")
+            .set_executor("lithops"),
+            partial={
+                "dp": 2,
+            }
+            | (params_dict.get("round_grid_area") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["value"],
+                "argvalues": DependsOn("total_grid_area"),
+            },
+        ),
         "total_mcp_sv_widgets": Node(
             async_task=create_single_value_widget_single_view.validate()
             .handle_errors(task_instance_id="total_mcp_sv_widgets")
@@ -1683,14 +1831,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Total MCP Area",
+                "title": "Total MCP Area (Km2)",
                 "decimal_places": 1,
             }
             | (params_dict.get("total_mcp_sv_widgets") or {}),
             method="map",
             kwargs={
                 "argnames": ["view", "data"],
-                "argvalues": DependsOn("total_mcp_area"),
+                "argvalues": DependsOn("round_mcp_area"),
             },
         ),
         "total_mcp_grouped_sv_widget": Node(
@@ -1714,14 +1862,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Total Grid Area",
+                "title": "Total Grid Area(Km2)",
                 "decimal_places": 1,
             }
             | (params_dict.get("total_grid_sv_widgets") or {}),
             method="map",
             kwargs={
                 "argnames": ["view", "data"],
-                "argvalues": DependsOn("total_grid_area"),
+                "argvalues": DependsOn("round_grid_area"),
             },
         ),
         "total_grid_grouped_sv_widget": Node(
@@ -1739,7 +1887,7 @@ def main(params: Params):
             .handle_errors(task_instance_id="subject_gender")
             .set_executor("lithops"),
             partial={
-                "column_name": "extra__sex",
+                "column_name": "subject_sex",
             }
             | (params_dict.get("subject_gender") or {}),
             method="mapvalues",
@@ -1778,6 +1926,309 @@ def main(params: Params):
             | (params_dict.get("gender_sv_widget") or {}),
             method="call",
         ),
+        "report_duration": Node(
+            async_task=get_duration.validate()
+            .handle_errors(task_instance_id="report_duration")
+            .set_executor("lithops"),
+            partial={
+                "time_range": DependsOn("define_time_range"),
+                "time_unit": "months",
+            }
+            | (params_dict.get("report_duration") or {}),
+            method="call",
+        ),
+        "round_report_duration": Node(
+            async_task=round_off_values.validate()
+            .handle_errors(task_instance_id="round_report_duration")
+            .set_executor("lithops"),
+            partial={
+                "dp": 2,
+                "value": DependsOn("report_duration"),
+            }
+            | (params_dict.get("round_report_duration") or {}),
+            method="call",
+        ),
+        "get_subject_name": Node(
+            async_task=dataframe_column_first_unique_str.validate()
+            .handle_errors(task_instance_id="get_subject_name")
+            .set_executor("lithops"),
+            partial={
+                "column_name": "subject_name",
+            }
+            | (params_dict.get("get_subject_name") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("split_trajectories_by_group"),
+            },
+        ),
+        "unique_subjects": Node(
+            async_task=dataframe_column_nunique.validate()
+            .handle_errors(task_instance_id="unique_subjects")
+            .set_executor("lithops"),
+            partial={
+                "df": DependsOn("rename_reloc_cols"),
+                "column_name": "subject_name",
+            }
+            | (params_dict.get("unique_subjects") or {}),
+            method="call",
+        ),
+        "create_cover_template_context": Node(
+            async_task=build_mapbook_report_template.validate()
+            .handle_errors(task_instance_id="create_cover_template_context")
+            .set_executor("lithops"),
+            partial={
+                "count": DependsOn("unique_subjects"),
+                "org_logo_path": DependsOn("download_logo_path"),
+                "report_period": DependsOn("define_time_range"),
+                "prepared_by": "Ecoscope",
+            }
+            | (params_dict.get("create_cover_template_context") or {}),
+            method="call",
+        ),
+        "persist_context_cover": Node(
+            async_task=create_context_page.validate()
+            .handle_errors(task_instance_id="persist_context_cover")
+            .set_executor("lithops"),
+            partial={
+                "logo_width_cm": 4.5,
+                "logo_height_cm": 1.93,
+                "template_path": DependsOn("download_mapbook_cover_page"),
+                "output_directory": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "context": DependsOn("create_cover_template_context"),
+            }
+            | (params_dict.get("persist_context_cover") or {}),
+            method="call",
+        ),
+        "convert_speedmap_html_to_png": Node(
+            async_task=html_to_png.validate()
+            .handle_errors(task_instance_id="convert_speedmap_html_to_png")
+            .set_executor("lithops"),
+            partial={
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "config": {"wait_for_timeout": 20000},
+            }
+            | (params_dict.get("convert_speedmap_html_to_png") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["html_path"],
+                "argvalues": DependsOn("persist_speed_ecomap_urls"),
+            },
+        ),
+        "convert_day_night_html_to_png": Node(
+            async_task=html_to_png.validate()
+            .handle_errors(task_instance_id="convert_day_night_html_to_png")
+            .set_executor("lithops"),
+            partial={
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "config": {"wait_for_timeout": 20000},
+            }
+            | (params_dict.get("convert_day_night_html_to_png") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["html_path"],
+                "argvalues": DependsOn("persist_day_night_ecomap_urls"),
+            },
+        ),
+        "convert_quarter_html_to_png": Node(
+            async_task=html_to_png.validate()
+            .handle_errors(task_instance_id="convert_quarter_html_to_png")
+            .set_executor("lithops"),
+            partial={
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "config": {"wait_for_timeout": 20000},
+            }
+            | (params_dict.get("convert_quarter_html_to_png") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["html_path"],
+                "argvalues": DependsOn("persist_quarter_ecomap_urls"),
+            },
+        ),
+        "convert_hr_html_to_png": Node(
+            async_task=html_to_png.validate()
+            .handle_errors(task_instance_id="convert_hr_html_to_png")
+            .set_executor("lithops"),
+            partial={
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "config": {"wait_for_timeout": 20000},
+            }
+            | (params_dict.get("convert_hr_html_to_png") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["html_path"],
+                "argvalues": DependsOn("persist_hr_ecomap_urls"),
+            },
+        ),
+        "convert_speed_raster_html_to_png": Node(
+            async_task=html_to_png.validate()
+            .handle_errors(task_instance_id="convert_speed_raster_html_to_png")
+            .set_executor("lithops"),
+            partial={
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "config": {"wait_for_timeout": 20000},
+            }
+            | (params_dict.get("convert_speed_raster_html_to_png") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["html_path"],
+                "argvalues": DependsOn("speed_raster_ecomap_urls"),
+            },
+        ),
+        "convert_seasonal_hr_html_to_png": Node(
+            async_task=html_to_png.validate()
+            .handle_errors(task_instance_id="convert_seasonal_hr_html_to_png")
+            .set_executor("lithops"),
+            partial={
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "config": {"wait_for_timeout": 20000},
+            }
+            | (params_dict.get("convert_seasonal_hr_html_to_png") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["html_path"],
+                "argvalues": DependsOn("season_etd_ecomap_html_url"),
+            },
+        ),
+        "zip_grid_mcp": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="zip_grid_mcp")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("round_grid_area"),
+                "right": DependsOn("round_mcp_area"),
+            }
+            | (params_dict.get("zip_grid_mcp") or {}),
+            method="call",
+        ),
+        "zip_grid_mcp_quarter": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="zip_grid_mcp_quarter")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_mcp"),
+                "right": DependsOn("convert_quarter_html_to_png"),
+            }
+            | (params_dict.get("zip_grid_mcp_quarter") or {}),
+            method="call",
+        ),
+        "zip_grid_mcp_quarter_hr": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="zip_grid_mcp_quarter_hr")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_mcp_quarter"),
+                "right": DependsOn("convert_hr_html_to_png"),
+            }
+            | (params_dict.get("zip_grid_mcp_quarter_hr") or {}),
+            method="call",
+        ),
+        "zip_grid_mcp_speedraster": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="zip_grid_mcp_speedraster")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_mcp_quarter_hr"),
+                "right": DependsOn("convert_speed_raster_html_to_png"),
+            }
+            | (params_dict.get("zip_grid_mcp_speedraster") or {}),
+            method="call",
+        ),
+        "zip_grid_mcp_dn": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="zip_grid_mcp_dn")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_mcp_speedraster"),
+                "right": DependsOn("convert_day_night_html_to_png"),
+            }
+            | (params_dict.get("zip_grid_mcp_dn") or {}),
+            method="call",
+        ),
+        "zip_grid_dn_speedmap": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="zip_grid_dn_speedmap")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_mcp_dn"),
+                "right": DependsOn("convert_speedmap_html_to_png"),
+            }
+            | (params_dict.get("zip_grid_dn_speedmap") or {}),
+            method="call",
+        ),
+        "zip_all_mapbook_context_inputs": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="zip_all_mapbook_context_inputs")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_dn_speedmap"),
+                "right": DependsOn("convert_seasonal_hr_html_to_png"),
+            }
+            | (params_dict.get("zip_all_mapbook_context_inputs") or {}),
+            method="call",
+        ),
+        "zip_all_with_name": Node(
+            async_task=zip_grouped_by_key.validate()
+            .handle_errors(task_instance_id="zip_all_with_name")
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_all_mapbook_context_inputs"),
+                "right": DependsOn("get_subject_name"),
+            }
+            | (params_dict.get("zip_all_with_name") or {}),
+            method="call",
+        ),
+        "flatten_mbook_context": Node(
+            async_task=flatten_tuple.validate()
+            .handle_errors(task_instance_id="flatten_mbook_context")
+            .set_executor("lithops"),
+            partial=(params_dict.get("flatten_mbook_context") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["nested"],
+                "argvalues": DependsOn("zip_all_with_name"),
+            },
+        ),
+        "individual_mapbook_context": Node(
+            async_task=create_mapbook_context.validate()
+            .handle_errors(task_instance_id="individual_mapbook_context")
+            .set_executor("lithops"),
+            partial={
+                "template_path": DependsOn("download_sect_templates"),
+                "output_directory": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "subject_name": DependsOn("get_subject_name"),
+                "time_period": DependsOn("define_time_range"),
+                "period": DependsOn("round_report_duration"),
+            }
+            | (params_dict.get("individual_mapbook_context") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": [
+                    "grid_area",
+                    "mcp_area",
+                    "movement_tracks_ecomap",
+                    "home_range_ecomap",
+                    "speed_raster_ecomap",
+                    "night_day_ecomap",
+                    "speedmap",
+                    "seasonal_homerange",
+                    "subject_name",
+                ],
+                "argvalues": DependsOn("flatten_mbook_context"),
+            },
+        ),
+        "generate_mapbook_report": Node(
+            async_task=combine_docx_files.validate()
+            .handle_errors(task_instance_id="generate_mapbook_report")
+            .set_executor("lithops"),
+            partial={
+                "cover_page_path": DependsOn("persist_context_cover"),
+                "output_directory": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "context_page_items": DependsOn("individual_mapbook_context"),
+            }
+            | (params_dict.get("generate_mapbook_report") or {}),
+            method="call",
+        ),
         "mapbook_dashboard": Node(
             async_task=gather_dashboard.validate()
             .handle_errors(task_instance_id="mapbook_dashboard")
@@ -1789,7 +2240,7 @@ def main(params: Params):
                         DependsOn("gender_sv_widget"),
                         DependsOn("total_mcp_grouped_sv_widget"),
                         DependsOn("total_grid_grouped_sv_widget"),
-                        DependsOn("merge_speed_ecomap_widgets"),
+                        DependsOn("merge_speedmap_widgets"),
                         DependsOn("merge_day_night_ecomap_widgets"),
                         DependsOn("merge_quarter_ecomap_widgets"),
                         DependsOn("merge_hr_ecomap_widgets"),
