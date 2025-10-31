@@ -188,10 +188,7 @@ configure_base_maps = (
 # %%
 # parameters
 
-download_mapbook_cover_page_params = dict(
-    retries=...,
-    unzip=...,
-)
+download_mapbook_cover_page_params = dict()
 
 # %%
 # call the task
@@ -205,6 +202,8 @@ download_mapbook_cover_page = (
         url="https://www.dropbox.com/scl/fi/1373gi65ji918rxele5h9/cover_page_v3.docx?rlkey=ur01wtpa98tcyq8f0f6dtksl8&st=eq39sgwz&dl=0",
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
+        unzip=False,
+        retries=3,
         **download_mapbook_cover_page_params,
     )
     .call()
@@ -217,10 +216,7 @@ download_mapbook_cover_page = (
 # %%
 # parameters
 
-download_sect_templates_params = dict(
-    retries=...,
-    unzip=...,
-)
+download_sect_templates_params = dict()
 
 # %%
 # call the task
@@ -232,6 +228,8 @@ download_sect_templates = (
         url="https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0",
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
+        unzip=False,
+        retries=3,
         **download_sect_templates_params,
     )
     .call()
@@ -246,8 +244,6 @@ download_sect_templates = (
 
 download_logo_path_params = dict(
     url=...,
-    retries=...,
-    unzip=...,
 )
 
 # %%
@@ -259,6 +255,8 @@ download_logo_path = (
     .partial(
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
+        unzip=False,
+        retries=3,
         **download_logo_path_params,
     )
     .call()
@@ -271,9 +269,7 @@ download_logo_path = (
 # %%
 # parameters
 
-download_ldx_db_params = dict(
-    retries=...,
-)
+download_ldx_db_params = dict()
 
 # %%
 # call the task
@@ -286,6 +282,7 @@ download_ldx_db = (
         url="https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
         overwrite_existing=False,
         unzip=True,
+        retries=3,
         **download_ldx_db_params,
     )
     .call()
@@ -321,7 +318,21 @@ load_aoi = (
 # %%
 # parameters
 
-custom_text_layer_params = dict()
+custom_text_layer_params = dict(
+    label_column=...,
+    name_column=...,
+    use_centroid=...,
+    color=...,
+    size=...,
+    font_weight=...,
+    font_family=...,
+    text_anchor=...,
+    alignment_baseline=...,
+    pickable=...,
+    tooltip_columns=...,
+    zoom=...,
+    target_crs=...,
+)
 
 # %%
 # call the task
@@ -789,9 +800,7 @@ split_trajectories_by_group = (
 # %%
 # parameters
 
-sort_trajectories_by_speed_params = dict(
-    ascending=...,
-)
+sort_trajectories_by_speed_params = dict()
 
 # %%
 # call the task
@@ -802,6 +811,7 @@ sort_trajectories_by_speed = (
     .partial(
         column_name="speed_bins",
         na_position="last",
+        ascending=True,
         **sort_trajectories_by_speed_params,
     )
     .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
@@ -1568,10 +1578,7 @@ merge_quarter_ecomap_widgets = (
 # %%
 # parameters
 
-generate_etd_params = dict(
-    max_speed_factor=...,
-    expansion_factor=...,
-)
+generate_etd_params = dict()
 
 # %%
 # call the task
@@ -1588,6 +1595,8 @@ generate_etd = (
         percentiles=[50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
         nodata_value="nan",
         band_count=1,
+        max_speed_factor=1.05,
+        expansion_factor=1.3,
         **generate_etd_params,
     )
     .mapvalues(argnames=["trajectory_gdf"], argvalues=split_trajectories_by_group)
@@ -1963,15 +1972,7 @@ merge_hr_ecomap_widgets = (
 # %%
 # parameters
 
-generate_speed_raster_params = dict(
-    output_dir=...,
-    filename=...,
-    resolution=...,
-    radius=...,
-    cutoff=...,
-    tortuosity_length=...,
-    network_metric=...,
-)
+generate_speed_raster_params = dict()
 
 # %%
 # call the task
@@ -1983,7 +1984,14 @@ generate_speed_raster = (
         step_length=2000,
         dist_col="dist_meters",
         interpolation="mean",
-        movement_covariate="speed",
+        movement_covariate="Speed",
+        radius=2,
+        cutoff="None",
+        tortuosity_length=3,
+        resolution=None,
+        network_metric=None,
+        output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename=None,
         **generate_speed_raster_params,
     )
     .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)
@@ -2015,9 +2023,7 @@ extract_speed_rasters = (
 # %%
 # parameters
 
-sort_speed_features_by_value_params = dict(
-    ascending=...,
-)
+sort_speed_features_by_value_params = dict()
 
 # %%
 # call the task
@@ -2026,7 +2032,10 @@ sort_speed_features_by_value_params = dict(
 sort_speed_features_by_value = (
     sort_values.handle_errors(task_instance_id="sort_speed_features_by_value")
     .partial(
-        column_name="value", na_position="last", **sort_speed_features_by_value_params
+        column_name="value",
+        na_position="last",
+        ascending=True,
+        **sort_speed_features_by_value_params,
     )
     .mapvalues(argnames=["df"], argvalues=extract_speed_rasters)
 )
@@ -2311,10 +2320,7 @@ speedraster_ecomap_widgets = (
 # %%
 # parameters
 
-seasonal_home_range_params = dict(
-    percentiles=...,
-    auto_scale_or_custom_cell_size=...,
-)
+seasonal_home_range_params = dict()
 
 # %%
 # call the task
@@ -2330,7 +2336,15 @@ seasonal_home_range = (
         ],
         unpack_depth=1,
     )
-    .partial(groupby_cols=["subject_name", "season"], **seasonal_home_range_params)
+    .partial(
+        groupby_cols=["subject_name", "season"],
+        percentiles=[99.9],
+        auto_scale_or_custom_cell_size={
+            "auto_scale_or_custom": "Customize",
+            "grid_cell_size": 2000,
+        },
+        **seasonal_home_range_params,
+    )
     .mapvalues(argnames=["gdf"], argvalues=add_season_labels)
 )
 
@@ -2896,9 +2910,7 @@ create_cover_template_context = (
 # %%
 # parameters
 
-persist_context_cover_params = dict(
-    filename=...,
-)
+persist_context_cover_params = dict()
 
 # %%
 # call the task
@@ -2912,6 +2924,7 @@ persist_context_cover = (
         template_path=download_mapbook_cover_page,
         output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         context=create_cover_template_context,
+        filename=None,
         **persist_context_cover_params,
     )
     .call()
@@ -3262,10 +3275,7 @@ flatten_mbook_context = (
 # parameters
 
 individual_mapbook_context_params = dict(
-    filename=...,
     validate_images=...,
-    box_h_cm=...,
-    box_w_cm=...,
 )
 
 # %%
@@ -3280,6 +3290,9 @@ individual_mapbook_context = (
         subject_name=get_subject_name,
         time_period=define_time_range,
         period=round_report_duration,
+        filename=None,
+        box_h_cm=6.5,
+        box_w_cm=11.11,
         **individual_mapbook_context_params,
     )
     .mapvalues(
@@ -3305,9 +3318,7 @@ individual_mapbook_context = (
 # %%
 # parameters
 
-generate_mapbook_report_params = dict(
-    filename=...,
-)
+generate_mapbook_report_params = dict()
 
 # %%
 # call the task
@@ -3319,6 +3330,7 @@ generate_mapbook_report = (
         cover_page_path=persist_context_cover,
         output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         context_page_items=individual_mapbook_context,
+        filename="mapbook_report.docx",
         **generate_mapbook_report_params,
     )
     .call()

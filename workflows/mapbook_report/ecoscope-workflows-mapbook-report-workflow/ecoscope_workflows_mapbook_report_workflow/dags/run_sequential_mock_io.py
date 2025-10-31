@@ -170,6 +170,8 @@ def main(params: Params):
             url="https://www.dropbox.com/scl/fi/1373gi65ji918rxele5h9/cover_page_v3.docx?rlkey=ur01wtpa98tcyq8f0f6dtksl8&st=eq39sgwz&dl=0",
             output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             overwrite_existing=False,
+            unzip=False,
+            retries=3,
             **(params_dict.get("download_mapbook_cover_page") or {}),
         )
         .call()
@@ -182,6 +184,8 @@ def main(params: Params):
             url="https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0",
             output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             overwrite_existing=False,
+            unzip=False,
+            retries=3,
             **(params_dict.get("download_sect_templates") or {}),
         )
         .call()
@@ -193,6 +197,8 @@ def main(params: Params):
         .partial(
             output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             overwrite_existing=False,
+            unzip=False,
+            retries=3,
             **(params_dict.get("download_logo_path") or {}),
         )
         .call()
@@ -206,6 +212,7 @@ def main(params: Params):
             url="https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
             overwrite_existing=False,
             unzip=True,
+            retries=3,
             **(params_dict.get("download_ldx_db") or {}),
         )
         .call()
@@ -472,6 +479,7 @@ def main(params: Params):
         .partial(
             column_name="speed_bins",
             na_position="last",
+            ascending=True,
             **(params_dict.get("sort_trajectories_by_speed") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
@@ -880,6 +888,8 @@ def main(params: Params):
             percentiles=[50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
             nodata_value="nan",
             band_count=1,
+            max_speed_factor=1.05,
+            expansion_factor=1.3,
             **(params_dict.get("generate_etd") or {}),
         )
         .mapvalues(argnames=["trajectory_gdf"], argvalues=split_trajectories_by_group)
@@ -1078,7 +1088,14 @@ def main(params: Params):
             step_length=2000,
             dist_col="dist_meters",
             interpolation="mean",
-            movement_covariate="speed",
+            movement_covariate="Speed",
+            radius=2,
+            cutoff="None",
+            tortuosity_length=3,
+            resolution=None,
+            network_metric=None,
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename=None,
             **(params_dict.get("generate_speed_raster") or {}),
         )
         .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)
@@ -1097,6 +1114,7 @@ def main(params: Params):
         .partial(
             column_name="value",
             na_position="last",
+            ascending=True,
             **(params_dict.get("sort_speed_features_by_value") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=extract_speed_rasters)
@@ -1263,6 +1281,11 @@ def main(params: Params):
         )
         .partial(
             groupby_cols=["subject_name", "season"],
+            percentiles=[99.9],
+            auto_scale_or_custom_cell_size={
+                "auto_scale_or_custom": "Customize",
+                "grid_cell_size": 2000,
+            },
             **(params_dict.get("seasonal_home_range") or {}),
         )
         .mapvalues(argnames=["gdf"], argvalues=add_season_labels)
@@ -1551,6 +1574,7 @@ def main(params: Params):
             template_path=download_mapbook_cover_page,
             output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             context=create_cover_template_context,
+            filename=None,
             **(params_dict.get("persist_context_cover") or {}),
         )
         .call()
@@ -1726,6 +1750,9 @@ def main(params: Params):
             subject_name=get_subject_name,
             time_period=define_time_range,
             period=round_report_duration,
+            filename=None,
+            box_h_cm=6.5,
+            box_w_cm=11.11,
             **(params_dict.get("individual_mapbook_context") or {}),
         )
         .mapvalues(
@@ -1751,6 +1778,7 @@ def main(params: Params):
             cover_page_path=persist_context_cover,
             output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             context_page_items=individual_mapbook_context,
+            filename="mapbook_report.docx",
             **(params_dict.get("generate_mapbook_report") or {}),
         )
         .call()

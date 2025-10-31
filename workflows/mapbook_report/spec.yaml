@@ -47,6 +47,8 @@ workflow:
       url: https://www.dropbox.com/scl/fi/1373gi65ji918rxele5h9/cover_page_v3.docx?rlkey=ur01wtpa98tcyq8f0f6dtksl8&st=eq39sgwz&dl=0
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false
+      unzip: false
+      retries: 3
 
   # Download section templates
   - name: Download Mapbook section templates
@@ -56,6 +58,8 @@ workflow:
       url: https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false
+      unzip: false
+      retries: 3
 
   # Download Logo
   - name: Download Logo Path 
@@ -64,6 +68,8 @@ workflow:
     partial:
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false 
+      unzip: false
+      retries: 3
 
 
   # download LandDx database, unzip, and save to output directory
@@ -75,6 +81,7 @@ workflow:
       url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
       overwrite_existing: false
       unzip: true
+      retries: 3
 
   # Load AOI from LandDx 
   - name: Load AOI from landDx
@@ -289,6 +296,7 @@ workflow:
     partial:
       column_name: speed_bins
       na_position: last
+      ascending: true
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
@@ -720,7 +728,8 @@ workflow:
         - 99.9
       nodata_value: nan
       band_count: 1
-
+      max_speed_factor : 1.05
+      expansion_factor : 1.3
     mapvalues:
       argnames: trajectory_gdf
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
@@ -920,8 +929,14 @@ workflow:
       step_length: 2000
       dist_col: dist_meters
       interpolation: mean
-      movement_covariate: speed
-      # output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      movement_covariate: Speed
+      radius: 2
+      cutoff: None ## will this work?
+      tortuosity_length : 3
+      resolution: null
+      network_metric: null
+      output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename: null 
     mapvalues:
       argnames: gdf 
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
@@ -941,6 +956,7 @@ workflow:
     partial:
       column_name: value
       na_position: last
+      ascending: true
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.extract_speed_rasters.return }}
@@ -1113,6 +1129,11 @@ workflow:
       groupby_cols:
         - subject_name
         - season
+      percentiles:
+        - 99.9
+      auto_scale_or_custom_cell_size:
+        auto_scale_or_custom: Customize
+        grid_cell_size: 2000
     mapvalues:
       argnames: gdf
       argvalues: ${{ workflow.add_season_labels.return }}
@@ -1392,6 +1413,7 @@ workflow:
       template_path: ${{ workflow.download_mapbook_cover_page.return }}
       output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       context: ${{ workflow.create_cover_template_context.return }}
+      filename: null
   
   # convert  ecomaps html to png using playwright and persist
   # 1. speedmap
@@ -1539,6 +1561,10 @@ workflow:
       subject_name: ${{ workflow.get_subject_name.return }}
       time_period: ${{ workflow.define_time_range.return }}
       period: ${{ workflow.round_report_duration.return }} # months
+      filename: null
+      box_h_cm: 6.5
+      box_w_cm: 11.11
+
     mapvalues:
       argnames:
         - grid_area
@@ -1560,6 +1586,7 @@ workflow:
       cover_page_path: ${{ workflow.persist_context_cover.return }}
       output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       context_page_items: ${{ workflow.individual_mapbook_context.return }}
+      filename: mapbook_report.docx
 
   - name: Mapbook Dashboard
     id: mapbook_dashboard

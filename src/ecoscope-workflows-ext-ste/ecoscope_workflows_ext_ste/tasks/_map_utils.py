@@ -583,75 +583,76 @@ def combine_map_layers(
     flat_grouped = flatten_layers(grouped_layers) if grouped_layers else []
     
     return flat_static + flat_grouped
+
 @task
 def make_text_layer(
-    txt_gdf,
-    label_column="label",
-    name_column="name",
-    use_centroid=True,
-    color=[0, 0, 0, 255],
-    size=16,
-    font_weight="normal",
-    font_family="Arial",
-    text_anchor="middle",
-    alignment_baseline="center",
-    pickable=True,
-    tooltip_columns=None,
-    zoom=False,
-    target_crs="epsg:4326"
-)->LayerDefinition:
+    txt_gdf: Annotated[
+        AnyGeoDataFrame,
+        Field(description="Input GeoDataFrame containing geometries and label data.")
+    ],
+    label_column: Annotated[
+        str,
+        Field(default="label", description="Column name containing text labels.")
+    ] = "label",
+    name_column: Annotated[
+        str,
+        Field(default="name", description="Fallback column name to use as label if label_column doesn’t exist.")
+    ] = "name",
+    use_centroid: Annotated[
+        bool,
+        Field(default=True, description="Whether to use geometry centroids for text placement.")
+    ] = True,
+    color: Annotated[
+        List[int],
+        Field(default=[0, 0, 0, 255], description="RGBA color values for text (0–255).")
+    ] = [0, 0, 0, 255],
+    size: Annotated[
+        int,
+        Field(default=16, description="Font size in pixels.")
+    ] = 16,
+    font_weight: Annotated[
+        str,
+        Field(default="normal", description="Font weight (e.g., normal, bold, italic).")
+    ] = "normal",
+    font_family: Annotated[
+        str,
+        Field(default="Arial", description="Font family name.")
+    ] = "Arial",
+    text_anchor: Annotated[
+        str,
+        Field(default="middle", description="Horizontal text anchor (start, middle, end).")
+    ] = "middle",
+    alignment_baseline: Annotated[
+        str,
+        Field(default="center", description="Vertical alignment (top, center, bottom).")
+    ] = "center",
+    pickable: Annotated[
+        bool,
+        Field(default=True, description="Whether the layer is interactive (pickable).")
+    ] = True,
+    tooltip_columns: Annotated[
+        Optional[List[str]],
+        Field(default=None, description="Columns to display in tooltip when hovered.")
+    ] = None,
+    zoom: Annotated[
+        bool,
+        Field(default=False, description="Whether to zoom to the layer extent when displayed.")
+    ] = False,
+    target_crs: Annotated[
+        str,
+        Field(default="epsg:4326", description="Target CRS for layer coordinates.")
+    ] = "epsg:4326"
+) -> LayerDefinition:
     """
-    Create a text layer from a GeoDataFrame.
-    
-    Parameters
-    ----------
-    txt_gdf : GeoDataFrame
-        Input geodataframe containing geometries and label data
-    label_column : str, default "label"
-        Name of the column containing text labels
-    name_column : str, default "name"
-        Fallback column to use as label if label_column doesn't exist
-    use_centroid : bool, default True
-        Whether to use geometry centroids for text placement
-    color : list, default [0, 0, 0, 255]
-        RGBA color values for text (0-255)
-    size : int, default 16
-        Font size in pixels
-    font_weight : str, default "normal"
-        Font weight (normal, bold, italic, etc.)
-    font_family : str, default "Arial"
-        Font family name
-    text_anchor : str, default "middle"
-        Horizontal text anchor (start, middle, end)
-    alignment_baseline : str, default "center"
-        Vertical alignment (top, center, bottom)
-    pickable : bool, default True
-        Whether the layer is pickable/interactive
-    tooltip_columns : list, optional
-        Columns to display in tooltip
-    zoom : bool, default False
-        Whether to zoom to layer extent
-    target_crs : str, default "epsg:4326"
-        Target coordinate reference system
-    
-    Returns
-    -------
-    LayerDefinition
-        Configured text layer definition
-    
-    Raises
-    ------
-    ValueError
-        If neither label_column nor name_column exist in the GeoDataFrame
+    Create a text layer from a GeoDataFrame with annotated parameters.
     """
     # Validate input
     if txt_gdf is None or txt_gdf.empty:
         raise ValueError("txt_gdf cannot be None or empty")
-    
-    # Create a copy to avoid modifying original
+
     gdf = txt_gdf.copy()
-    
-    # Handle label column - rename from name_column if label_column doesn't exist
+
+    # Handle label column
     if label_column not in gdf.columns:
         if name_column in gdf.columns:
             gdf = gdf.rename(columns={name_column: label_column})
@@ -660,15 +661,15 @@ def make_text_layer(
                 f"Neither '{label_column}' nor '{name_column}' found. "
                 f"Available columns: {list(gdf.columns)}"
             )
-    
-    # Use centroids for text placement if requested
+
+    # Use centroids if requested
     if use_centroid:
         gdf["geometry"] = gdf.centroid
-    
+
     # Transform to target CRS
     gdf = gdf.to_crs(target_crs)
-    
-    # Create style configuration
+
+    # Build text style
     style = TextLayerStyle(
         get_color=color,
         get_size=size,
@@ -678,8 +679,8 @@ def make_text_layer(
         font_family=font_family,
         pickable=pickable,
     )
-    
-    # Build layer definition
+
+    # Return the layer definition
     return LayerDefinition(
         geodataframe=gdf,
         layer_style=style,

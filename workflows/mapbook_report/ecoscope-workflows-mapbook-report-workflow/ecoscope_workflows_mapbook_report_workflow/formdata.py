@@ -5,9 +5,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, confloat, conint, constr
+from pydantic import BaseModel, ConfigDict, Field, RootModel, confloat, constr
 
 
 class InitializeWorkflowMetadata(BaseModel):
@@ -184,55 +184,70 @@ class ConfigureBaseMaps(BaseModel):
     )
 
 
-class DownloadMapbookCoverPage(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
-    unzip: Optional[bool] = Field(False, title="Unzip")
-
-
-class DownloadSectTemplates(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
-    unzip: Optional[bool] = Field(False, title="Unzip")
-
-
 class DownloadLogoPath(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     url: str = Field(..., title="Url")
-    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
-    unzip: Optional[bool] = Field(False, title="Unzip")
-
-
-class DownloadLdxDb(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
 
 
 class CustomTextLayer(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    label_column: Optional[Any] = Field("label", title="Label Column")
-    name_column: Optional[Any] = Field("name", title="Name Column")
-    use_centroid: Optional[Any] = Field(True, title="Use Centroid")
-    color: Optional[Any] = Field([0, 0, 0, 255], title="Color")
-    size: Optional[Any] = Field(16, title="Size")
-    font_weight: Optional[Any] = Field("normal", title="Font Weight")
-    font_family: Optional[Any] = Field("Arial", title="Font Family")
-    text_anchor: Optional[Any] = Field("middle", title="Text Anchor")
-    alignment_baseline: Optional[Any] = Field("center", title="Alignment Baseline")
-    pickable: Optional[Any] = Field(True, title="Pickable")
-    tooltip_columns: Optional[Any] = Field(None, title="Tooltip Columns")
-    zoom: Optional[Any] = Field(False, title="Zoom")
-    target_crs: Optional[Any] = Field("epsg:4326", title="Target Crs")
+    label_column: Optional[str] = Field(
+        "label", description="Column name containing text labels.", title="Label Column"
+    )
+    name_column: Optional[str] = Field(
+        "name",
+        description="Fallback column name to use as label if label_column doesn’t exist.",
+        title="Name Column",
+    )
+    use_centroid: Optional[bool] = Field(
+        True,
+        description="Whether to use geometry centroids for text placement.",
+        title="Use Centroid",
+    )
+    color: Optional[List[int]] = Field(
+        [0, 0, 0, 255], description="RGBA color values for text (0–255).", title="Color"
+    )
+    size: Optional[int] = Field(16, description="Font size in pixels.", title="Size")
+    font_weight: Optional[str] = Field(
+        "normal",
+        description="Font weight (e.g., normal, bold, italic).",
+        title="Font Weight",
+    )
+    font_family: Optional[str] = Field(
+        "Arial", description="Font family name.", title="Font Family"
+    )
+    text_anchor: Optional[str] = Field(
+        "middle",
+        description="Horizontal text anchor (start, middle, end).",
+        title="Text Anchor",
+    )
+    alignment_baseline: Optional[str] = Field(
+        "center",
+        description="Vertical alignment (top, center, bottom).",
+        title="Alignment Baseline",
+    )
+    pickable: Optional[bool] = Field(
+        True,
+        description="Whether the layer is interactive (pickable).",
+        title="Pickable",
+    )
+    tooltip_columns: Optional[List[str]] = Field(
+        None,
+        description="Columns to display in tooltip when hovered.",
+        title="Tooltip Columns",
+    )
+    zoom: Optional[bool] = Field(
+        False,
+        description="Whether to zoom to the layer extent when displayed.",
+        title="Zoom",
+    )
+    target_crs: Optional[str] = Field(
+        "epsg:4326", description="Target CRS for layer coordinates.", title="Target Crs"
+    )
 
 
 class SubjectObservations(BaseModel):
@@ -242,82 +257,11 @@ class SubjectObservations(BaseModel):
     subject_group_name: str = Field(..., title="Subject Group Name")
 
 
-class SortTrajectoriesBySpeed(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    ascending: Optional[bool] = Field(
-        True, description="Sort ascending if true", title="Ascending"
-    )
-
-
-class GenerateEtd(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    max_speed_factor: Optional[float] = Field(
-        1.05,
-        description="An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
-        title="Max Speed Factor (Kilometers per Hour)",
-    )
-    expansion_factor: Optional[float] = Field(
-        1.05,
-        description="Controls how far time density values spread across the grid, affecting the smoothness of the output.",
-        title="Shape Buffer Expansion Factor",
-    )
-
-
-class NetworkMetric(str, Enum):
-    weight = "weight"
-    betweenness = "betweenness"
-    degree = "degree"
-    collective_influence = "collective_influence"
-
-
-class GenerateSpeedRaster(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    output_dir: Optional[str] = Field(None, title="Output Dir")
-    filename: Optional[str] = Field(None, title="Filename")
-    resolution: Optional[float] = Field(None, title="Resolution")
-    radius: Optional[int] = Field(2, title="Radius")
-    cutoff: Optional[float] = Field(None, title="Cutoff")
-    tortuosity_length: Optional[int] = Field(3, title="Tortuosity Length")
-    network_metric: Optional[NetworkMetric] = Field(None, title="Network Metric")
-
-
-class SortSpeedFeaturesByValue(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    ascending: Optional[bool] = Field(
-        True, description="Sort ascending if true", title="Ascending"
-    )
-
-
-class PersistContextCover(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    filename: Optional[str] = Field(None, title="Filename")
-
-
 class IndividualMapbookContext(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    filename: Optional[str] = Field(None, title="Filename")
     validate_images: Optional[bool] = Field(True, title="Validate Images")
-    box_h_cm: Optional[float] = Field(6.5, title="Box H Cm")
-    box_w_cm: Optional[float] = Field(11.11, title="Box W Cm")
-
-
-class GenerateMapbookReport(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    filename: Optional[str] = Field(None, title="Filename")
 
 
 class TimezoneInfo(BaseModel):
@@ -361,33 +305,6 @@ class TrajectorySegmentFilter(BaseModel):
     )
     max_speed_kmhr: Optional[confloat(gt=0.001)] = Field(
         500, title="Maximum Segment Speed (Kilometers per Hour)"
-    )
-
-
-class AutoScaleOrCustom(str, Enum):
-    Auto_scale = "Auto-scale"
-
-
-class AutoScaleGridCellSize(BaseModel):
-    auto_scale_or_custom: Literal["Auto-scale"] = Field(
-        "Auto-scale",
-        description="Define the resolution of the raster grid (in meters per pixel).",
-        title=" ",
-    )
-
-
-class AutoScaleOrCustom1(str, Enum):
-    Customize = "Customize"
-
-
-class CustomGridCellSize(BaseModel):
-    auto_scale_or_custom: Literal["Customize"] = Field(
-        "Customize",
-        description="Define the resolution of the raster grid (in meters per pixel).",
-        title=" ",
-    )
-    grid_cell_size: Optional[confloat(lt=10000.0, gt=0.0)] = Field(
-        5000, description="Custom Raster Pixel Size (Meters)", title="Grid Cell Size"
     )
 
 
@@ -449,16 +366,6 @@ class ConvertToTrajectories(BaseModel):
     )
 
 
-class SeasonalHomeRange(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    percentiles: Optional[List[float]] = Field([99.9], title="Percentiles")
-    auto_scale_or_custom_cell_size: Optional[
-        Union[AutoScaleGridCellSize, CustomGridCellSize]
-    ] = Field(None, title="Auto Scale Or Custom Cell Size")
-
-
 class FormData(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -479,17 +386,8 @@ class FormData(BaseModel):
     configure_base_maps: Optional[ConfigureBaseMaps] = Field(
         None, title="Configure Base Map Layers"
     )
-    download_mapbook_cover_page: Optional[DownloadMapbookCoverPage] = Field(
-        None, title="Download Mapbook cover page templates"
-    )
-    download_sect_templates: Optional[DownloadSectTemplates] = Field(
-        None, title="Download Mapbook section templates"
-    )
     download_logo_path: Optional[DownloadLogoPath] = Field(
         None, title="Download Logo Path"
-    )
-    download_ldx_db: Optional[DownloadLdxDb] = Field(
-        None, title="Download LandDx Database and extract"
     )
     custom_text_layer: Optional[CustomTextLayer] = Field(
         None, title="Create text layer from filtered aoi"
@@ -504,27 +402,6 @@ class FormData(BaseModel):
     convert_to_trajectories: Optional[ConvertToTrajectories] = Field(
         None, title="Convert Relocations to Trajectories"
     )
-    sort_trajectories_by_speed: Optional[SortTrajectoriesBySpeed] = Field(
-        None, title="Sort Trajectories by Speed Bins"
-    )
-    generate_etd: Optional[GenerateEtd] = Field(
-        None, title="Generate Home Range Ecomap"
-    )
-    generate_speed_raster: Optional[GenerateSpeedRaster] = Field(
-        None, title="Generate Speed Rasters"
-    )
-    sort_speed_features_by_value: Optional[SortSpeedFeaturesByValue] = Field(
-        None, title="Sort Speed Features by Value"
-    )
-    seasonal_home_range: Optional[SeasonalHomeRange] = Field(
-        None, title="Calculate seasonal home range"
-    )
-    persist_context_cover: Optional[PersistContextCover] = Field(
-        None, title="Persist context to cover template"
-    )
     individual_mapbook_context: Optional[IndividualMapbookContext] = Field(
         None, title="Create individual mapbook context"
-    )
-    generate_mapbook_report: Optional[GenerateMapbookReport] = Field(
-        None, title="Generate final mapbook report"
     )
