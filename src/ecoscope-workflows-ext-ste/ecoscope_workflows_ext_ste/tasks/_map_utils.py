@@ -550,7 +550,8 @@ def create_map_layers_from_annotated_dict(
 @task
 def combine_map_layers(
     static_layers: Annotated[
-        Union[LayerDefinition, list[LayerDefinition]], Field(description="Static layers from local files or base maps.")
+        Union[LayerDefinition, list[LayerDefinition]], 
+        Field(description="Static layers from local files or base maps.")
     ] = [],
     grouped_layers: Annotated[
         Union[LayerDefinition, list[LayerDefinition]],
@@ -559,12 +560,28 @@ def combine_map_layers(
 ) -> list[LayerDefinition]:
     """
     Combine static and grouped map layers into a single list for rendering in `draw_ecomap`.
+    Automatically flattens nested lists to handle cases where layer generation tasks return lists.
     """
-    if not isinstance(static_layers, list):
-        static_layers = [static_layers]
-    if not isinstance(grouped_layers, list):
-        grouped_layers = [grouped_layers]
-    return static_layers + grouped_layers
+    def flatten_layers(layers):
+        """Recursively flatten nested lists of LayerDefinition objects."""
+        if not isinstance(layers, list):
+            return [layers]
+        
+        flattened = []
+        for item in layers:
+            if isinstance(item, list):
+                # Recursively flatten if it's a list
+                flattened.extend(flatten_layers(item))
+            else:
+                # Add individual LayerDefinition objects
+                flattened.append(item)
+        return flattened
+    
+    # Flatten both static and grouped layers
+    flat_static = flatten_layers(static_layers) if static_layers else []
+    flat_grouped = flatten_layers(grouped_layers) if grouped_layers else []
+    
+    return flat_static + flat_grouped
 
 @task
 def make_text_layer(
