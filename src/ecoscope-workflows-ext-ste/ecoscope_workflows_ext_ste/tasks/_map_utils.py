@@ -551,11 +551,11 @@ def create_map_layers_from_annotated_dict(
 @task
 def combine_map_layers(
     static_layers: Annotated[
-        Union[LayerDefinition, list[LayerDefinition]], 
+        Union[LayerDefinition, List[LayerDefinition | List[LayerDefinition]]], 
         Field(description="Static layers from local files or base maps.")
     ] = [],
     grouped_layers: Annotated[
-        Union[LayerDefinition, list[LayerDefinition]],
+        Union[LayerDefinition, List[LayerDefinition | List[LayerDefinition]]],
         Field(description="Grouped layers generated from split/grouped data."),
     ] = [],
 ) -> list[LayerDefinition]:
@@ -583,8 +583,6 @@ def combine_map_layers(
     flat_grouped = flatten_layers(grouped_layers) if grouped_layers else []
     
     return flat_static + flat_grouped
-
-
 @task
 def make_text_layer(
     txt_gdf,
