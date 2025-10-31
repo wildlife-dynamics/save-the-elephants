@@ -551,7 +551,7 @@ def create_map_layers_from_annotated_dict(
 @task
 def combine_map_layers(
     static_layers: Annotated[
-        Union[LayerDefinition, List[LayerDefinition], List[List[LayerDefinition]]], 
+        Union[LayerDefinition, List[LayerDefinition], List[List[LayerDefinition]]],
         Field(description="Static layers from local files or base maps. Can be a single layer, list of layers, or nested list of layers.")
     ] = None,
     grouped_layers: Annotated[
@@ -601,7 +601,6 @@ def combine_map_layers(
         if layers is None:
             return []
 
-        # Single non-list/item -> try convert
         if not isinstance(layers, list):
             try:
                 return [to_layer_instance(layers)]
@@ -617,7 +616,6 @@ def combine_map_layers(
             try:
                 out.append(to_layer_instance(item))
             except Exception as e:
-                # enhance the error with the index to make debugging easier
                 logger.error("Failed to convert layer at index %s (value=%r): %s", i, item, e)
                 raise
 
@@ -627,6 +625,7 @@ def combine_map_layers(
     flat_grouped = flatten_layers(grouped_layers)
 
     return flat_static + flat_grouped
+
 
 @task
 def make_text_layer(
