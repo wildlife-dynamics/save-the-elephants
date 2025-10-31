@@ -550,36 +550,47 @@ def create_map_layers_from_annotated_dict(
 @task
 def combine_map_layers(
     static_layers: Annotated[
-        Union[LayerDefinition, list[LayerDefinition]], 
-        Field(description="Static layers from local files or base maps.")
+        Union[LayerDefinition, List[LayerDefinition], List[List[LayerDefinition]]], 
+        Field(description="Static layers from local files or base maps. Can be a single layer, list of layers, or nested list of layers.")
     ] = [],
     grouped_layers: Annotated[
-        Union[LayerDefinition, list[LayerDefinition]],
-        Field(description="Grouped layers generated from split/grouped data."),
+        Union[LayerDefinition, List[LayerDefinition], List[List[LayerDefinition]]],
+        Field(description="Grouped layers generated from split/grouped data. Can be a single layer, list of layers, or nested list of layers."),
     ] = [],
-) -> list[LayerDefinition]:
+) -> List[LayerDefinition]:
     """
     Combine static and grouped map layers into a single list for rendering in `draw_ecomap`.
     Automatically flattens nested lists to handle cases where layer generation tasks return lists.
     """
     def flatten_layers(layers):
         """Recursively flatten nested lists of LayerDefinition objects."""
-        if not isinstance(layers, list):
+        if not layers:
+            return []
+            
+        if isinstance(layers, LayerDefinition):
             return [layers]
         
-        flattened = []
-        for item in layers:
-            if isinstance(item, list):
-                # Recursively flatten if it's a list
-                flattened.extend(flatten_layers(item))
-            else:
-                # Add individual LayerDefinition objects
-                flattened.append(item)
-        return flattened
+        if isinstance(layers, list):
+            flattened = []
+            for item in layers:
+                if isinstance(item, LayerDefinition):
+                    flattened.append(item)
+                elif isinstance(item, list):
+                    # Recursively flatten nested lists
+                    flattened.extend(flatten_layers(item))
+                else:
+                    raise TypeError(
+                        f"Expected LayerDefinition or list, got {type(item).__name__}"
+                    )
+            return flattened
+        
+        raise TypeError(
+            f"Expected LayerDefinition or list, got {type(layers).__name__}"
+        )
     
     # Flatten both static and grouped layers
-    flat_static = flatten_layers(static_layers) if static_layers else []
-    flat_grouped = flatten_layers(grouped_layers) if grouped_layers else []
+    flat_static = flatten_layers(static_layers)
+    flat_grouped = flatten_layers(grouped_layers)
     
     return flat_static + flat_grouped
 
