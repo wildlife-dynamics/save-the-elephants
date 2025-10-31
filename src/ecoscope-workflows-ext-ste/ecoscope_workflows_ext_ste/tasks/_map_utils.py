@@ -4,6 +4,7 @@ import math
 import logging
 import ecoscope
 import traceback
+import dataclasses
 from enum import Enum
 import geopandas as gpd
 from pathlib import Path
@@ -19,7 +20,7 @@ from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LayerDefinitio
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LegendDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolygonLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolylineLayerStyle
-from typing import Union, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
+from typing import Union,Any, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_point_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polygon_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polyline_layer
@@ -552,46 +553,79 @@ def combine_map_layers(
     static_layers: Annotated[
         Union[LayerDefinition, List[LayerDefinition], List[List[LayerDefinition]]], 
         Field(description="Static layers from local files or base maps. Can be a single layer, list of layers, or nested list of layers.")
-    ] = [],
+    ] = None,
     grouped_layers: Annotated[
         Union[LayerDefinition, List[LayerDefinition], List[List[LayerDefinition]]],
         Field(description="Grouped layers generated from split/grouped data. Can be a single layer, list of layers, or nested list of layers."),
-    ] = [],
+    ] = None,
 ) -> List[LayerDefinition]:
     """
     Combine static and grouped map layers into a single list for rendering in `draw_ecomap`.
-    Automatically flattens nested lists to handle cases where layer generation tasks return lists.
+    Accepts: LayerDefinition | dict | pydantic model | dataclass | nested lists of the above.
+    Always returns a flat List[LayerDefinition].
     """
-    def flatten_layers(layers):
-        """Recursively flatten nested lists of LayerDefinition objects."""
-        if not layers:
+    static_layers = [] if static_layers is None else static_layers
+    grouped_layers = [] if grouped_layers is None else grouped_layers
+
+    def to_layer_instance(obj: Any) -> LayerDefinition:
+        """Convert supported objects into a LayerDefinition instance."""
+        # Already the right instance
+        if isinstance(obj, LayerDefinition):
+            return obj
+
+        # pydantic models -> dict -> LayerDefinition
+        if isinstance(obj, BaseModel):
+            data = obj.dict()
+            return LayerDefinition(**data)
+
+        # dataclass -> dict -> LayerDefinition
+        if dataclasses.is_dataclass(obj):
+            data = dataclasses.asdict(obj)
+            return LayerDefinition(**data)
+
+        # dict -> LayerDefinition
+        if isinstance(obj, dict):
+            return LayerDefinition(**obj)
+
+        # plain object with __dict__
+        if hasattr(obj, "__dict__"):
+            try:
+                return LayerDefinition(**vars(obj))
+            except Exception:
+                pass
+
+        raise TypeError(f"Cannot convert object of type {type(obj).__name__} to LayerDefinition: {repr(obj)}")
+
+    def flatten_layers(layers: Any) -> List[LayerDefinition]:
+        """Recursively flatten nested lists and convert items to LayerDefinition."""
+        if layers is None:
             return []
-            
-        if isinstance(layers, LayerDefinition):
-            return [layers]
-        
-        if isinstance(layers, list):
-            flattened = []
-            for item in layers:
-                if isinstance(item, LayerDefinition):
-                    flattened.append(item)
-                elif isinstance(item, list):
-                    # Recursively flatten nested lists
-                    flattened.extend(flatten_layers(item))
-                else:
-                    raise TypeError(
-                        f"Expected LayerDefinition or list, got {type(item).__name__}"
-                    )
-            return flattened
-        
-        raise TypeError(
-            f"Expected LayerDefinition or list, got {type(layers).__name__}"
-        )
-    
-    # Flatten both static and grouped layers
+
+        # Single non-list/item -> try convert
+        if not isinstance(layers, list):
+            try:
+                return [to_layer_instance(layers)]
+            except Exception as e:
+                logger.exception("Failed to convert single layer item")
+                raise
+
+        out: List[LayerDefinition] = []
+        for i, item in enumerate(layers):
+            if isinstance(item, list):
+                out.extend(flatten_layers(item))
+                continue
+            try:
+                out.append(to_layer_instance(item))
+            except Exception as e:
+                # enhance the error with the index to make debugging easier
+                logger.error("Failed to convert layer at index %s (value=%r): %s", i, item, e)
+                raise
+
+        return out
+
     flat_static = flatten_layers(static_layers)
     flat_grouped = flatten_layers(grouped_layers)
-    
+
     return flat_static + flat_grouped
 
 @task
