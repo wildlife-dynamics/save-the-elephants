@@ -1,4 +1,5 @@
 import os
+import re
 import math
 import logging
 import ecoscope
@@ -12,6 +13,7 @@ from ecoscope_workflows_core.decorators import task
 from pydantic import BaseModel, Field, field_validator
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import ViewState
+from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import TextLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PointLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LayerDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LegendDefinition
@@ -21,9 +23,6 @@ from typing import Union, Dict, Optional, Literal, List, Annotated, TypedDict, T
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_point_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polygon_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polyline_layer
-from ecoscope_workflows_ext_ecoscope.tasks.analysis._time_density import CustomGridCellSize
-from ecoscope_workflows_ext_ecoscope.tasks.analysis._create_meshgrid import create_meshgrid
-from ecoscope_workflows_ext_ecoscope.tasks.analysis._calculate_feature_density import calculate_feature_density
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +42,6 @@ class MapProcessingConfig(BaseModel):
     target_crs: Union[int, str] = Field(default=4326, description="Target CRS to convert maps to")
     recursive: bool = Field(default=False, description="Whether to walk folders recursively")
 
-    @field_validator("path")
-    @classmethod
-    def validate_path_exists(cls, v):
-        if not os.path.exists(v):
-            raise ValueError(f"Invalid path: {v}")
-        return v
 
 class GeometrySummary(TypedDict):
     primary_type: Literal["Polygon", "Point", "LineString", "Other", "Mixed", "Line"]
@@ -99,20 +92,52 @@ def detect_geometry_type(gdf: AnyGeoDataFrame) -> GeometrySummary:
 
     return {"primary_type": primary_type, "counts": geom_counts}
 
+def normalize_file_url(path: str) -> str:
+    """Convert file:// URL to local path, handling malformed Windows URLs."""
+    if not path.startswith("file://"):
+        return path
+
+    path = path[7:]
+    
+    if os.name == 'nt':
+        # Remove leading slash before drive letter: /C:/path -> C:/path
+        if path.startswith('/') and len(path) > 2 and path[2] in (':', '|'):
+            path = path[1:]
+
+        path = path.replace('/', '\\')
+        path = path.replace('|', ':')
+    else:
+        if not path.startswith('/'):
+            path = '/' + path
+    
+    return path
+
 @task
 def load_geospatial_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFrame]:
     """
     Load geospatial files from `config.path` and return a dict mapping
     relative file path -> cleaned GeoDataFrame (reprojected to target_crs).
     """
-    base_path = Path(config.path)
+    # Convert to Path object
+    base_path_str = normalize_file_url(config.path)
+    base_path = Path(base_path_str)
+    
+    # Validate path exists
     if not base_path.exists():
-        raise FileNotFoundError(f"Path does not exist: {base_path!s}")
+        raise FileNotFoundError(f"Path does not exist: {base_path}")
+    
+    if not base_path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {base_path}")
 
-    target_crs = CRS.from_user_input(config.target_crs)
+    target_crs = config.target_crs
 
     loaded_files: Dict[str, AnyGeoDataFrame] = {}
-    normalized_suffixes = {s.lower() if s.startswith(".") else f".{s.lower()}" for s in SUPPORTED_FORMATS}
+    normalized_suffixes = {
+        s.lower() if s.startswith(".") else f".{s.lower()}" 
+        for s in SUPPORTED_FORMATS
+    }
+    
+    # Use correct iterator method
     iterator = base_path.rglob("*") if config.recursive else base_path.iterdir()
 
     for p in iterator:
@@ -134,14 +159,17 @@ def load_geospatial_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFr
                 logger.warning("File has no CRS, skipping reprojection: %s", file_path)
             else:
                 try:
-                    gdf_crs = CRS.from_user_input(gdf.crs)
-                    if not gdf_crs == target_crs:
-                        # geopandas accepts a CRS-like input string/object
-                        gdf = gdf.to_crs(target_crs.to_string())
+                    gdf_crs = gdf.crs
+                    if gdf_crs != target_crs:
+                        # Reproject to target CRS
+                        gdf = gdf.to_crs(target_crs)
                 except Exception as e:
                     logger.warning("Failed to normalize or compare CRS for %s: %s", file_path, e)
 
+            # Remove invalid geometries
             cleaned = remove_invalid_geometries(gdf)
+            
+            # Create relative path key
             key = str(p.relative_to(base_path))
             loaded_files[key] = cleaned
 
@@ -537,3 +565,108 @@ def combine_map_layers(
     if not isinstance(grouped_layers, list):
         grouped_layers = [grouped_layers]
     return static_layers + grouped_layers
+
+@task
+def make_text_layer(
+    txt_gdf,
+    label_column="label",
+    name_column="name",
+    use_centroid=True,
+    color=[0, 0, 0, 255],
+    size=16,
+    font_weight="normal",
+    font_family="Arial",
+    text_anchor="middle",
+    alignment_baseline="center",
+    pickable=True,
+    tooltip_columns=None,
+    zoom=False,
+    target_crs="epsg:4326"
+):
+    """
+    Create a text layer from a GeoDataFrame.
+    
+    Parameters
+    ----------
+    txt_gdf : GeoDataFrame
+        Input geodataframe containing geometries and label data
+    label_column : str, default "label"
+        Name of the column containing text labels
+    name_column : str, default "name"
+        Fallback column to use as label if label_column doesn't exist
+    use_centroid : bool, default True
+        Whether to use geometry centroids for text placement
+    color : list, default [0, 0, 0, 255]
+        RGBA color values for text (0-255)
+    size : int, default 16
+        Font size in pixels
+    font_weight : str, default "normal"
+        Font weight (normal, bold, italic, etc.)
+    font_family : str, default "Arial"
+        Font family name
+    text_anchor : str, default "middle"
+        Horizontal text anchor (start, middle, end)
+    alignment_baseline : str, default "center"
+        Vertical alignment (top, center, bottom)
+    pickable : bool, default True
+        Whether the layer is pickable/interactive
+    tooltip_columns : list, optional
+        Columns to display in tooltip
+    zoom : bool, default False
+        Whether to zoom to layer extent
+    target_crs : str, default "epsg:4326"
+        Target coordinate reference system
+    
+    Returns
+    -------
+    LayerDefinition
+        Configured text layer definition
+    
+    Raises
+    ------
+    ValueError
+        If neither label_column nor name_column exist in the GeoDataFrame
+    """
+    # Validate input
+    if txt_gdf is None or txt_gdf.empty:
+        raise ValueError("txt_gdf cannot be None or empty")
+    
+    # Create a copy to avoid modifying original
+    gdf = txt_gdf.copy()
+    
+    # Handle label column - rename from name_column if label_column doesn't exist
+    if label_column not in gdf.columns:
+        if name_column in gdf.columns:
+            gdf = gdf.rename(columns={name_column: label_column})
+        else:
+            raise ValueError(
+                f"Neither '{label_column}' nor '{name_column}' found. "
+                f"Available columns: {list(gdf.columns)}"
+            )
+    
+    # Use centroids for text placement if requested
+    if use_centroid:
+        gdf["geometry"] = gdf.centroid
+    
+    # Transform to target CRS
+    gdf = gdf.to_crs(target_crs)
+    
+    # Create style configuration
+    style = TextLayerStyle(
+        get_color=color,
+        get_size=size,
+        font_weight=font_weight,
+        get_text_anchor=text_anchor,
+        get_alignment_baseline=alignment_baseline,
+        font_family=font_family,
+        pickable=pickable,
+    )
+    
+    # Build layer definition
+    return LayerDefinition(
+        geodataframe=gdf,
+        layer_style=style,
+        legend=None,
+        tooltip_columns=tooltip_columns,
+        zoom=zoom,
+    )

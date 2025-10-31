@@ -11,69 +11,88 @@
 # ## Imports
 
 import os
+
+from ecoscope_workflows_core.tasks.analysis import (
+    dataframe_column_nunique,
+    dataframe_column_sum,
+)
 from ecoscope_workflows_core.tasks.config import set_workflow_details
 from ecoscope_workflows_core.tasks.filter import set_time_range
-from ecoscope_workflows_core.tasks.groupby import set_groupers
-from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps
-from ecoscope_workflows_ext_ste.tasks import download_file_and_persist
-from ecoscope_workflows_ext_ste.tasks import load_landdx_aoi
-from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column
-from ecoscope_workflows_ext_ste.tasks import annotate_gdf_dict_with_geometry_type
-from ecoscope_workflows_ext_ste.tasks import create_map_layers_from_annotated_dict
-from ecoscope_workflows_core.tasks.io import set_er_connection
-from ecoscope_workflows_core.tasks.io import set_gee_connection
-from ecoscope_workflows_ext_ecoscope.tasks.io import get_subjectgroup_observations
-from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import process_relocations
-from ecoscope_workflows_ext_ecoscope.tasks.transformation import classify_is_night
-from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
-    relocations_to_trajectory,
+from ecoscope_workflows_core.tasks.groupby import set_groupers, split_groups
+from ecoscope_workflows_core.tasks.io import (
+    persist_text,
+    set_er_connection,
+    set_gee_connection,
 )
-from ecoscope_workflows_core.tasks.transformation import add_temporal_index
-from ecoscope_workflows_ext_ecoscope.tasks.transformation import apply_classification
-from ecoscope_workflows_ext_ste.tasks import label_quarter_status
-from ecoscope_workflows_ext_ste.tasks import assign_quarter_status_colors
-from ecoscope_workflows_core.tasks.transformation import map_columns
-from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
-from ecoscope_workflows_core.tasks.groupby import split_groups
-from ecoscope_workflows_core.tasks.transformation import sort_values
-from ecoscope_workflows_ext_ecoscope.tasks.transformation import apply_color_map
-from ecoscope_workflows_core.tasks.transformation import map_values_with_unit
-from ecoscope_workflows_ext_ecoscope.tasks.results import create_polyline_layer
-from ecoscope_workflows_core.tasks.skip import any_is_empty_df
-from ecoscope_workflows_core.tasks.skip import any_dependency_skipped
-from ecoscope_workflows_ext_ste.tasks import create_view_state_from_gdf
-from ecoscope_workflows_ext_ste.tasks import combine_map_layers
-from ecoscope_workflows_ext_ste.tasks import zip_grouped_by_key
-from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap
-from ecoscope_workflows_core.tasks.io import persist_text
-from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
-from ecoscope_workflows_core.tasks.skip import never
-from ecoscope_workflows_core.tasks.results import merge_widget_views
+from ecoscope_workflows_core.tasks.results import (
+    create_map_widget_single_view,
+    create_single_value_widget_single_view,
+    create_text_widget_single_view,
+    gather_dashboard,
+    merge_widget_views,
+)
+from ecoscope_workflows_core.tasks.skip import (
+    any_dependency_skipped,
+    any_is_empty_df,
+    never,
+)
+from ecoscope_workflows_core.tasks.transformation import (
+    add_temporal_index,
+    map_columns,
+    map_values_with_unit,
+    sort_values,
+)
+from ecoscope_workflows_ext_custom.tasks import html_to_png
+from ecoscope_workflows_ext_custom.tasks.results import create_polygon_layer
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density,
 )
-from ecoscope_workflows_ext_ecoscope.tasks.io import determine_season_windows
-from ecoscope_workflows_ext_ste.tasks import create_seasonal_labels
-from ecoscope_workflows_ext_ste.tasks import generate_mcp_gdf
-from ecoscope_workflows_ext_ecoscope.tasks.results import create_polygon_layer
-from ecoscope_workflows_ext_ste.tasks import generate_ecograph_raster
-from ecoscope_workflows_ext_ste.tasks import retrieve_feature_gdf
-from ecoscope_workflows_ext_ste.tasks import calculate_seasonal_home_range
+from ecoscope_workflows_ext_ecoscope.tasks.io import (
+    determine_season_windows,
+    get_subjectgroup_observations,
+    persist_df,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
+    process_relocations,
+    relocations_to_trajectory,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.results import (
+    create_polyline_layer,
+    draw_ecomap,
+    set_base_maps,
+)
 from ecoscope_workflows_ext_ecoscope.tasks.skip import all_geometry_are_none
-from ecoscope_workflows_core.tasks.analysis import dataframe_column_sum
-from ecoscope_workflows_ext_ste.tasks import round_off_values
-from ecoscope_workflows_core.tasks.results import create_single_value_widget_single_view
-from ecoscope_workflows_ext_ste.tasks import dataframe_column_first_unique_str
-from ecoscope_workflows_core.tasks.results import create_text_widget_single_view
-from ecoscope_workflows_ext_ste.tasks import get_duration
-from ecoscope_workflows_core.tasks.analysis import dataframe_column_nunique
-from ecoscope_workflows_ext_ste.tasks import build_mapbook_report_template
-from ecoscope_workflows_ext_ste.tasks import create_context_page
-from ecoscope_workflows_ext_custom.tasks import html_to_png
-from ecoscope_workflows_ext_ste.tasks import flatten_tuple
-from ecoscope_workflows_ext_ste.tasks import create_mapbook_context
-from ecoscope_workflows_ext_ste.tasks import combine_docx_files
-from ecoscope_workflows_core.tasks.results import gather_dashboard
+from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
+    apply_classification,
+    apply_color_map,
+    classify_is_night,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    annotate_gdf_dict_with_geometry_type,
+    assign_quarter_status_colors,
+    build_mapbook_report_template,
+    calculate_seasonal_home_range,
+    combine_docx_files,
+    combine_map_layers,
+    create_context_page,
+    create_map_layers_from_annotated_dict,
+    create_mapbook_context,
+    create_seasonal_labels,
+    create_view_state_from_gdf,
+    dataframe_column_first_unique_str,
+    download_file_and_persist,
+    flatten_tuple,
+    generate_ecograph_raster,
+    generate_mcp_gdf,
+    get_duration,
+    label_quarter_status,
+    load_landdx_aoi,
+    make_text_layer,
+    retrieve_feature_gdf,
+    round_off_values,
+    split_gdf_by_column,
+    zip_grouped_by_key,
+)
 
 # %% [markdown]
 # ## Initialize Workflow Metadata
@@ -107,6 +126,7 @@ initialize_workflow_metadata = (
 define_time_range_params = dict(
     since=...,
     until=...,
+    timezone=...,
 )
 
 # %%
@@ -278,9 +298,7 @@ download_ldx_db = (
 # %%
 # parameters
 
-load_aoi_params = dict(
-    aoi=...,
-)
+load_aoi_params = dict()
 
 # %%
 # call the task
@@ -288,7 +306,30 @@ load_aoi_params = dict(
 
 load_aoi = (
     load_landdx_aoi.handle_errors(task_instance_id="load_aoi")
-    .partial(map_path=download_ldx_db, **load_aoi_params)
+    .partial(
+        map_path=download_ldx_db,
+        aoi=["Community Conservancy", "National Reserve", "National Park"],
+        **load_aoi_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Create text layer from filtered aoi
+
+# %%
+# parameters
+
+custom_text_layer_params = dict()
+
+# %%
+# call the task
+
+
+custom_text_layer = (
+    make_text_layer.handle_errors(task_instance_id="custom_text_layer")
+    .partial(txt_gdf=load_aoi, **custom_text_layer_params)
     .call()
 )
 
@@ -339,9 +380,7 @@ annotate_geometry_types = (
 # %%
 # parameters
 
-create_styled_landdx_layers_params = dict(
-    style_config=...,
-)
+create_styled_landdx_layers_params = dict()
 
 # %%
 # call the task
@@ -352,7 +391,35 @@ create_styled_landdx_layers = (
         task_instance_id="create_styled_landdx_layers"
     )
     .partial(
-        annotated_dict=annotate_geometry_types, **create_styled_landdx_layers_params
+        annotated_dict=annotate_geometry_types,
+        style_config={
+            "styles": {
+                "Community Conservancy": {
+                    "get_fill_color": [85, 107, 47],
+                    "get_line_color": [85, 107, 47],
+                    "opacity": 0.15,
+                },
+                "National Reserve": {
+                    "get_fill_color": [143, 188, 139],
+                    "get_line_color": [143, 188, 139],
+                    "opacity": 0.15,
+                },
+                "National Park": {
+                    "get_fill_color": [255, 250, 205],
+                    "get_line_color": [255, 250, 205],
+                    "opacity": 0.15,
+                },
+            },
+            "legend": {
+                "labels": [
+                    "Community Conservancy",
+                    "National Reserve",
+                    "National Park",
+                ],
+                "colors": ["#556b2f", "#8fbc8b", "#fffacd"],
+            },
+        },
+        **create_styled_landdx_layers_params,
     )
     .call()
 )
@@ -893,7 +960,10 @@ ldx_speed_layers_params = dict()
 
 ldx_speed_layers = (
     combine_map_layers.handle_errors(task_instance_id="ldx_speed_layers")
-    .partial(static_layers=create_styled_landdx_layers, **ldx_speed_layers_params)
+    .partial(
+        static_layers=[create_styled_landdx_layers, custom_text_layer],
+        **ldx_speed_layers_params,
+    )
     .mapvalues(argnames=["grouped_layers"], argvalues=generate_speedmap_layers)
 )
 
@@ -927,7 +997,9 @@ zip_speed_zoom_values = (
 # %%
 # parameters
 
-draw_speed_ecomap_params = dict()
+draw_speed_ecomap_params = dict(
+    widget_id=...,
+)
 
 # %%
 # call the task
@@ -956,6 +1028,7 @@ draw_speed_ecomap = (
 
 persist_speed_ecomap_urls_params = dict(
     filename=...,
+    filename_suffix=...,
 )
 
 # %%
@@ -1134,7 +1207,10 @@ ldx_dn_layers_params = dict()
 
 ldx_dn_layers = (
     combine_map_layers.handle_errors(task_instance_id="ldx_dn_layers")
-    .partial(static_layers=create_styled_landdx_layers, **ldx_dn_layers_params)
+    .partial(
+        static_layers=[create_styled_landdx_layers, custom_text_layer],
+        **ldx_dn_layers_params,
+    )
     .mapvalues(argnames=["grouped_layers"], argvalues=generate_day_night_ecomap_layers)
 )
 
@@ -1164,7 +1240,9 @@ dn_view_zip = (
 # %%
 # parameters
 
-draw_day_night_ecomap_params = dict()
+draw_day_night_ecomap_params = dict(
+    widget_id=...,
+)
 
 # %%
 # call the task
@@ -1193,6 +1271,7 @@ draw_day_night_ecomap = (
 
 persist_day_night_ecomap_urls_params = dict(
     filename=...,
+    filename_suffix=...,
 )
 
 # %%
@@ -1353,7 +1432,7 @@ combine_quarter_ecomap_layers_params = dict()
 combine_quarter_ecomap_layers = (
     combine_map_layers.handle_errors(task_instance_id="combine_quarter_ecomap_layers")
     .partial(
-        static_layers=create_styled_landdx_layers,
+        static_layers=[create_styled_landdx_layers, custom_text_layer],
         **combine_quarter_ecomap_layers_params,
     )
     .mapvalues(argnames=["grouped_layers"], argvalues=generate_quarter_ecomap_layers)
@@ -1387,7 +1466,9 @@ qm_view_zip = (
 # %%
 # parameters
 
-draw_quarter_status_ecomap_params = dict()
+draw_quarter_status_ecomap_params = dict(
+    widget_id=...,
+)
 
 # %%
 # call the task
@@ -1416,6 +1497,7 @@ draw_quarter_status_ecomap = (
 
 persist_quarter_ecomap_urls_params = dict(
     filename=...,
+    filename_suffix=...,
 )
 
 # %%
@@ -1487,7 +1569,6 @@ merge_quarter_ecomap_widgets = (
 # parameters
 
 generate_etd_params = dict(
-    auto_scale_or_custom_cell_size=...,
     max_speed_factor=...,
     expansion_factor=...,
 )
@@ -1499,6 +1580,10 @@ generate_etd_params = dict(
 generate_etd = (
     calculate_elliptical_time_density.handle_errors(task_instance_id="generate_etd")
     .partial(
+        auto_scale_or_custom_cell_size={
+            "auto_scale_or_custom": "Customize",
+            "grid_cell_size": 2000,
+        },
         crs="ESRI:53042",
         percentiles=[50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
         nodata_value="nan",
@@ -1627,9 +1712,7 @@ apply_etd_percentile_colormap = (
 # %%
 # parameters
 
-generate_etd_ecomap_layers_params = dict(
-    zoom=...,
-)
+generate_etd_ecomap_layers_params = dict()
 
 # %%
 # call the task
@@ -1660,9 +1743,7 @@ generate_etd_ecomap_layers = (
 # %%
 # parameters
 
-generate_mcp_layers_params = dict(
-    zoom=...,
-)
+generate_mcp_layers_params = dict()
 
 # %%
 # call the task
@@ -1685,7 +1766,7 @@ generate_mcp_layers = (
             "opacity": 0.75,
             "stroked": True,
         },
-        legend={"labels": ["mcp"], "colors": ["#ff1493"]},
+        legend={"labels": ["MCP"], "colors": ["#ff1493"]},
         tooltip_columns=["area_km2"],
         **generate_mcp_layers_params,
     )
@@ -1748,7 +1829,7 @@ combine_landdx_hr_ecomap_layers_params = dict()
 combine_landdx_hr_ecomap_layers = (
     combine_map_layers.handle_errors(task_instance_id="combine_landdx_hr_ecomap_layers")
     .partial(
-        static_layers=create_styled_landdx_layers,
+        static_layers=[create_styled_landdx_layers, custom_text_layer],
         **combine_landdx_hr_ecomap_layers_params,
     )
     .mapvalues(argnames=["grouped_layers"], argvalues=zip_mcp_hr)
@@ -1782,7 +1863,9 @@ hr_view_zip = (
 # %%
 # parameters
 
-draw_hr_ecomap_params = dict()
+draw_hr_ecomap_params = dict(
+    widget_id=...,
+)
 
 # %%
 # call the task
@@ -1811,6 +1894,7 @@ draw_hr_ecomap = (
 
 persist_hr_ecomap_urls_params = dict(
     filename=...,
+    filename_suffix=...,
 )
 
 # %%
@@ -1886,7 +1970,6 @@ generate_speed_raster_params = dict(
     radius=...,
     cutoff=...,
     tortuosity_length=...,
-    step_length=...,
     network_metric=...,
 )
 
@@ -1897,6 +1980,7 @@ generate_speed_raster_params = dict(
 generate_speed_raster = (
     generate_ecograph_raster.handle_errors(task_instance_id="generate_speed_raster")
     .partial(
+        step_length=2000,
         dist_col="dist_meters",
         interpolation="mean",
         movement_covariate="speed",
@@ -2029,9 +2113,7 @@ format_speed_raster_labels = (
 # %%
 # parameters
 
-generate_raster_layers_params = dict(
-    zoom=...,
-)
+generate_raster_layers_params = dict()
 
 # %%
 # call the task
@@ -2093,7 +2175,7 @@ combine_seasonal_raster_layers_params = dict()
 combine_seasonal_raster_layers = (
     combine_map_layers.handle_errors(task_instance_id="combine_seasonal_raster_layers")
     .partial(
-        static_layers=create_styled_landdx_layers,
+        static_layers=[create_styled_landdx_layers, custom_text_layer],
         **combine_seasonal_raster_layers_params,
     )
     .mapvalues(argnames=["grouped_layers"], argvalues=generate_raster_layers)
@@ -2129,7 +2211,9 @@ speedraster_view_zip = (
 # %%
 # parameters
 
-draw_speed_raster_ecomaps_params = dict()
+draw_speed_raster_ecomaps_params = dict(
+    widget_id=...,
+)
 
 # %%
 # call the task
@@ -2158,6 +2242,7 @@ draw_speed_raster_ecomaps = (
 
 speed_raster_ecomap_urls_params = dict(
     filename=...,
+    filename_suffix=...,
 )
 
 # %%
@@ -2280,9 +2365,7 @@ season_colormap = (
 # %%
 # parameters
 
-season_etd_map_layer_params = dict(
-    zoom=...,
-)
+season_etd_map_layer_params = dict()
 
 # %%
 # call the task
@@ -2340,7 +2423,10 @@ comb_season_map_layers_params = dict()
 
 comb_season_map_layers = (
     combine_map_layers.handle_errors(task_instance_id="comb_season_map_layers")
-    .partial(static_layers=create_styled_landdx_layers, **comb_season_map_layers_params)
+    .partial(
+        static_layers=[create_styled_landdx_layers, custom_text_layer],
+        **comb_season_map_layers_params,
+    )
     .mapvalues(argnames=["grouped_layers"], argvalues=season_etd_map_layer)
 )
 
@@ -2372,7 +2458,9 @@ seasons_view_zip = (
 # %%
 # parameters
 
-seasonal_ecomap_params = dict()
+seasonal_ecomap_params = dict(
+    widget_id=...,
+)
 
 # %%
 # call the task
@@ -2401,6 +2489,7 @@ seasonal_ecomap = (
 
 season_etd_ecomap_html_url_params = dict(
     filename=...,
+    filename_suffix=...,
 )
 
 # %%

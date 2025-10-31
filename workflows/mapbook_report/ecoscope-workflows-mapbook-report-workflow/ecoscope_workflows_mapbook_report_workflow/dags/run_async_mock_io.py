@@ -10,82 +10,120 @@ that they would not be included (or would be different) in the production versio
 import json
 import os
 import warnings  # 🧪
-from ecoscope_workflows_core.testing import create_task_magicmock  # 🧪
-
 
 from ecoscope_workflows_core.graph import DependsOn, DependsOnSequence, Graph, Node
-
 from ecoscope_workflows_core.tasks.config import set_workflow_details
 from ecoscope_workflows_core.tasks.filter import set_time_range
 from ecoscope_workflows_core.tasks.groupby import set_groupers
+from ecoscope_workflows_core.tasks.io import set_er_connection, set_gee_connection
+from ecoscope_workflows_core.testing import create_task_magicmock  # 🧪
 from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps
-from ecoscope_workflows_ext_ste.tasks import download_file_and_persist
-from ecoscope_workflows_ext_ste.tasks import load_landdx_aoi
-from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column
-from ecoscope_workflows_ext_ste.tasks import annotate_gdf_dict_with_geometry_type
-from ecoscope_workflows_ext_ste.tasks import create_map_layers_from_annotated_dict
-from ecoscope_workflows_core.tasks.io import set_er_connection
-from ecoscope_workflows_core.tasks.io import set_gee_connection
+from ecoscope_workflows_ext_ste.tasks import (
+    annotate_gdf_dict_with_geometry_type,
+    create_map_layers_from_annotated_dict,
+    download_file_and_persist,
+    load_landdx_aoi,
+    make_text_layer,
+    split_gdf_by_column,
+)
 
 get_subjectgroup_observations = create_task_magicmock(  # 🧪
     anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
     func_name="get_subjectgroup_observations",  # 🧪
 )  # 🧪
-from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import process_relocations
-from ecoscope_workflows_ext_ecoscope.tasks.transformation import classify_is_night
-from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
-    relocations_to_trajectory,
-)
-from ecoscope_workflows_core.tasks.transformation import add_temporal_index
-from ecoscope_workflows_ext_ecoscope.tasks.transformation import apply_classification
-from ecoscope_workflows_ext_ste.tasks import label_quarter_status
-from ecoscope_workflows_ext_ste.tasks import assign_quarter_status_colors
-from ecoscope_workflows_core.tasks.transformation import map_columns
-from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
 from ecoscope_workflows_core.tasks.groupby import split_groups
-from ecoscope_workflows_core.tasks.transformation import sort_values
-from ecoscope_workflows_ext_ecoscope.tasks.transformation import apply_color_map
-from ecoscope_workflows_core.tasks.transformation import map_values_with_unit
-from ecoscope_workflows_ext_ecoscope.tasks.results import create_polyline_layer
-from ecoscope_workflows_core.tasks.skip import any_is_empty_df
-from ecoscope_workflows_core.tasks.skip import any_dependency_skipped
-from ecoscope_workflows_ext_ste.tasks import create_view_state_from_gdf
-from ecoscope_workflows_ext_ste.tasks import combine_map_layers
-from ecoscope_workflows_ext_ste.tasks import zip_grouped_by_key
-from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap
 from ecoscope_workflows_core.tasks.io import persist_text
-from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
-from ecoscope_workflows_core.tasks.skip import never
-from ecoscope_workflows_core.tasks.results import merge_widget_views
+from ecoscope_workflows_core.tasks.results import (
+    create_map_widget_single_view,
+    merge_widget_views,
+)
+from ecoscope_workflows_core.tasks.skip import (
+    any_dependency_skipped,
+    any_is_empty_df,
+    never,
+)
+from ecoscope_workflows_core.tasks.transformation import (
+    add_temporal_index,
+    map_columns,
+    map_values_with_unit,
+    sort_values,
+)
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
+from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
+    process_relocations,
+    relocations_to_trajectory,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.results import (
+    create_polyline_layer,
+    draw_ecomap,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
+    apply_classification,
+    apply_color_map,
+    classify_is_night,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    assign_quarter_status_colors,
+    combine_map_layers,
+    create_view_state_from_gdf,
+    label_quarter_status,
+    zip_grouped_by_key,
 )
 
 determine_season_windows = create_task_magicmock(  # 🧪
     anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
     func_name="determine_season_windows",  # 🧪
 )  # 🧪
-from ecoscope_workflows_ext_ste.tasks import create_seasonal_labels
-from ecoscope_workflows_ext_ste.tasks import generate_mcp_gdf
-from ecoscope_workflows_ext_ecoscope.tasks.results import create_polygon_layer
-from ecoscope_workflows_ext_ste.tasks import generate_ecograph_raster
-from ecoscope_workflows_ext_ste.tasks import retrieve_feature_gdf
-from ecoscope_workflows_ext_ste.tasks import calculate_seasonal_home_range
-from ecoscope_workflows_ext_ecoscope.tasks.skip import all_geometry_are_none
-from ecoscope_workflows_core.tasks.analysis import dataframe_column_sum
-from ecoscope_workflows_ext_ste.tasks import round_off_values
-from ecoscope_workflows_core.tasks.results import create_single_value_widget_single_view
-from ecoscope_workflows_ext_ste.tasks import dataframe_column_first_unique_str
-from ecoscope_workflows_core.tasks.results import create_text_widget_single_view
-from ecoscope_workflows_ext_ste.tasks import get_duration
-from ecoscope_workflows_core.tasks.analysis import dataframe_column_nunique
-from ecoscope_workflows_ext_ste.tasks import build_mapbook_report_template
-from ecoscope_workflows_ext_ste.tasks import create_context_page
+from ecoscope_workflows_core.tasks.analysis import (
+    dataframe_column_nunique,
+    dataframe_column_sum,
+)
+from ecoscope_workflows_core.tasks.io import persist_text
+from ecoscope_workflows_core.tasks.results import (
+    create_map_widget_single_view,
+    create_single_value_widget_single_view,
+    create_text_widget_single_view,
+    gather_dashboard,
+    merge_widget_views,
+)
+from ecoscope_workflows_core.tasks.skip import (
+    any_dependency_skipped,
+    any_is_empty_df,
+    never,
+)
+from ecoscope_workflows_core.tasks.transformation import (
+    map_values_with_unit,
+    sort_values,
+)
 from ecoscope_workflows_ext_custom.tasks import html_to_png
-from ecoscope_workflows_ext_ste.tasks import flatten_tuple
-from ecoscope_workflows_ext_ste.tasks import create_mapbook_context
-from ecoscope_workflows_ext_ste.tasks import combine_docx_files
-from ecoscope_workflows_core.tasks.results import gather_dashboard
+from ecoscope_workflows_ext_custom.tasks.results import create_polygon_layer
+from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap
+from ecoscope_workflows_ext_ecoscope.tasks.skip import all_geometry_are_none
+from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
+    apply_classification,
+    apply_color_map,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    build_mapbook_report_template,
+    calculate_seasonal_home_range,
+    combine_docx_files,
+    combine_map_layers,
+    create_context_page,
+    create_mapbook_context,
+    create_seasonal_labels,
+    create_view_state_from_gdf,
+    dataframe_column_first_unique_str,
+    flatten_tuple,
+    generate_ecograph_raster,
+    generate_mcp_gdf,
+    get_duration,
+    retrieve_feature_gdf,
+    round_off_values,
+    zip_grouped_by_key,
+)
 
 from ..params import Params
 
@@ -105,6 +143,7 @@ def main(params: Params):
         "download_logo_path": [],
         "download_ldx_db": [],
         "load_aoi": ["download_ldx_db"],
+        "custom_text_layer": ["load_aoi"],
         "split_landdx_by_type": ["load_aoi"],
         "annotate_geometry_types": ["split_landdx_by_type"],
         "create_styled_landdx_layers": ["annotate_geometry_types"],
@@ -134,7 +173,11 @@ def main(params: Params):
         "format_speed_values": ["format_speed_bin_labels"],
         "generate_speedmap_layers": ["format_speed_values"],
         "zoom_speed_traj_view": ["format_speed_values"],
-        "ldx_speed_layers": ["create_styled_landdx_layers", "generate_speedmap_layers"],
+        "ldx_speed_layers": [
+            "create_styled_landdx_layers",
+            "custom_text_layer",
+            "generate_speedmap_layers",
+        ],
         "zip_speed_zoom_values": ["ldx_speed_layers", "zoom_speed_traj_view"],
         "draw_speed_ecomap": ["configure_base_maps", "zip_speed_zoom_values"],
         "persist_speed_ecomap_urls": ["draw_speed_ecomap"],
@@ -146,6 +189,7 @@ def main(params: Params):
         "zoom_dn_view": ["apply_day_night_colormap"],
         "ldx_dn_layers": [
             "create_styled_landdx_layers",
+            "custom_text_layer",
             "generate_day_night_ecomap_layers",
         ],
         "dn_view_zip": ["ldx_dn_layers", "zoom_dn_view"],
@@ -158,6 +202,7 @@ def main(params: Params):
         "zoom_qm_view": ["format_speed_values"],
         "combine_quarter_ecomap_layers": [
             "create_styled_landdx_layers",
+            "custom_text_layer",
             "generate_quarter_ecomap_layers",
         ],
         "qm_view_zip": ["combine_quarter_ecomap_layers", "zoom_qm_view"],
@@ -184,6 +229,7 @@ def main(params: Params):
         "zip_mcp_hr": ["generate_mcp_layers", "generate_etd_ecomap_layers"],
         "combine_landdx_hr_ecomap_layers": [
             "create_styled_landdx_layers",
+            "custom_text_layer",
             "zip_mcp_hr",
         ],
         "hr_view_zip": ["combine_landdx_hr_ecomap_layers", "zoom_hr_view"],
@@ -201,6 +247,7 @@ def main(params: Params):
         "zoom_speedraster_view": ["format_speed_raster_labels"],
         "combine_seasonal_raster_layers": [
             "create_styled_landdx_layers",
+            "custom_text_layer",
             "generate_raster_layers",
         ],
         "speedraster_view_zip": [
@@ -217,6 +264,7 @@ def main(params: Params):
         "zoom_season_view": ["season_colormap"],
         "comb_season_map_layers": [
             "create_styled_landdx_layers",
+            "custom_text_layer",
             "season_etd_map_layer",
         ],
         "seasons_view_zip": ["comb_season_map_layers", "zoom_season_view"],
@@ -385,8 +433,19 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "map_path": DependsOn("download_ldx_db"),
+                "aoi": ["Community Conservancy", "National Reserve", "National Park"],
             }
             | (params_dict.get("load_aoi") or {}),
+            method="call",
+        ),
+        "custom_text_layer": Node(
+            async_task=make_text_layer.validate()
+            .handle_errors(task_instance_id="custom_text_layer")
+            .set_executor("lithops"),
+            partial={
+                "txt_gdf": DependsOn("load_aoi"),
+            }
+            | (params_dict.get("custom_text_layer") or {}),
             method="call",
         ),
         "split_landdx_by_type": Node(
@@ -416,6 +475,33 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "annotated_dict": DependsOn("annotate_geometry_types"),
+                "style_config": {
+                    "styles": {
+                        "Community Conservancy": {
+                            "get_fill_color": [85, 107, 47],
+                            "get_line_color": [85, 107, 47],
+                            "opacity": 0.15,
+                        },
+                        "National Reserve": {
+                            "get_fill_color": [143, 188, 139],
+                            "get_line_color": [143, 188, 139],
+                            "opacity": 0.15,
+                        },
+                        "National Park": {
+                            "get_fill_color": [255, 250, 205],
+                            "get_line_color": [255, 250, 205],
+                            "opacity": 0.15,
+                        },
+                    },
+                    "legend": {
+                        "labels": [
+                            "Community Conservancy",
+                            "National Reserve",
+                            "National Park",
+                        ],
+                        "colors": ["#556b2f", "#8fbc8b", "#fffacd"],
+                    },
+                },
             }
             | (params_dict.get("create_styled_landdx_layers") or {}),
             method="call",
@@ -727,7 +813,12 @@ def main(params: Params):
             .handle_errors(task_instance_id="ldx_speed_layers")
             .set_executor("lithops"),
             partial={
-                "static_layers": DependsOn("create_styled_landdx_layers"),
+                "static_layers": DependsOnSequence(
+                    [
+                        DependsOn("create_styled_landdx_layers"),
+                        DependsOn("custom_text_layer"),
+                    ],
+                ),
             }
             | (params_dict.get("ldx_speed_layers") or {}),
             method="mapvalues",
@@ -891,7 +982,12 @@ def main(params: Params):
             .handle_errors(task_instance_id="ldx_dn_layers")
             .set_executor("lithops"),
             partial={
-                "static_layers": DependsOn("create_styled_landdx_layers"),
+                "static_layers": DependsOnSequence(
+                    [
+                        DependsOn("create_styled_landdx_layers"),
+                        DependsOn("custom_text_layer"),
+                    ],
+                ),
             }
             | (params_dict.get("ldx_dn_layers") or {}),
             method="mapvalues",
@@ -1044,7 +1140,12 @@ def main(params: Params):
             .handle_errors(task_instance_id="combine_quarter_ecomap_layers")
             .set_executor("lithops"),
             partial={
-                "static_layers": DependsOn("create_styled_landdx_layers"),
+                "static_layers": DependsOnSequence(
+                    [
+                        DependsOn("create_styled_landdx_layers"),
+                        DependsOn("custom_text_layer"),
+                    ],
+                ),
             }
             | (params_dict.get("combine_quarter_ecomap_layers") or {}),
             method="mapvalues",
@@ -1132,6 +1233,10 @@ def main(params: Params):
             .handle_errors(task_instance_id="generate_etd")
             .set_executor("lithops"),
             partial={
+                "auto_scale_or_custom_cell_size": {
+                    "auto_scale_or_custom": "Customize",
+                    "grid_cell_size": 2000,
+                },
                 "crs": "ESRI:53042",
                 "percentiles": [50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
                 "nodata_value": "nan",
@@ -1259,7 +1364,7 @@ def main(params: Params):
                     "opacity": 0.75,
                     "stroked": True,
                 },
-                "legend": {"labels": ["mcp"], "colors": ["#ff1493"]},
+                "legend": {"labels": ["MCP"], "colors": ["#ff1493"]},
                 "tooltip_columns": ["area_km2"],
             }
             | (params_dict.get("generate_mcp_layers") or {}),
@@ -1300,7 +1405,12 @@ def main(params: Params):
             .handle_errors(task_instance_id="combine_landdx_hr_ecomap_layers")
             .set_executor("lithops"),
             partial={
-                "static_layers": DependsOn("create_styled_landdx_layers"),
+                "static_layers": DependsOnSequence(
+                    [
+                        DependsOn("create_styled_landdx_layers"),
+                        DependsOn("custom_text_layer"),
+                    ],
+                ),
             }
             | (params_dict.get("combine_landdx_hr_ecomap_layers") or {}),
             method="mapvalues",
@@ -1388,6 +1498,7 @@ def main(params: Params):
             .handle_errors(task_instance_id="generate_speed_raster")
             .set_executor("lithops"),
             partial={
+                "step_length": 2000,
                 "dist_col": "dist_meters",
                 "interpolation": "mean",
                 "movement_covariate": "speed",
@@ -1532,7 +1643,12 @@ def main(params: Params):
             .handle_errors(task_instance_id="combine_seasonal_raster_layers")
             .set_executor("lithops"),
             partial={
-                "static_layers": DependsOn("create_styled_landdx_layers"),
+                "static_layers": DependsOnSequence(
+                    [
+                        DependsOn("create_styled_landdx_layers"),
+                        DependsOn("custom_text_layer"),
+                    ],
+                ),
             }
             | (params_dict.get("combine_seasonal_raster_layers") or {}),
             method="mapvalues",
@@ -1702,7 +1818,12 @@ def main(params: Params):
             .handle_errors(task_instance_id="comb_season_map_layers")
             .set_executor("lithops"),
             partial={
-                "static_layers": DependsOn("create_styled_landdx_layers"),
+                "static_layers": DependsOnSequence(
+                    [
+                        DependsOn("create_styled_landdx_layers"),
+                        DependsOn("custom_text_layer"),
+                    ],
+                ),
             }
             | (params_dict.get("comb_season_map_layers") or {}),
             method="mapvalues",

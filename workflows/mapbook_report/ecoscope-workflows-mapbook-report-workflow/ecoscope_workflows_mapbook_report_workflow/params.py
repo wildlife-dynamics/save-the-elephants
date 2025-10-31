@@ -3,19 +3,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Union
 
-from pydantic import (
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
-    Field,
-    RootModel,
-    confloat,
-    conint,
-    constr,
-)
+from pydantic import BaseModel, ConfigDict, Field, RootModel, confloat, conint, constr
 
 
 class InitializeWorkflowMetadata(BaseModel):
@@ -24,14 +16,6 @@ class InitializeWorkflowMetadata(BaseModel):
     )
     name: str = Field(..., title="Workflow Name")
     description: Optional[str] = Field("", title="Workflow Description")
-
-
-class DefineTimeRange(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    since: AwareDatetime = Field(..., description="The start time", title="Since")
-    until: AwareDatetime = Field(..., description="The end time", title="Until")
 
 
 class Url(str, Enum):
@@ -232,11 +216,23 @@ class DownloadLdxDb(BaseModel):
     retries: Optional[conint(ge=0)] = Field(3, title="Retries")
 
 
-class LoadAoi(BaseModel):
+class CustomTextLayer(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    aoi: Optional[List[str]] = Field(None, title="Aoi")
+    label_column: Optional[Any] = Field("label", title="Label Column")
+    name_column: Optional[Any] = Field("name", title="Name Column")
+    use_centroid: Optional[Any] = Field(True, title="Use Centroid")
+    color: Optional[Any] = Field([0, 0, 0, 255], title="Color")
+    size: Optional[Any] = Field(16, title="Size")
+    font_weight: Optional[Any] = Field("normal", title="Font Weight")
+    font_family: Optional[Any] = Field("Arial", title="Font Family")
+    text_anchor: Optional[Any] = Field("middle", title="Text Anchor")
+    alignment_baseline: Optional[Any] = Field("center", title="Alignment Baseline")
+    pickable: Optional[Any] = Field(True, title="Pickable")
+    tooltip_columns: Optional[Any] = Field(None, title="Tooltip Columns")
+    zoom: Optional[Any] = Field(False, title="Zoom")
+    target_crs: Optional[Any] = Field("epsg:4326", title="Target Crs")
 
 
 class SubjectObservations(BaseModel):
@@ -252,6 +248,22 @@ class SortTrajectoriesBySpeed(BaseModel):
     )
     ascending: Optional[bool] = Field(
         True, description="Sort ascending if true", title="Ascending"
+    )
+
+
+class GenerateEtd(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    max_speed_factor: Optional[float] = Field(
+        1.05,
+        description="An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
+        title="Max Speed Factor (Kilometers per Hour)",
+    )
+    expansion_factor: Optional[float] = Field(
+        1.05,
+        description="Controls how far time density values spread across the grid, affecting the smoothness of the output.",
+        title="Shape Buffer Expansion Factor",
     )
 
 
@@ -272,7 +284,6 @@ class GenerateSpeedRaster(BaseModel):
     radius: Optional[int] = Field(2, title="Radius")
     cutoff: Optional[float] = Field(None, title="Cutoff")
     tortuosity_length: Optional[int] = Field(3, title="Tortuosity Length")
-    step_length: Optional[int] = Field(None, title="Step Length")
     network_metric: Optional[NetworkMetric] = Field(None, title="Network Metric")
 
 
@@ -309,17 +320,19 @@ class GenerateMapbookReport(BaseModel):
     filename: Optional[str] = Field(None, title="Filename")
 
 
+class TimezoneInfo(BaseModel):
+    label: str = Field(..., title="Label")
+    tzCode: str = Field(..., title="Tzcode")
+    name: str = Field(..., title="Name")
+    utc: str = Field(..., title="Utc")
+
+
 class TemporalGrouper(RootModel[str]):
     root: str = Field(..., title="Time")
 
 
 class ValueGrouper(RootModel[str]):
     root: str = Field(..., title="Category")
-
-
-class MapStyleConfig(BaseModel):
-    styles: Optional[Dict[str, Dict[str, Any]]] = Field(None, title="Styles")
-    legend: Optional[Dict[str, List[str]]] = Field(None, title="Legend")
 
 
 class EarthRangerConnection(BaseModel):
@@ -378,6 +391,15 @@ class CustomGridCellSize(BaseModel):
     )
 
 
+class DefineTimeRange(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    since: datetime = Field(..., description="The start time", title="Since")
+    until: datetime = Field(..., description="The end time", title="Until")
+    timezone: Optional[TimezoneInfo] = Field(None, title="Timezone")
+
+
 class ConfigureGroupingStrategy(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -387,13 +409,6 @@ class ConfigureGroupingStrategy(BaseModel):
         description="            Specify how the data should be grouped to create the views for your dashboard.\n            This field is optional; if left blank, all the data will appear in a single view.\n            ",
         title=" ",
     )
-
-
-class CreateStyledLanddxLayers(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    style_config: MapStyleConfig = Field(..., title="Style Config")
 
 
 class ErClientName(BaseModel):
@@ -431,25 +446,6 @@ class ConvertToTrajectories(BaseModel):
         ),
         description="Filter track data by setting limits on track segment length, duration, and speed. Segments outside these bounds are removed, reducing noise and to focus on meaningful movement patterns.",
         title=" ",
-    )
-
-
-class GenerateEtd(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    auto_scale_or_custom_cell_size: Optional[
-        Union[AutoScaleGridCellSize, CustomGridCellSize]
-    ] = Field({"auto_scale_or_custom": "Auto-scale"}, title="Grid Cell Size")
-    max_speed_factor: Optional[float] = Field(
-        1.05,
-        description="An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
-        title="Max Speed Factor (Kilometers per Hour)",
-    )
-    expansion_factor: Optional[float] = Field(
-        1.05,
-        description="Controls how far time density values spread across the grid, affecting the smoothness of the output.",
-        title="Shape Buffer Expansion Factor",
     )
 
 
@@ -495,9 +491,8 @@ class Params(BaseModel):
     download_ldx_db: Optional[DownloadLdxDb] = Field(
         None, title="Download LandDx Database and extract"
     )
-    load_aoi: Optional[LoadAoi] = Field(None, title="Load AOI from landDx")
-    create_styled_landdx_layers: Optional[CreateStyledLanddxLayers] = Field(
-        None, title="Style LandDx Map Layers"
+    custom_text_layer: Optional[CustomTextLayer] = Field(
+        None, title="Create text layer from filtered aoi"
     )
     er_client_name: Optional[ErClientName] = Field(
         None, title="Connect to EarthRanger Instance"

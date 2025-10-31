@@ -34,6 +34,15 @@
           "title": "Until",
           "type": "string",
           "description": "The end time"
+        },
+        "timezone": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TimezoneInfo"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
         }
       },
       "required": [
@@ -346,42 +355,70 @@
       "type": "object",
       "title": "Download LandDx Database and extract"
     },
-    "load_aoi": {
+    "custom_text_layer": {
       "additionalProperties": false,
       "properties": {
-        "aoi": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
+        "label_column": {
+          "default": "label",
+          "title": "Label Column"
+        },
+        "name_column": {
+          "default": "name",
+          "title": "Name Column"
+        },
+        "use_centroid": {
+          "default": true,
+          "title": "Use Centroid"
+        },
+        "color": {
+          "default": [
+            0,
+            0,
+            0,
+            255
           ],
+          "title": "Color"
+        },
+        "size": {
+          "default": 16,
+          "title": "Size"
+        },
+        "font_weight": {
+          "default": "normal",
+          "title": "Font Weight"
+        },
+        "font_family": {
+          "default": "Arial",
+          "title": "Font Family"
+        },
+        "text_anchor": {
+          "default": "middle",
+          "title": "Text Anchor"
+        },
+        "alignment_baseline": {
+          "default": "center",
+          "title": "Alignment Baseline"
+        },
+        "pickable": {
+          "default": true,
+          "title": "Pickable"
+        },
+        "tooltip_columns": {
           "default": null,
-          "title": "Aoi"
+          "title": "Tooltip Columns"
+        },
+        "zoom": {
+          "default": false,
+          "title": "Zoom"
+        },
+        "target_crs": {
+          "default": "epsg:4326",
+          "title": "Target Crs"
         }
       },
       "required": [],
       "type": "object",
-      "title": "Load AOI from landDx"
-    },
-    "create_styled_landdx_layers": {
-      "additionalProperties": false,
-      "properties": {
-        "style_config": {
-          "$ref": "#/$defs/MapStyleConfig",
-          "title": "Style Config"
-        }
-      },
-      "required": [
-        "style_config"
-      ],
-      "type": "object",
-      "title": "Style LandDx Map Layers"
+      "title": "Create text layer from filtered aoi"
     },
     "er_client_name": {
       "additionalProperties": false,
@@ -470,21 +507,6 @@
     "generate_etd": {
       "additionalProperties": false,
       "properties": {
-        "auto_scale_or_custom_cell_size": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AutoScaleGridCellSize"
-            },
-            {
-              "$ref": "#/$defs/CustomGridCellSize"
-            }
-          ],
-          "default": {
-            "auto_scale_or_custom": "Auto-scale"
-          },
-          "title": "Grid Cell Size",
-          "ecoscope:advanced": true
-        },
         "max_speed_factor": {
           "default": 1.05,
           "title": "Max Speed Factor (Kilometers per Hour)",
@@ -564,18 +586,6 @@
           "default": 3,
           "title": "Tortuosity Length",
           "type": "integer"
-        },
-        "step_length": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Step Length"
         },
         "network_metric": {
           "anyOf": [
@@ -714,6 +724,34 @@
     }
   },
   "$defs": {
+    "TimezoneInfo": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "tzCode": {
+          "title": "Tzcode",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "utc": {
+          "title": "Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "tzCode",
+        "name",
+        "utc"
+      ],
+      "title": "TimezoneInfo",
+      "type": "object"
+    },
     "TemporalGrouper": {
       "oneOf": [
         {
@@ -756,29 +794,6 @@
       "oneOf": [],
       "title": "Category",
       "type": "string"
-    },
-    "MapStyleConfig": {
-      "properties": {
-        "styles": {
-          "additionalProperties": {
-            "type": "object"
-          },
-          "title": "Styles",
-          "type": "object"
-        },
-        "legend": {
-          "additionalProperties": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "title": "Legend",
-          "type": "object"
-        }
-      },
-      "title": "MapStyleConfig",
-      "type": "object"
     },
     "EarthRangerConnection": {
       "properties": {
@@ -909,7 +924,8 @@
     "define_time_range": {
       "ui:order": [
         "since",
-        "until"
+        "until",
+        "timezone"
       ]
     },
     "download_mapbook_cover_page": {
@@ -931,9 +947,25 @@
         "unzip"
       ]
     },
+    "custom_text_layer": {
+      "ui:order": [
+        "label_column",
+        "name_column",
+        "use_centroid",
+        "color",
+        "size",
+        "font_weight",
+        "font_family",
+        "text_anchor",
+        "alignment_baseline",
+        "pickable",
+        "tooltip_columns",
+        "zoom",
+        "target_crs"
+      ]
+    },
     "generate_etd": {
       "ui:order": [
-        "auto_scale_or_custom_cell_size",
         "max_speed_factor",
         "expansion_factor"
       ]
@@ -946,7 +978,6 @@
         "radius",
         "cutoff",
         "tortuosity_length",
-        "step_length",
         "network_metric"
       ]
     },
@@ -973,8 +1004,7 @@
       "download_sect_templates",
       "download_logo_path",
       "download_ldx_db",
-      "load_aoi",
-      "create_styled_landdx_layers",
+      "custom_text_layer",
       "er_client_name",
       "gee_project_name",
       "subject_observations",

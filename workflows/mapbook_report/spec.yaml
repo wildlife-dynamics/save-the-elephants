@@ -1,11 +1,15 @@
 id: mapbook_report
 requirements:
   - name: ecoscope-workflows-core
-    version: "*"
+    version: "0.14.0.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows/
+
+  - name: ecoscope-workflows-ext-ecoscope
+    version: "0.14.0.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.3.*"
+    version: "*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-ste
@@ -78,7 +82,19 @@ workflow:
     task: load_landdx_aoi
     partial:
       map_path: ${{ workflow.download_ldx_db.return }}
+      aoi:
+        - Community Conservancy
+        - National Reserve
+        - National Park
 
+  # create text layer from filtered aoi
+  - name: Create text layer from filtered aoi
+    id: custom_text_layer
+    task: make_text_layer
+    partial:
+      txt_gdf: ${{ workflow.load_aoi.return }}
+    
+  
   # split LandDx AOI features by 'type' column
   - name: Split LandDx Layers by Type
     id: split_landdx_by_type
@@ -100,6 +116,27 @@ workflow:
     task: create_map_layers_from_annotated_dict
     partial:
       annotated_dict: ${{ workflow.annotate_geometry_types.return }}
+      style_config:
+        styles:
+          Community Conservancy:
+            get_fill_color: [85, 107, 47]
+            get_line_color: [85, 107, 47]
+            opacity: 0.15
+          
+          National Reserve:
+            get_fill_color: [143, 188, 139]
+            get_line_color: [143, 188, 139]
+            opacity: 0.15
+
+          National Park: 
+            get_fill_color: [255, 250, 205]
+            get_line_color: [255, 250, 205]
+            opacity: 0.15
+
+        legend:
+          labels: ["Community Conservancy","National Reserve", "National Park"]
+          colors: ["#556b2f","#8fbc8b","#fffacd"]
+
 
   # Connect to ER
   - name: Connect to EarthRanger Instance
@@ -342,7 +379,9 @@ workflow:
     id: ldx_speed_layers
     task: combine_map_layers
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_speedmap_layers.return }}
@@ -475,7 +514,9 @@ workflow:
     id: ldx_dn_layers
     task: combine_map_layers
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_day_night_ecomap_layers.return }}
@@ -591,7 +632,9 @@ workflow:
     id: combine_quarter_ecomap_layers
     task: combine_map_layers
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_quarter_ecomap_layers.return }}
@@ -662,6 +705,10 @@ workflow:
     id: generate_etd
     task: calculate_elliptical_time_density
     partial:
+      auto_scale_or_custom_cell_size:
+        auto_scale_or_custom: Customize
+        grid_cell_size: 2000
+
       crs: ESRI:53042
       percentiles:
         - 50.0
@@ -764,7 +811,7 @@ workflow:
         stroked: true
       legend:
         labels: 
-          - mcp
+          - MCP
         colors: 
           - '#ff1493'
       tooltip_columns:
@@ -797,7 +844,9 @@ workflow:
     id: combine_landdx_hr_ecomap_layers
     task: combine_map_layers
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.zip_mcp_hr.return }}
@@ -820,7 +869,7 @@ workflow:
         placement: top-left
       legend_style:
         placement: bottom-right
-        title: "ETD Metrics"
+        title: ETD Metrics
       static: false
       title: null
       max_zoom: 20
@@ -868,6 +917,7 @@ workflow:
     id: generate_speed_raster
     task: generate_ecograph_raster
     partial:
+      step_length: 2000
       dist_col: dist_meters
       interpolation: mean
       movement_covariate: speed
@@ -983,7 +1033,9 @@ workflow:
     id: combine_seasonal_raster_layers
     task: combine_map_layers
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_raster_layers.return }}
@@ -1114,7 +1166,9 @@ workflow:
     id: comb_season_map_layers
     task: combine_map_layers
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.season_etd_map_layer.return }}
