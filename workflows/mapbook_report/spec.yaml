@@ -100,6 +100,19 @@ workflow:
     task: make_text_layer
     partial:
       txt_gdf: ${{ workflow.load_aoi.return }}
+      label_column: label
+      name_column: name
+      use_centroid: true
+      color: [0, 0, 0, 255]
+      size: 16
+      font_weight: normal
+      font_family: Arial
+      text_anchor: middle
+      alignment_baseline: true
+      pickable: true
+      tooltip_columns: null 
+      zoom: false
+      target_crs: epsg:4326
     
   
   # split LandDx AOI features by 'type' column
@@ -931,7 +944,7 @@ workflow:
       interpolation: mean
       movement_covariate: Speed
       radius: 2
-      cutoff: None ## will this work?
+      cutoff: null
       tortuosity_length : 3
       resolution: null
       network_metric: null
@@ -1562,6 +1575,7 @@ workflow:
       time_period: ${{ workflow.define_time_range.return }}
       period: ${{ workflow.round_report_duration.return }} # months
       filename: null
+      validate_images: true
       box_h_cm: 6.5
       box_w_cm: 11.11
 

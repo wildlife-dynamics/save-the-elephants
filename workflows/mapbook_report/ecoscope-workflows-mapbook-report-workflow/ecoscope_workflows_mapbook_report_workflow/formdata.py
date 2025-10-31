@@ -191,77 +191,11 @@ class DownloadLogoPath(BaseModel):
     url: str = Field(..., title="Url")
 
 
-class CustomTextLayer(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    label_column: Optional[str] = Field(
-        "label", description="Column name containing text labels.", title="Label Column"
-    )
-    name_column: Optional[str] = Field(
-        "name",
-        description="Fallback column name to use as label if label_column doesn’t exist.",
-        title="Name Column",
-    )
-    use_centroid: Optional[bool] = Field(
-        True,
-        description="Whether to use geometry centroids for text placement.",
-        title="Use Centroid",
-    )
-    color: Optional[List[int]] = Field(
-        [0, 0, 0, 255], description="RGBA color values for text (0–255).", title="Color"
-    )
-    size: Optional[int] = Field(16, description="Font size in pixels.", title="Size")
-    font_weight: Optional[str] = Field(
-        "normal",
-        description="Font weight (e.g., normal, bold, italic).",
-        title="Font Weight",
-    )
-    font_family: Optional[str] = Field(
-        "Arial", description="Font family name.", title="Font Family"
-    )
-    text_anchor: Optional[str] = Field(
-        "middle",
-        description="Horizontal text anchor (start, middle, end).",
-        title="Text Anchor",
-    )
-    alignment_baseline: Optional[str] = Field(
-        "center",
-        description="Vertical alignment (top, center, bottom).",
-        title="Alignment Baseline",
-    )
-    pickable: Optional[bool] = Field(
-        True,
-        description="Whether the layer is interactive (pickable).",
-        title="Pickable",
-    )
-    tooltip_columns: Optional[List[str]] = Field(
-        None,
-        description="Columns to display in tooltip when hovered.",
-        title="Tooltip Columns",
-    )
-    zoom: Optional[bool] = Field(
-        False,
-        description="Whether to zoom to the layer extent when displayed.",
-        title="Zoom",
-    )
-    target_crs: Optional[str] = Field(
-        "epsg:4326", description="Target CRS for layer coordinates.", title="Target Crs"
-    )
-
-
 class SubjectObservations(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     subject_group_name: str = Field(..., title="Subject Group Name")
-
-
-class IndividualMapbookContext(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    validate_images: Optional[bool] = Field(True, title="Validate Images")
 
 
 class TimezoneInfo(BaseModel):
@@ -389,9 +323,6 @@ class FormData(BaseModel):
     download_logo_path: Optional[DownloadLogoPath] = Field(
         None, title="Download Logo Path"
     )
-    custom_text_layer: Optional[CustomTextLayer] = Field(
-        None, title="Create text layer from filtered aoi"
-    )
     er_client_name: Optional[ErClientName] = Field(
         None, title="Connect to EarthRanger Instance"
     )
@@ -401,7 +332,4 @@ class FormData(BaseModel):
     )
     convert_to_trajectories: Optional[ConvertToTrajectories] = Field(
         None, title="Convert Relocations to Trajectories"
-    )
-    individual_mapbook_context: Optional[IndividualMapbookContext] = Field(
-        None, title="Create individual mapbook context"
     )

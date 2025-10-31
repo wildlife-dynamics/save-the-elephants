@@ -292,110 +292,6 @@
       "type": "object",
       "title": "Download Logo Path"
     },
-    "custom_text_layer": {
-      "additionalProperties": false,
-      "properties": {
-        "label_column": {
-          "default": "label",
-          "title": "Label Column",
-          "type": "string",
-          "description": "Column name containing text labels."
-        },
-        "name_column": {
-          "default": "name",
-          "title": "Name Column",
-          "type": "string",
-          "description": "Fallback column name to use as label if label_column doesn\u2019t exist."
-        },
-        "use_centroid": {
-          "default": true,
-          "title": "Use Centroid",
-          "type": "boolean",
-          "description": "Whether to use geometry centroids for text placement."
-        },
-        "color": {
-          "default": [
-            0,
-            0,
-            0,
-            255
-          ],
-          "items": {
-            "type": "integer"
-          },
-          "title": "Color",
-          "type": "array",
-          "description": "RGBA color values for text (0\u2013255)."
-        },
-        "size": {
-          "default": 16,
-          "title": "Size",
-          "type": "integer",
-          "description": "Font size in pixels."
-        },
-        "font_weight": {
-          "default": "normal",
-          "title": "Font Weight",
-          "type": "string",
-          "description": "Font weight (e.g., normal, bold, italic)."
-        },
-        "font_family": {
-          "default": "Arial",
-          "title": "Font Family",
-          "type": "string",
-          "description": "Font family name."
-        },
-        "text_anchor": {
-          "default": "middle",
-          "title": "Text Anchor",
-          "type": "string",
-          "description": "Horizontal text anchor (start, middle, end)."
-        },
-        "alignment_baseline": {
-          "default": "center",
-          "title": "Alignment Baseline",
-          "type": "string",
-          "description": "Vertical alignment (top, center, bottom)."
-        },
-        "pickable": {
-          "default": true,
-          "title": "Pickable",
-          "type": "boolean",
-          "description": "Whether the layer is interactive (pickable)."
-        },
-        "tooltip_columns": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Tooltip Columns",
-          "description": "Columns to display in tooltip when hovered."
-        },
-        "zoom": {
-          "default": false,
-          "title": "Zoom",
-          "type": "boolean",
-          "description": "Whether to zoom to the layer extent when displayed."
-        },
-        "target_crs": {
-          "default": "epsg:4326",
-          "title": "Target Crs",
-          "type": "string",
-          "description": "Target CRS for layer coordinates."
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Create text layer from filtered aoi"
-    },
     "er_client_name": {
       "additionalProperties": false,
       "properties": {
@@ -465,19 +361,6 @@
       "required": [],
       "type": "object",
       "title": "Convert Relocations to Trajectories"
-    },
-    "individual_mapbook_context": {
-      "additionalProperties": false,
-      "properties": {
-        "validate_images": {
-          "default": true,
-          "title": "Validate Images",
-          "type": "boolean"
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Create individual mapbook context"
     }
   },
   "$defs": {
@@ -641,35 +524,16 @@
         "timezone"
       ]
     },
-    "custom_text_layer": {
-      "ui:order": [
-        "label_column",
-        "name_column",
-        "use_centroid",
-        "color",
-        "size",
-        "font_weight",
-        "font_family",
-        "text_anchor",
-        "alignment_baseline",
-        "pickable",
-        "tooltip_columns",
-        "zoom",
-        "target_crs"
-      ]
-    },
     "ui:order": [
       "initialize_workflow_metadata",
       "define_time_range",
       "configure_grouping_strategy",
       "configure_base_maps",
       "download_logo_path",
-      "custom_text_layer",
       "er_client_name",
       "gee_project_name",
       "subject_observations",
-      "convert_to_trajectories",
-      "individual_mapbook_context"
+      "convert_to_trajectories"
     ]
   },
   "additionalProperties": false

@@ -232,7 +232,23 @@ def main(params: Params):
     custom_text_layer = (
         make_text_layer.validate()
         .handle_errors(task_instance_id="custom_text_layer")
-        .partial(txt_gdf=load_aoi, **(params_dict.get("custom_text_layer") or {}))
+        .partial(
+            txt_gdf=load_aoi,
+            label_column="label",
+            name_column="name",
+            use_centroid=True,
+            color=[0, 0, 0, 255],
+            size=16,
+            font_weight="normal",
+            font_family="Arial",
+            text_anchor="middle",
+            alignment_baseline=True,
+            pickable=True,
+            tooltip_columns=None,
+            zoom=False,
+            target_crs="epsg:4326",
+            **(params_dict.get("custom_text_layer") or {}),
+        )
         .call()
     )
 
@@ -1090,7 +1106,7 @@ def main(params: Params):
             interpolation="mean",
             movement_covariate="Speed",
             radius=2,
-            cutoff="None",
+            cutoff=None,
             tortuosity_length=3,
             resolution=None,
             network_metric=None,
@@ -1751,6 +1767,7 @@ def main(params: Params):
             time_period=define_time_range,
             period=round_report_duration,
             filename=None,
+            validate_images=True,
             box_h_cm=6.5,
             box_w_cm=11.11,
             **(params_dict.get("individual_mapbook_context") or {}),
