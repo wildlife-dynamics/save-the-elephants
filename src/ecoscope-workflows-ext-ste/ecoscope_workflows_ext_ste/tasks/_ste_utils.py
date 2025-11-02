@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import uuid
 import logging
+import warnings
 import hashlib
 import zipfile
 import numpy as np 
@@ -612,13 +613,49 @@ def build_mapbook_report_template(
 
 @task
 def create_context_page(
-    template_path: str,
-    output_directory: str,
-    context: dict,
-    logo_width_cm: float = 7.7,
-    logo_height_cm: float = 1.93,
-    filename: str = None
-) -> str:
+    template_path: Annotated[
+        str,
+        Field(
+            description="Path to the .docx template file.",
+        ),
+    ],
+    output_directory: Annotated[
+        str,
+        Field(
+            description="Directory to save the generated .docx file.",
+        ),
+    ],
+    context: Annotated[
+        dict,
+        Field(
+            description="Dictionary with context values for the template.",
+        ),
+    ],
+    logo_width_cm: Annotated[
+        float,
+        Field(
+            description="Width of the logo in centimeters.",
+        ),
+    ] = 7.7,
+    logo_height_cm: Annotated[
+        float,
+        Field(
+            description="Height of the logo in centimeters.",
+        ),
+    ] = 1.93,
+    filename: Annotated[
+        Optional[str],
+        Field(
+            description="Optional filename for the generated file. If not provided, a random UUID-based filename will be generated.",
+            exclude=True,
+        ),
+    ] = None,
+) -> Annotated[
+    str,
+    Field(
+        description="Full path to the generated .docx file.",
+    ),
+]:
     """
     Create a context page document from a template and context dictionary.
 
@@ -626,6 +663,8 @@ def create_context_page(
         template_path (str): Path to the .docx template file.
         output_directory (str): Directory to save the generated .docx file.
         context (dict): Dictionary with context values for the template.
+        logo_width_cm (float): Width of the logo in centimeters. Default is 7.7.
+        logo_height_cm (float): Height of the logo in centimeters. Default is 1.93.
         filename (str, optional): Optional filename for the generated file.
             If not provided, a random UUID-based filename will be generated.
 
