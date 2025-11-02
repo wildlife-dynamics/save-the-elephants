@@ -32,7 +32,6 @@ from ecoscope_workflows_core.tasks.transformation import (
     map_values_with_unit,
     sort_values,
 )
-from ecoscope_workflows_ext_custom.tasks import html_to_png
 from ecoscope_workflows_ext_custom.tasks.results import create_polygon_layer
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density,
@@ -75,6 +74,7 @@ from ecoscope_workflows_ext_ste.tasks import (
     generate_ecograph_raster,
     generate_mcp_gdf,
     get_duration,
+    html_to_png_pw,
     label_quarter_status,
     load_landdx_aoi,
     make_text_layer,
@@ -1555,7 +1555,7 @@ def main(params: Params):
     )
 
     convert_speedmap_html_to_png = (
-        html_to_png.validate()
+        html_to_png_pw.validate()
         .handle_errors(task_instance_id="convert_speedmap_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -1566,7 +1566,7 @@ def main(params: Params):
     )
 
     convert_day_night_html_to_png = (
-        html_to_png.validate()
+        html_to_png_pw.validate()
         .handle_errors(task_instance_id="convert_day_night_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -1577,7 +1577,7 @@ def main(params: Params):
     )
 
     convert_quarter_html_to_png = (
-        html_to_png.validate()
+        html_to_png_pw.validate()
         .handle_errors(task_instance_id="convert_quarter_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -1588,7 +1588,7 @@ def main(params: Params):
     )
 
     convert_hr_html_to_png = (
-        html_to_png.validate()
+        html_to_png_pw.validate()
         .handle_errors(task_instance_id="convert_hr_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -1599,7 +1599,7 @@ def main(params: Params):
     )
 
     convert_speed_raster_html_to_png = (
-        html_to_png.validate()
+        html_to_png_pw.validate()
         .handle_errors(task_instance_id="convert_speed_raster_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -1610,7 +1610,7 @@ def main(params: Params):
     )
 
     convert_seasonal_hr_html_to_png = (
-        html_to_png.validate()
+        html_to_png_pw.validate()
         .handle_errors(task_instance_id="convert_seasonal_hr_html_to_png")
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],

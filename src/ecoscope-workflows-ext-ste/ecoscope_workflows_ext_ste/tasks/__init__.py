@@ -38,8 +38,10 @@ from ._ste_utils import (
 
 from ._zip import zip_grouped_by_key ,flatten_tuple
 from ._example import add_one_thousand
+from ._pw_html_to_png import html_to_png_pw
 
 __all__ = [
+    "html_to_png_pw",
     "download_land_dx",
     "view_df",
     "round_off_values",

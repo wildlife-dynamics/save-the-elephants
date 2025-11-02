@@ -8,10 +8,6 @@ requirements:
     version: "0.14.0.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
-  - name: ecoscope-workflows-ext-custom
-    version: "*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
   - name: ecoscope-workflows-ext-ste
     version: "*"
     channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
@@ -1432,7 +1428,7 @@ workflow:
   # 1. speedmap
   - name: Convert speedmap html to png 
     id: convert_speedmap_html_to_png
-    task: html_to_png
+    task: html_to_png_pw
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
@@ -1444,7 +1440,7 @@ workflow:
   # 2. day/night ecomap
   - name: Convert day/night html to png
     id: convert_day_night_html_to_png
-    task: html_to_png
+    task: html_to_png_pw
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
@@ -1456,7 +1452,7 @@ workflow:
   # 3. quarter movement ecomap
   - name: Convert quarter html to png
     id: convert_quarter_html_to_png
-    task: html_to_png
+    task: html_to_png_pw
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
@@ -1468,7 +1464,7 @@ workflow:
   # 4. home range ecomap
   - name: Convert home range html to png
     id: convert_hr_html_to_png
-    task: html_to_png
+    task: html_to_png_pw
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
@@ -1480,7 +1476,7 @@ workflow:
   # 5. speed raster ecomap
   - name: Convert speed raster html to png
     id: convert_speed_raster_html_to_png
-    task: html_to_png
+    task: html_to_png_pw
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
@@ -1492,7 +1488,7 @@ workflow:
   # 6. seasonal home range ecomap
   - name: Convert seasonal home range html to png
     id: convert_seasonal_hr_html_to_png
-    task: html_to_png
+    task: html_to_png_pw
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:

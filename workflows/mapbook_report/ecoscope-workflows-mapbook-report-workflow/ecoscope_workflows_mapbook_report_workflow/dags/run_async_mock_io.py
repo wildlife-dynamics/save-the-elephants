@@ -98,7 +98,6 @@ from ecoscope_workflows_core.tasks.transformation import (
     map_values_with_unit,
     sort_values,
 )
-from ecoscope_workflows_ext_custom.tasks import html_to_png
 from ecoscope_workflows_ext_custom.tasks.results import create_polygon_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap
 from ecoscope_workflows_ext_ecoscope.tasks.skip import all_geometry_are_none
@@ -120,6 +119,7 @@ from ecoscope_workflows_ext_ste.tasks import (
     generate_ecograph_raster,
     generate_mcp_gdf,
     get_duration,
+    html_to_png_pw,
     retrieve_feature_gdf,
     round_off_values,
     zip_grouped_by_key,
@@ -2180,7 +2180,7 @@ def main(params: Params):
             method="call",
         ),
         "convert_speedmap_html_to_png": Node(
-            async_task=html_to_png.validate()
+            async_task=html_to_png_pw.validate()
             .handle_errors(task_instance_id="convert_speedmap_html_to_png")
             .set_executor("lithops"),
             partial={
@@ -2195,7 +2195,7 @@ def main(params: Params):
             },
         ),
         "convert_day_night_html_to_png": Node(
-            async_task=html_to_png.validate()
+            async_task=html_to_png_pw.validate()
             .handle_errors(task_instance_id="convert_day_night_html_to_png")
             .set_executor("lithops"),
             partial={
@@ -2210,7 +2210,7 @@ def main(params: Params):
             },
         ),
         "convert_quarter_html_to_png": Node(
-            async_task=html_to_png.validate()
+            async_task=html_to_png_pw.validate()
             .handle_errors(task_instance_id="convert_quarter_html_to_png")
             .set_executor("lithops"),
             partial={
@@ -2225,7 +2225,7 @@ def main(params: Params):
             },
         ),
         "convert_hr_html_to_png": Node(
-            async_task=html_to_png.validate()
+            async_task=html_to_png_pw.validate()
             .handle_errors(task_instance_id="convert_hr_html_to_png")
             .set_executor("lithops"),
             partial={
@@ -2240,7 +2240,7 @@ def main(params: Params):
             },
         ),
         "convert_speed_raster_html_to_png": Node(
-            async_task=html_to_png.validate()
+            async_task=html_to_png_pw.validate()
             .handle_errors(task_instance_id="convert_speed_raster_html_to_png")
             .set_executor("lithops"),
             partial={
@@ -2255,7 +2255,7 @@ def main(params: Params):
             },
         ),
         "convert_seasonal_hr_html_to_png": Node(
-            async_task=html_to_png.validate()
+            async_task=html_to_png_pw.validate()
             .handle_errors(task_instance_id="convert_seasonal_hr_html_to_png")
             .set_executor("lithops"),
             partial={
