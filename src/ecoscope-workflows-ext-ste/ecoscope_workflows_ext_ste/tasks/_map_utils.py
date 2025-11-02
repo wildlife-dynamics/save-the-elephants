@@ -594,6 +594,8 @@ def combine_map_layers(
             text_layers.append(layer)
         else:
             other_layers.append(layer)
+    
+    return other_layers + text_layers
 
 @task
 def make_text_layer(
