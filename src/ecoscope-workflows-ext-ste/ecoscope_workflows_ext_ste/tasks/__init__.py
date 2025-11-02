@@ -12,6 +12,7 @@ from ._map_utils import (
     create_view_state_from_gdf,
     annotate_gdf_dict_with_geometry_type,
     create_map_layers_from_annotated_dict,
+    custom_polygon_layer,
 )
 
 from ._inspect import view_df,print_output # testing only
@@ -38,10 +39,9 @@ from ._ste_utils import (
 
 from ._zip import zip_grouped_by_key ,flatten_tuple
 from ._example import add_one_thousand
-from ._pw_html_to_png import html_to_png_pw
 
 __all__ = [
-    "html_to_png_pw",
+    "custom_polygon_layer",
     "download_land_dx",
     "view_df",
     "round_off_values",

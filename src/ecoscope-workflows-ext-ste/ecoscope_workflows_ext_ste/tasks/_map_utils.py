@@ -701,3 +701,8 @@ def make_text_layer(
         tooltip_columns=tooltip_columns,
         zoom=zoom,
     )
+
+
+@task 
+def custom_polygon_layer(**kwargs):
+    return create_polygon_layer(**kwargs)

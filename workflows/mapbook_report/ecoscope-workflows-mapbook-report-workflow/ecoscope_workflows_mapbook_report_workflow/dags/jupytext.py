@@ -42,7 +42,7 @@ from ecoscope_workflows_core.tasks.transformation import (
     map_values_with_unit,
     sort_values,
 )
-from ecoscope_workflows_ext_custom.tasks.results import create_polygon_layer
+from ecoscope_workflows_ext_custom.tasks import html_to_png
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density,
 )
@@ -78,13 +78,13 @@ from ecoscope_workflows_ext_ste.tasks import (
     create_mapbook_context,
     create_seasonal_labels,
     create_view_state_from_gdf,
+    custom_polygon_layer,
     dataframe_column_first_unique_str,
     download_file_and_persist,
     flatten_tuple,
     generate_ecograph_raster,
     generate_mcp_gdf,
     get_duration,
-    html_to_png_pw,
     label_quarter_status,
     load_landdx_aoi,
     make_text_layer,
@@ -1730,7 +1730,7 @@ generate_etd_ecomap_layers_params = dict()
 
 
 generate_etd_ecomap_layers = (
-    create_polygon_layer.handle_errors(task_instance_id="generate_etd_ecomap_layers")
+    custom_polygon_layer.handle_errors(task_instance_id="generate_etd_ecomap_layers")
     .skipif(
         conditions=[
             any_is_empty_df,
@@ -1761,7 +1761,7 @@ generate_mcp_layers_params = dict()
 
 
 generate_mcp_layers = (
-    create_polygon_layer.handle_errors(task_instance_id="generate_mcp_layers")
+    custom_polygon_layer.handle_errors(task_instance_id="generate_mcp_layers")
     .skipif(
         conditions=[
             any_is_empty_df,
@@ -2131,7 +2131,7 @@ generate_raster_layers_params = dict()
 
 
 generate_raster_layers = (
-    create_polygon_layer.handle_errors(task_instance_id="generate_raster_layers")
+    custom_polygon_layer.handle_errors(task_instance_id="generate_raster_layers")
     .skipif(
         conditions=[
             any_is_empty_df,
@@ -2388,7 +2388,7 @@ season_etd_map_layer_params = dict()
 
 
 season_etd_map_layer = (
-    create_polygon_layer.handle_errors(task_instance_id="season_etd_map_layer")
+    custom_polygon_layer.handle_errors(task_instance_id="season_etd_map_layer")
     .skipif(
         conditions=[
             any_is_empty_df,
@@ -2946,7 +2946,7 @@ convert_speedmap_html_to_png_params = dict()
 
 
 convert_speedmap_html_to_png = (
-    html_to_png_pw.handle_errors(task_instance_id="convert_speedmap_html_to_png")
+    html_to_png.handle_errors(task_instance_id="convert_speedmap_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         config={"wait_for_timeout": 20000},
@@ -2969,7 +2969,7 @@ convert_day_night_html_to_png_params = dict()
 
 
 convert_day_night_html_to_png = (
-    html_to_png_pw.handle_errors(task_instance_id="convert_day_night_html_to_png")
+    html_to_png.handle_errors(task_instance_id="convert_day_night_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         config={"wait_for_timeout": 20000},
@@ -2992,7 +2992,7 @@ convert_quarter_html_to_png_params = dict()
 
 
 convert_quarter_html_to_png = (
-    html_to_png_pw.handle_errors(task_instance_id="convert_quarter_html_to_png")
+    html_to_png.handle_errors(task_instance_id="convert_quarter_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         config={"wait_for_timeout": 20000},
@@ -3015,7 +3015,7 @@ convert_hr_html_to_png_params = dict()
 
 
 convert_hr_html_to_png = (
-    html_to_png_pw.handle_errors(task_instance_id="convert_hr_html_to_png")
+    html_to_png.handle_errors(task_instance_id="convert_hr_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         config={"wait_for_timeout": 20000},
@@ -3038,7 +3038,7 @@ convert_speed_raster_html_to_png_params = dict()
 
 
 convert_speed_raster_html_to_png = (
-    html_to_png_pw.handle_errors(task_instance_id="convert_speed_raster_html_to_png")
+    html_to_png.handle_errors(task_instance_id="convert_speed_raster_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         config={"wait_for_timeout": 20000},
@@ -3061,7 +3061,7 @@ convert_seasonal_hr_html_to_png_params = dict()
 
 
 convert_seasonal_hr_html_to_png = (
-    html_to_png_pw.handle_errors(task_instance_id="convert_seasonal_hr_html_to_png")
+    html_to_png.handle_errors(task_instance_id="convert_seasonal_hr_html_to_png")
     .partial(
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         config={"wait_for_timeout": 20000},
