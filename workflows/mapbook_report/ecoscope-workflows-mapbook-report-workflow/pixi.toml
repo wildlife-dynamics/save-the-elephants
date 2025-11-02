@@ -22,10 +22,6 @@ linux = "4.4.0"
 version = "0.14.0.*"
 channel = "https://repo.prefix.dev/ecoscope-workflows/"
 
-[dependencies.ecoscope-workflows-ext-ecoscope]
-version = "0.14.0.*"
-channel = "https://repo.prefix.dev/ecoscope-workflows/"
-
 [dependencies.ecoscope-workflows-ext-ste]
 version = "*"
 channel = "file:///tmp/ecoscope-workflows-custom/release/artifacts/"
