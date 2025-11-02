@@ -108,7 +108,7 @@ workflow:
       font_weight: normal
       font_family: Arial
       text_anchor: middle
-      alignment_baseline: true
+      alignment_baseline: center
       pickable: true
       tooltip_columns: null 
       zoom: false

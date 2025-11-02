@@ -582,7 +582,18 @@ def combine_map_layers(
     flat_static = flatten_layers(static_layers) if static_layers else []
     flat_grouped = flatten_layers(grouped_layers) if grouped_layers else []
     
-    return flat_static + flat_grouped
+        # Combine all layers
+    all_layers = flat_static + flat_grouped
+    
+    # Separate text layers from other layers
+    text_layers = []
+    other_layers = []
+    
+    for layer in all_layers:
+        if isinstance(layer.layer_style, TextLayerStyle):
+            text_layers.append(layer)
+        else:
+            other_layers.append(layer)
 
 @task
 def make_text_layer(

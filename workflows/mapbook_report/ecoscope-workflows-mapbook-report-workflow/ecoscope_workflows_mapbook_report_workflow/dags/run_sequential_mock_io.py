@@ -242,7 +242,7 @@ def main(params: Params):
             font_weight="normal",
             font_family="Arial",
             text_anchor="middle",
-            alignment_baseline=True,
+            alignment_baseline="center",
             pickable=True,
             tooltip_columns=None,
             zoom=False,
