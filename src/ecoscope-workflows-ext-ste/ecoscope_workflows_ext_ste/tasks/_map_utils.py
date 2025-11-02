@@ -12,7 +12,8 @@ from urllib.parse import urlparse
 from urllib.request import url2pathname
 from ecoscope_workflows_core.decorators import task
 from pydantic import BaseModel, Field, field_validator
-from ecoscope_workflows_core.annotations import AnyGeoDataFrame
+from pydantic.json_schema import SkipJsonSchema
+from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AdvancedField
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import ViewState
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import TextLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PointLayerStyle
@@ -704,5 +705,55 @@ def make_text_layer(
 
 
 @task 
-def custom_polygon_layer(**kwargs):
-    return create_polygon_layer(**kwargs)
+def custom_polygon_layer(
+    geodataframe: Annotated[
+        AnyGeoDataFrame,
+        Field(description="The geodataframe to visualize.", exclude=True),
+    ],
+    layer_style: Annotated[
+        PolygonLayerStyle | SkipJsonSchema[None],
+        AdvancedField(
+            default=PolygonLayerStyle(), description="Style arguments for the layer."
+        ),
+    ] = None,
+    legend: Annotated[
+        LegendDefinition | SkipJsonSchema[None],
+        AdvancedField(
+            default=None,
+            description="If present, includes this layer in the map legend",
+        ),
+    ] = None,
+    tooltip_columns: Annotated[
+        list[str] | SkipJsonSchema[None],
+        AdvancedField(
+            default=None,
+            description="If present, only the listed dataframe columns will display in the layer's picking info",
+        ),
+    ] = None,
+    zoom: Annotated[
+        bool,
+        AdvancedField(
+            default=False,
+            description="If true, the map will be zoomed to the bounds of this layer",
+            exclude=True,
+        ),
+    ] = False,
+) -> Annotated[LayerDefinition, Field()]:
+    """
+    Creates a polygon layer definition based on the provided configuration.
+
+    Args:
+    geodataframe (geopandas.GeoDataFrame): The geodataframe to visualize.
+    layer_style (PolygonLayerStyle): Style arguments for the data visualization.
+
+    Returns:
+    The generated LayerDefinition
+    """
+
+    return LayerDefinition(
+        geodataframe=geodataframe,
+        layer_style=layer_style if layer_style else PolygonLayerStyle(),
+        legend=legend,  # type: ignore[arg-type]
+        tooltip_columns=tooltip_columns,
+        zoom=zoom,
+    )

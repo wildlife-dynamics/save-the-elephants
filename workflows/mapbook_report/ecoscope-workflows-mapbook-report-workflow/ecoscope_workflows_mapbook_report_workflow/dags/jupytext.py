@@ -1723,7 +1723,9 @@ apply_etd_percentile_colormap = (
 # %%
 # parameters
 
-generate_etd_ecomap_layers_params = dict()
+generate_etd_ecomap_layers_params = dict(
+    zoom=...,
+)
 
 # %%
 # call the task
@@ -1754,7 +1756,9 @@ generate_etd_ecomap_layers = (
 # %%
 # parameters
 
-generate_mcp_layers_params = dict()
+generate_mcp_layers_params = dict(
+    zoom=...,
+)
 
 # %%
 # call the task
@@ -2124,7 +2128,9 @@ format_speed_raster_labels = (
 # %%
 # parameters
 
-generate_raster_layers_params = dict()
+generate_raster_layers_params = dict(
+    zoom=...,
+)
 
 # %%
 # call the task
@@ -2381,7 +2387,9 @@ season_colormap = (
 # %%
 # parameters
 
-season_etd_map_layer_params = dict()
+season_etd_map_layer_params = dict(
+    zoom=...,
+)
 
 # %%
 # call the task
