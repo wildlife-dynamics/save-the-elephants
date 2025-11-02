@@ -5,8 +5,8 @@ initialize_workflow_metadata:
 
 # Desired time range
 define_time_range:
-  since: "2025-08-01T00:00:00Z"
-  until: "2025-08-11T23:59:59Z"
+  since: "2025-05-01T00:00:00Z"
+  until: "2025-10-31T23:59:59Z"
 
 # Connect to EarthRanger
 er_client_name:
@@ -42,9 +42,7 @@ convert_to_trajectories:
 configure_base_maps:
   base_maps:
     - url: "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
-      opacity: 0.7
-    - url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-      opacity: 0.2
+      opacity: 1.0
       max_zoom: 15
       min_zoom: null
 

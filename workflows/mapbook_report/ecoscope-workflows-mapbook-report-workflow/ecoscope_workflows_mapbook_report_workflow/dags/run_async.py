@@ -1482,7 +1482,7 @@ def main(params: Params):
                 "step_length": 2000,
                 "dist_col": "dist_meters",
                 "interpolation": "mean",
-                "movement_covariate": "Speed",
+                "movement_covariate": "speed",
                 "radius": 2,
                 "cutoff": None,
                 "tortuosity_length": 3,
