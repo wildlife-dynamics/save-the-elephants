@@ -11,19 +11,25 @@
 # ## Imports
 
 import os
+
 from ecoscope_workflows_core.tasks.config import set_workflow_details
 from ecoscope_workflows_core.tasks.filter import set_time_range
 from ecoscope_workflows_core.tasks.groupby import set_groupers
-from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps
-from ecoscope_workflows_ext_ecoscope.tasks.io import download_roi
-from ecoscope_workflows_ext_ste.tasks import generate_survey_lines
-from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
-from ecoscope_workflows_ext_ecoscope.tasks.results import create_polyline_layer
-from ecoscope_workflows_ext_ste.tasks import create_view_state_from_gdf
-from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap
 from ecoscope_workflows_core.tasks.io import persist_text
-from ecoscope_workflows_core.tasks.results import create_map_widget_single_view
-from ecoscope_workflows_core.tasks.results import gather_dashboard
+from ecoscope_workflows_core.tasks.results import (
+    create_map_widget_single_view,
+    gather_dashboard,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.io import download_roi, persist_df
+from ecoscope_workflows_ext_ecoscope.tasks.results import (
+    create_polyline_layer,
+    draw_ecomap,
+    set_base_maps,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    create_view_state_from_gdf,
+    generate_survey_lines,
+)
 
 # %% [markdown]
 # ## Initialize Workflow Metadata
@@ -57,6 +63,7 @@ initialize_workflow_metadata = (
 define_time_range_params = dict(
     since=...,
     until=...,
+    timezone=...,
 )
 
 # %%
@@ -262,7 +269,9 @@ zoom_view_state = (
 # %%
 # parameters
 
-draw_aerial_survey_lines_ecomap_params = dict()
+draw_aerial_survey_lines_ecomap_params = dict(
+    widget_id=...,
+)
 
 # %%
 # call the task
@@ -293,6 +302,7 @@ draw_aerial_survey_lines_ecomap = (
 
 persist_ecomaps_params = dict(
     filename=...,
+    filename_suffix=...,
 )
 
 # %%

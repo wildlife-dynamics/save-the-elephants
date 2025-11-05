@@ -3,18 +3,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import List, Literal, Optional, Union
 
-from pydantic import (
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
-    Field,
-    RootModel,
-    confloat,
-    constr,
-)
+from pydantic import BaseModel, ConfigDict, Field, RootModel, confloat, constr
 
 
 class InitializeWorkflowMetadata(BaseModel):
@@ -23,14 +16,6 @@ class InitializeWorkflowMetadata(BaseModel):
     )
     name: str = Field(..., title="Workflow Name")
     description: Optional[str] = Field("", title="Workflow Description")
-
-
-class DefineTimeRange(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    since: AwareDatetime = Field(..., description="The start time", title="Since")
-    until: AwareDatetime = Field(..., description="The end time", title="Until")
 
 
 class Url(str, Enum):
@@ -195,7 +180,7 @@ class ConfigureBaseMaps(BaseModel):
             },
         ],
         description="Select tile layers to use as base layers in map outputs. The first layer in the list will be the bottommost layer displayed.",
-        title="Set Map Base Layers",
+        title=" ",
     )
 
 
@@ -226,6 +211,13 @@ class DrawSurveyLines(BaseModel):
     spacing: Optional[int] = Field(500, title="Spacing")
 
 
+class TimezoneInfo(BaseModel):
+    label: str = Field(..., title="Label")
+    tzCode: str = Field(..., title="Tzcode")
+    name: str = Field(..., title="Name")
+    utc: str = Field(..., title="Utc")
+
+
 class TemporalGrouper(RootModel[str]):
     root: str = Field(..., title="Time")
 
@@ -234,11 +226,27 @@ class ValueGrouper(RootModel[str]):
     root: str = Field(..., title="Category")
 
 
+class Sort(str, Enum):
+    ascending = "ascending"
+    descending = "descending"
+
+
 class LegendDefinition(BaseModel):
     label_column: Optional[str] = Field(None, title="Label Column")
     color_column: Optional[str] = Field(None, title="Color Column")
     labels: Optional[List[str]] = Field(None, title="Labels")
     colors: Optional[List[str]] = Field(None, title="Colors")
+    sort: Optional[Sort] = Field(None, title="Sort")
+    label_suffix: Optional[str] = Field(None, title="Label Suffix")
+
+
+class DefineTimeRange(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    since: datetime = Field(..., description="The start time", title="Since")
+    until: datetime = Field(..., description="The end time", title="Until")
+    timezone: Optional[TimezoneInfo] = Field(None, title="Timezone")
 
 
 class ConfigureGroupingStrategy(BaseModel):

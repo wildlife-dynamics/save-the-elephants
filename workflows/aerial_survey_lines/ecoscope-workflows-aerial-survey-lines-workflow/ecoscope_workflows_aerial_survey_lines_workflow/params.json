@@ -34,6 +34,15 @@
           "title": "Until",
           "type": "string",
           "description": "The end time"
+        },
+        "timezone": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TimezoneInfo"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
         }
       },
       "required": [
@@ -84,7 +93,7 @@
             }
           ],
           "items": {
-            "title": "Base Layer or Custom Layer",
+            "title": "Base Layer",
             "anyOf": [
               {
                 "properties": {
@@ -259,7 +268,7 @@
               }
             ]
           },
-          "title": "Set Map Base Layers",
+          "title": " ",
           "type": "array",
           "description": "Select tile layers to use as base layers in map outputs. The first layer in the list will be the bottommost layer displayed.",
           "ecoscope:advanced": true
@@ -376,6 +385,34 @@
     }
   },
   "$defs": {
+    "TimezoneInfo": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "tzCode": {
+          "title": "Tzcode",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "utc": {
+          "title": "Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "tzCode",
+        "name",
+        "utc"
+      ],
+      "title": "TimezoneInfo",
+      "type": "object"
+    },
     "TemporalGrouper": {
       "oneOf": [
         {
@@ -448,6 +485,29 @@
           },
           "title": "Colors",
           "type": "array"
+        },
+        "sort": {
+          "anyOf": [
+            {
+              "enum": [
+                "ascending",
+                "descending"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "ecoscope:advanced": true,
+          "title": "Sort"
+        },
+        "label_suffix": {
+          "default": null,
+          "ecoscope:advanced": true,
+          "title": "Label Suffix",
+          "type": "string"
         }
       },
       "title": "LegendDefinition",
@@ -464,7 +524,8 @@
     "define_time_range": {
       "ui:order": [
         "since",
-        "until"
+        "until",
+        "timezone"
       ]
     },
     "fetch_roi_layer": {

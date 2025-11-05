@@ -43,7 +43,7 @@ channels = [
     "conda-forge",
 ]
 
-platforms = ["linux-64", "osx-arm64"]
+platforms = ["linux-64", "osx-arm64","win-64"]
 
 [tool.pixi.pypi-dependencies]
 ecoscope-workflows-ext-ste = { path = ".", editable = true }
@@ -61,10 +61,10 @@ py-rattler = ">=0.7.0,<0.8"
 "ruamel.yaml" = "*"
 ruff = "*"
 tomli-w = "*"
-ecoscope-workflows-core = ">=0.6.0"
+ecoscope-workflows-core = ">=0.14.0"
 geopandas="*"
 shapely = "*"
-ecoscope-workflows-ext-ecoscope=">=0.6.0"
+ecoscope-workflows-ext-ecoscope=">=0.14.0"
 
 # additional dependencies added by this extension
 

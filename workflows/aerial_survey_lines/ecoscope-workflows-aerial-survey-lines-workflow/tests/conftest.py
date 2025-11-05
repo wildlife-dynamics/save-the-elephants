@@ -7,30 +7,29 @@ import io
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Coroutine, Generator, Literal, Iterator
+from typing import Any, Coroutine, Generator, Iterator, Literal
 from unittest.mock import patch
 
 import numpy as np
 import pytest
 import ruamel.yaml
+from ecoscope_workflows_runner.app import app
+from ecoscope_workflows_runner.testing import Case, CaseRunner
 from PIL import Image
 from playwright.async_api import async_playwright
 from skimage.metrics import structural_similarity as ssim
 from syrupy import SnapshotAssertion
-from syrupy.extensions.json import JSONSnapshotExtension
 from syrupy.extensions.image import PNGImageSnapshotExtension
+from syrupy.extensions.json import JSONSnapshotExtension
 from syrupy.location import PyTestLocation
 from syrupy.terminal import reset
 from syrupy.types import SerializedData, SnapshotIndex
-
-from ecoscope_workflows_runner.app import app
-from ecoscope_workflows_runner.testing import Case, CaseRunner
 
 ARTIFACTS = Path(__file__).parent.parent
 SNAPSHOT_DIRNAME = ARTIFACTS.parent / "__results_snapshots__"
 SNAPSHOT_DIFF_OUTPUT_DIRNAME = ARTIFACTS.parent / "__diff_output__"
 TEST_CASES_YAML = ARTIFACTS.parent / "test-cases.yaml"
-ENTRYPOINT = "pixi run -e default ecoscope-workflows-aerial-survey-lines-workflow"
+ENTRYPOINT = f"pixi run -e default ecoscope-workflows-aerial-survey-lines-workflow"
 MATCHSPEC_OVERRIDE = "ecoscope-workflows-aerial-survey-lines-workflow"
 IO_TASKS_IMPORTABLE_REFERENCES = [
     "ecoscope_workflows_ext_ecoscope.tasks.io.download_roi",

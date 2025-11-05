@@ -2,7 +2,7 @@ id: aerial_survey_lines
 
 requirements:
   - name: ecoscope-workflows-core
-    version: "*"
+    version: "0.14.0.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
   - name: ecoscope-workflows-ext-ste
     version: "*"
