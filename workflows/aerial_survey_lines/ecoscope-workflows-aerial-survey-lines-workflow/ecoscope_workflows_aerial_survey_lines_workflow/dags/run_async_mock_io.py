@@ -161,6 +161,7 @@ def main(params: Params):
                     "width_unit": "pixels",
                 },
                 "legend": {"labels": ["Aerial survey lines"], "colors": ["#2f4f4f"]},
+                "tooltip_columns": [],
                 "geodataframe": DependsOn("draw_survey_lines"),
             }
             | (params_dict.get("aerial_survey_polylines") or {}),

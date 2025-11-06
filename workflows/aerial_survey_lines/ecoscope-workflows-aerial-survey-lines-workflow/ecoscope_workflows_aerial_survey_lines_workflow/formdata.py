@@ -204,17 +204,6 @@ class DrawSurveyLines(BaseModel):
     spacing: Optional[int] = Field(500, title="Spacing")
 
 
-class AerialSurveyPolylines(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    tooltip_columns: Optional[List[str]] = Field(
-        None,
-        description="If present, only the listed dataframe columns will display in the layer's picking info",
-        title="Tooltip Columns",
-    )
-
-
 class TimezoneInfo(BaseModel):
     label: str = Field(..., title="Label")
     tzCode: str = Field(..., title="Tzcode")
@@ -275,7 +264,4 @@ class FormData(BaseModel):
     )
     draw_survey_lines: Optional[DrawSurveyLines] = Field(
         None, title="Draw Aerial Survey Lines"
-    )
-    aerial_survey_polylines: Optional[AerialSurveyPolylines] = Field(
-        None, title="Create Aerial Survey Lines"
     )

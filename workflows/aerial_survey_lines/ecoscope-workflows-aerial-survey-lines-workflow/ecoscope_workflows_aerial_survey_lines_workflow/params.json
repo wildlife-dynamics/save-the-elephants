@@ -314,24 +314,6 @@
       "required": [],
       "type": "object",
       "title": "Draw Aerial Survey Lines"
-    },
-    "aerial_survey_polylines": {
-      "additionalProperties": false,
-      "properties": {
-        "tooltip_columns": {
-          "default": null,
-          "items": {
-            "type": "string"
-          },
-          "title": "Tooltip Columns",
-          "type": "array",
-          "description": "If present, only the listed dataframe columns will display in the layer's picking info",
-          "ecoscope:advanced": true
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Create Aerial Survey Lines"
     }
   },
   "$defs": {
@@ -433,8 +415,7 @@
       "configure_grouping_strategy",
       "configure_base_maps",
       "fetch_roi_layer",
-      "draw_survey_lines",
-      "aerial_survey_polylines"
+      "draw_survey_lines"
     ]
   },
   "additionalProperties": false

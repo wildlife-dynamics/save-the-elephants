@@ -74,6 +74,7 @@ workflow:
           - Aerial survey lines 
         colors:
           - "#2f4f4f"
+      tooltip_columns: []
       geodataframe: ${{ workflow.draw_survey_lines.return }}
 
   # Dynamically zoom map to layer of interest

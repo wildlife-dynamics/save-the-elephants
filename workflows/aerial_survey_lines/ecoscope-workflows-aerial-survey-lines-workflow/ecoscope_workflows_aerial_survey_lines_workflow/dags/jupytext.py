@@ -221,7 +221,6 @@ persist_aerial_geoparquet = (
 # parameters
 
 aerial_survey_polylines_params = dict(
-    tooltip_columns=...,
     zoom=...,
 )
 
@@ -239,6 +238,7 @@ aerial_survey_polylines = (
             "width_unit": "pixels",
         },
         legend={"labels": ["Aerial survey lines"], "colors": ["#2f4f4f"]},
+        tooltip_columns=[],
         geodataframe=draw_survey_lines,
         **aerial_survey_polylines_params,
     )
