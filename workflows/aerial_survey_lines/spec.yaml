@@ -33,6 +33,10 @@ workflow:
   - name: Download Region of Interest (ROI)
     id: fetch_roi_layer
     task: download_roi
+    partial:
+      roi_column: null
+      roi_name: null
+      layer_name: null
 
   - name: Draw Aerial Survey Lines
     id: draw_survey_lines
@@ -61,8 +65,15 @@ workflow:
     task: create_polyline_layer
     partial:
       layer_style: 
-        get_width: 2
+        get_width: 1.5
+        get_color: "#2f4f4f"
+        opacity: 0.85
         width_unit: pixels
+      legend:
+        labels: 
+          - Aerial survey lines 
+        colors:
+          - "#2f4f4f"
       geodataframe: ${{ workflow.draw_survey_lines.return }}
 
   # Dynamically zoom map to layer of interest
@@ -85,7 +96,7 @@ workflow:
         placement: top-left
       legend_style:
         placement: bottom-right
-        title: Survey Lines
+        title: Aerial survey lines
       title: null
       geo_layers: ${{ workflow.aerial_survey_polylines.return }}
       view_state: ${{ workflow.zoom_view_state.return }}

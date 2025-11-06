@@ -285,45 +285,6 @@
           "title": "Url",
           "type": "string",
           "description": "The path to ROI gpkg file"
-        },
-        "roi_column": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": "name",
-          "title": "Roi Column",
-          "description": "The column name of the ROI name"
-        },
-        "roi_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Roi Name",
-          "description": "The ROI name"
-        },
-        "layer_name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Layer Name",
-          "description": "The layer name"
         }
       },
       "required": [
@@ -357,17 +318,6 @@
     "aerial_survey_polylines": {
       "additionalProperties": false,
       "properties": {
-        "legend": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/LegendDefinition"
-            }
-          ],
-          "default": null,
-          "title": "Legend",
-          "description": "If present, includes this layer in the map legend",
-          "ecoscope:advanced": true
-        },
         "tooltip_columns": {
           "default": null,
           "items": {
@@ -455,63 +405,6 @@
       "oneOf": [],
       "title": "Category",
       "type": "string"
-    },
-    "LegendDefinition": {
-      "properties": {
-        "label_column": {
-          "default": null,
-          "ecoscope:advanced": true,
-          "title": "Label Column",
-          "type": "string"
-        },
-        "color_column": {
-          "default": null,
-          "ecoscope:advanced": true,
-          "title": "Color Column",
-          "type": "string"
-        },
-        "labels": {
-          "default": null,
-          "items": {
-            "type": "string"
-          },
-          "title": "Labels",
-          "type": "array"
-        },
-        "colors": {
-          "default": null,
-          "items": {
-            "type": "string"
-          },
-          "title": "Colors",
-          "type": "array"
-        },
-        "sort": {
-          "anyOf": [
-            {
-              "enum": [
-                "ascending",
-                "descending"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "ecoscope:advanced": true,
-          "title": "Sort"
-        },
-        "label_suffix": {
-          "default": null,
-          "ecoscope:advanced": true,
-          "title": "Label Suffix",
-          "type": "string"
-        }
-      },
-      "title": "LegendDefinition",
-      "type": "object"
     }
   },
   "uiSchema": {
@@ -528,24 +421,10 @@
         "timezone"
       ]
     },
-    "fetch_roi_layer": {
-      "ui:order": [
-        "url",
-        "roi_column",
-        "roi_name",
-        "layer_name"
-      ]
-    },
     "draw_survey_lines": {
       "ui:order": [
         "direction",
         "spacing"
-      ]
-    },
-    "aerial_survey_polylines": {
-      "ui:order": [
-        "legend",
-        "tooltip_columns"
       ]
     },
     "ui:order": [

@@ -189,13 +189,6 @@ class FetchRoiLayer(BaseModel):
         extra="forbid",
     )
     url: str = Field(..., description="The path to ROI gpkg file", title="Url")
-    roi_column: Optional[str] = Field(
-        "name", description="The column name of the ROI name", title="Roi Column"
-    )
-    roi_name: Optional[str] = Field(None, description="The ROI name", title="Roi Name")
-    layer_name: Optional[str] = Field(
-        None, description="The layer name", title="Layer Name"
-    )
 
 
 class Direction(str, Enum):
@@ -211,6 +204,17 @@ class DrawSurveyLines(BaseModel):
     spacing: Optional[int] = Field(500, title="Spacing")
 
 
+class AerialSurveyPolylines(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    tooltip_columns: Optional[List[str]] = Field(
+        None,
+        description="If present, only the listed dataframe columns will display in the layer's picking info",
+        title="Tooltip Columns",
+    )
+
+
 class TimezoneInfo(BaseModel):
     label: str = Field(..., title="Label")
     tzCode: str = Field(..., title="Tzcode")
@@ -224,20 +228,6 @@ class TemporalGrouper(RootModel[str]):
 
 class ValueGrouper(RootModel[str]):
     root: str = Field(..., title="Category")
-
-
-class Sort(str, Enum):
-    ascending = "ascending"
-    descending = "descending"
-
-
-class LegendDefinition(BaseModel):
-    label_column: Optional[str] = Field(None, title="Label Column")
-    color_column: Optional[str] = Field(None, title="Color Column")
-    labels: Optional[List[str]] = Field(None, title="Labels")
-    colors: Optional[List[str]] = Field(None, title="Colors")
-    sort: Optional[Sort] = Field(None, title="Sort")
-    label_suffix: Optional[str] = Field(None, title="Label Suffix")
 
 
 class DefineTimeRange(BaseModel):
@@ -257,22 +247,6 @@ class ConfigureGroupingStrategy(BaseModel):
         None,
         description="            Specify how the data should be grouped to create the views for your dashboard.\n            This field is optional; if left blank, all the data will appear in a single view.\n            ",
         title=" ",
-    )
-
-
-class AerialSurveyPolylines(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    legend: Optional[LegendDefinition] = Field(
-        None,
-        description="If present, includes this layer in the map legend",
-        title="Legend",
-    )
-    tooltip_columns: Optional[List[str]] = Field(
-        None,
-        description="If present, only the listed dataframe columns will display in the layer's picking info",
-        title="Tooltip Columns",
     )
 
 

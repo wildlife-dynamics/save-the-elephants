@@ -127,9 +127,6 @@ configure_base_maps = (
 
 fetch_roi_layer_params = dict(
     url=...,
-    roi_column=...,
-    roi_name=...,
-    layer_name=...,
 )
 
 # %%
@@ -138,7 +135,7 @@ fetch_roi_layer_params = dict(
 
 fetch_roi_layer = (
     download_roi.handle_errors(task_instance_id="fetch_roi_layer")
-    .partial(**fetch_roi_layer_params)
+    .partial(roi_column=None, roi_name=None, layer_name=None, **fetch_roi_layer_params)
     .call()
 )
 
@@ -224,7 +221,6 @@ persist_aerial_geoparquet = (
 # parameters
 
 aerial_survey_polylines_params = dict(
-    legend=...,
     tooltip_columns=...,
     zoom=...,
 )
@@ -236,7 +232,13 @@ aerial_survey_polylines_params = dict(
 aerial_survey_polylines = (
     create_polyline_layer.handle_errors(task_instance_id="aerial_survey_polylines")
     .partial(
-        layer_style={"get_width": 2, "width_unit": "pixels"},
+        layer_style={
+            "get_width": 1.5,
+            "get_color": "#2f4f4f",
+            "opacity": 0.85,
+            "width_unit": "pixels",
+        },
+        legend={"labels": ["Aerial survey lines"], "colors": ["#2f4f4f"]},
         geodataframe=draw_survey_lines,
         **aerial_survey_polylines_params,
     )
@@ -284,7 +286,7 @@ draw_aerial_survey_lines_ecomap = (
         static=False,
         max_zoom=12,
         north_arrow_style={"placement": "top-left"},
-        legend_style={"placement": "bottom-right", "title": "Survey Lines"},
+        legend_style={"placement": "bottom-right", "title": "Aerial survey lines"},
         title=None,
         geo_layers=aerial_survey_polylines,
         view_state=zoom_view_state,

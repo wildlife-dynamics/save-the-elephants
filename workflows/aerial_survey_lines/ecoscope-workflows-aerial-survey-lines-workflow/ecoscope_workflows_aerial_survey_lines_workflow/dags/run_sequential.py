@@ -61,7 +61,12 @@ def main(params: Params):
     fetch_roi_layer = (
         download_roi.validate()
         .handle_errors(task_instance_id="fetch_roi_layer")
-        .partial(**(params_dict.get("fetch_roi_layer") or {}))
+        .partial(
+            roi_column=None,
+            roi_name=None,
+            layer_name=None,
+            **(params_dict.get("fetch_roi_layer") or {}),
+        )
         .call()
     )
 
@@ -100,7 +105,13 @@ def main(params: Params):
         create_polyline_layer.validate()
         .handle_errors(task_instance_id="aerial_survey_polylines")
         .partial(
-            layer_style={"get_width": 2, "width_unit": "pixels"},
+            layer_style={
+                "get_width": 1.5,
+                "get_color": "#2f4f4f",
+                "opacity": 0.85,
+                "width_unit": "pixels",
+            },
+            legend={"labels": ["Aerial survey lines"], "colors": ["#2f4f4f"]},
             geodataframe=draw_survey_lines,
             **(params_dict.get("aerial_survey_polylines") or {}),
         )
@@ -127,7 +138,7 @@ def main(params: Params):
             static=False,
             max_zoom=12,
             north_arrow_style={"placement": "top-left"},
-            legend_style={"placement": "bottom-right", "title": "Survey Lines"},
+            legend_style={"placement": "bottom-right", "title": "Aerial survey lines"},
             title=None,
             geo_layers=aerial_survey_polylines,
             view_state=zoom_view_state,
