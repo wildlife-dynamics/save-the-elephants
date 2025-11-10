@@ -412,21 +412,21 @@ create_styled_landdx_layers = (
                     "get_line_color": [85, 107, 47],
                     "opacity": 0.15,
                     "stroked": True,
-                    "get_line_width": 1.25,
+                    "get_line_width": 1.55,
                 },
                 "National Reserve": {
                     "get_fill_color": [143, 188, 139],
                     "get_line_color": [143, 188, 139],
                     "opacity": 0.15,
                     "stroked": True,
-                    "get_line_width": 1.25,
+                    "get_line_width": 1.55,
                 },
                 "National Park": {
                     "get_fill_color": [255, 250, 205],
                     "get_line_color": [255, 250, 205],
                     "opacity": 0.15,
                     "stroked": True,
-                    "get_line_width": 1.25,
+                    "get_line_width": 1.55,
                 },
             },
             "legend": {
@@ -1835,6 +1835,13 @@ zoom_hr_view_params = dict()
 
 zoom_hr_view = (
     create_view_state_from_gdf.handle_errors(task_instance_id="zoom_hr_view")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(pitch=0, bearing=0, **zoom_hr_view_params)
     .mapvalues(argnames=["gdf"], argvalues=apply_etd_percentile_colormap)
 )
@@ -1854,6 +1861,13 @@ zip_mcp_hr_params = dict()
 
 zip_mcp_hr = (
     zip_grouped_by_key.handle_errors(task_instance_id="zip_mcp_hr")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         left=generate_mcp_layers, right=generate_etd_ecomap_layers, **zip_mcp_hr_params
     )
@@ -1875,6 +1889,13 @@ combine_landdx_hr_ecomap_layers_params = dict()
 
 combine_landdx_hr_ecomap_layers = (
     combine_map_layers.handle_errors(task_instance_id="combine_landdx_hr_ecomap_layers")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         static_layers=[create_styled_landdx_layers, custom_text_layer],
         **combine_landdx_hr_ecomap_layers_params,
@@ -1897,6 +1918,13 @@ hr_view_zip_params = dict()
 
 hr_view_zip = (
     zip_grouped_by_key.handle_errors(task_instance_id="hr_view_zip")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         left=combine_landdx_hr_ecomap_layers, right=zoom_hr_view, **hr_view_zip_params
     )
@@ -1920,6 +1948,13 @@ draw_hr_ecomap_params = dict(
 
 draw_hr_ecomap = (
     draw_ecomap.handle_errors(task_instance_id="draw_hr_ecomap")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         tile_layers=configure_base_maps,
         north_arrow_style={"placement": "top-left"},
@@ -1950,6 +1985,12 @@ persist_hr_ecomap_urls_params = dict(
 
 persist_hr_ecomap_urls = (
     persist_text.handle_errors(task_instance_id="persist_hr_ecomap_urls")
+    .skipif(
+        conditions=[
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         **persist_hr_ecomap_urls_params,
@@ -2018,6 +2059,13 @@ generate_speed_raster_params = dict()
 
 generate_speed_raster = (
     generate_ecograph_raster.handle_errors(task_instance_id="generate_speed_raster")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         step_length=2000,
         dist_col="dist_meters",
@@ -2050,6 +2098,12 @@ extract_speed_rasters_params = dict()
 
 extract_speed_rasters = (
     retrieve_feature_gdf.handle_errors(task_instance_id="extract_speed_rasters")
+    .skipif(
+        conditions=[
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(**extract_speed_rasters_params)
     .mapvalues(argnames=["file_path"], argvalues=generate_speed_raster)
 )
@@ -2069,6 +2123,13 @@ sort_speed_features_by_value_params = dict()
 
 sort_speed_features_by_value = (
     sort_values.handle_errors(task_instance_id="sort_speed_features_by_value")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         column_name="value",
         na_position="last",
@@ -2093,6 +2154,13 @@ classify_speed_features_params = dict()
 
 classify_speed_features = (
     apply_classification.handle_errors(task_instance_id="classify_speed_features")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         input_column_name="value",
         output_column_name="bins",
@@ -2118,6 +2186,13 @@ apply_speed_raster_colormap_params = dict()
 
 apply_speed_raster_colormap = (
     apply_color_map.handle_errors(task_instance_id="apply_speed_raster_colormap")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         input_column_name="bins",
         output_column_name="speedraster_bins_colors",
@@ -2142,6 +2217,13 @@ format_speed_raster_labels_params = dict()
 
 format_speed_raster_labels = (
     map_values_with_unit.handle_errors(task_instance_id="format_speed_raster_labels")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         input_column_name="bins",
         output_column_name="bins_formatted",
@@ -2204,6 +2286,13 @@ zoom_speedraster_view_params = dict()
 
 zoom_speedraster_view = (
     create_view_state_from_gdf.handle_errors(task_instance_id="zoom_speedraster_view")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(pitch=0, bearing=0, **zoom_speedraster_view_params)
     .mapvalues(argnames=["gdf"], argvalues=format_speed_raster_labels)
 )
@@ -2223,6 +2312,13 @@ combine_seasonal_raster_layers_params = dict()
 
 combine_seasonal_raster_layers = (
     combine_map_layers.handle_errors(task_instance_id="combine_seasonal_raster_layers")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         static_layers=[create_styled_landdx_layers, custom_text_layer],
         **combine_seasonal_raster_layers_params,
@@ -2245,6 +2341,13 @@ speedraster_view_zip_params = dict()
 
 speedraster_view_zip = (
     zip_grouped_by_key.handle_errors(task_instance_id="speedraster_view_zip")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         left=combine_seasonal_raster_layers,
         right=zoom_speedraster_view,
@@ -2270,6 +2373,13 @@ draw_speed_raster_ecomaps_params = dict(
 
 draw_speed_raster_ecomaps = (
     draw_ecomap.handle_errors(task_instance_id="draw_speed_raster_ecomaps")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         tile_layers=configure_base_maps,
         north_arrow_style={"placement": "top-left"},
@@ -2300,6 +2410,13 @@ speed_raster_ecomap_urls_params = dict(
 
 speed_raster_ecomap_urls = (
     persist_text.handle_errors(task_instance_id="speed_raster_ecomap_urls")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         **speed_raster_ecomap_urls_params,
@@ -2467,6 +2584,13 @@ zoom_season_view_params = dict()
 
 zoom_season_view = (
     create_view_state_from_gdf.handle_errors(task_instance_id="zoom_season_view")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(pitch=0, bearing=0, **zoom_season_view_params)
     .mapvalues(argnames=["gdf"], argvalues=season_colormap)
 )

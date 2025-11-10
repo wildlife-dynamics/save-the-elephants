@@ -429,27 +429,28 @@ def load_landdx_aoi(
     map_path: str,
     aoi: Optional[List[str]] = None,
 ) -> Optional[AnyGeoDataFrame]:
-
-    # testing purposes
-    print(f"Map path -->{map_path}")
-
     if map_path is None: 
         logger.error(f"Provided map path is empty")
-
-    for root,_, files in os.walk(map_path):
+        return None  # Add explicit return here
+    
+    ldx_path = None  # Initialize to avoid potential UnboundLocalError
+    for root, _, files in os.walk(map_path):
         if "landDx.gpkg" in files:
             ldx_path = os.path.join(root, "landDx.gpkg")
             break
     
-    print(f"landDx Path --> {ldx_path}")
+    if ldx_path is None:
+        logger.error(f"landDx.gpkg not found in {map_path}")
+        return None
     
     # Load and filter
     try:
         geodataframe = gpd.read_file(ldx_path, layer="landDx_polygons").set_index("globalid")
         
+        # Check if AOI filtering is needed
         if aoi is None or not aoi:
-           print(f"Loaded landDx.gpkg — total features: {len(geodataframe)} (no filtering applied)")
-        return geodataframe
+            print(f"Loaded landDx.gpkg — total features: {len(geodataframe)} (no filtering applied)")
+            return geodataframe 
         
         # Filter by AOI
         filtered = geodataframe[geodataframe["type"].isin(aoi)]
@@ -460,16 +461,16 @@ def load_landdx_aoi(
         
         if filtered.empty:
             print(f"No features found matching AOI types: {aoi}")
-        return filtered
-
+        
+        return filtered 
     except FileNotFoundError as e:
-        print(f"File not found: {ldx_path}")
+        logger.error(f"File not found: {ldx_path}")
         return None
     except KeyError as e:
-        print(f"Required column missing: {e}")
+        logger.error(f"Required column missing: {e}")
         return None
     except Exception as e:
-        print(f"Error loading or filtering landDx.gpkg: {e}")
+        logger.error(f"Error loading or filtering landDx.gpkg: {e}")
         return None
 
 @task
