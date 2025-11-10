@@ -33,6 +33,8 @@ from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, A
 
 logger = logging.getLogger(__name__)
 
+warnings.filterwarnings("ignore")
+
 @dataclass
 class MapbookContext:
     subject_name: Optional[str] = None
@@ -218,10 +220,47 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
     Applies to the entire trajectory without grouping.
     """
     try:
+        # Validate input DataFrames are not empty
         if traj is None or traj.empty:
-            raise ValueError("`create_seasonal_labels`:traj gdf is empty.")
+            raise ValueError("`create_seasonal_labels`: traj gdf is empty.")
         if total_percentiles is None or total_percentiles.empty:
-            raise ValueError("`create_seasonal_labels `:total_percentiles df is empty.")
+            raise ValueError("`create_seasonal_labels`: total_percentiles df is empty.")
+
+        # Validate required columns in trajectory
+        required_traj_cols = ["segment_start", "segment_end"]
+        missing_traj_cols = [col for col in required_traj_cols if col not in traj.columns]
+        if missing_traj_cols:
+            raise ValueError(
+                f"`create_seasonal_labels`: traj is missing required columns: {missing_traj_cols}. "
+                f"Available columns: {list(traj.columns)}"
+            )
+
+        # Validate required columns in seasonal windows
+        required_season_cols = ["start", "end", "season"]
+        missing_season_cols = [col for col in required_season_cols if col not in total_percentiles.columns]
+        if missing_season_cols:
+            raise ValueError(
+                f"`create_seasonal_labels`: total_percentiles is missing required columns: {missing_season_cols}. "
+                f"Available columns: {list(total_percentiles.columns)}"
+            )
+
+        # Validate datetime types
+        if not pd.api.types.is_datetime64_any_dtype(traj["segment_start"]):
+            raise TypeError(f"`segment_start` must be datetime type, got {traj['segment_start'].dtype}")
+        if not pd.api.types.is_datetime64_any_dtype(traj["segment_end"]):
+            raise TypeError(f"`segment_end` must be datetime type, got {traj['segment_end'].dtype}")
+        if not pd.api.types.is_datetime64_any_dtype(total_percentiles["start"]):
+            raise TypeError(f"`start` must be datetime type, got {total_percentiles['start'].dtype}")
+        if not pd.api.types.is_datetime64_any_dtype(total_percentiles["end"]):
+            raise TypeError(f"`end` must be datetime type, got {total_percentiles['end'].dtype}")
+
+        # Check for NULL values in critical columns
+        if traj["segment_start"].isnull().any():
+            null_count = traj["segment_start"].isnull().sum()
+            logger.warning(f"Found {null_count} NULL values in segment_start. These rows will be skipped.")
+        if traj["segment_end"].isnull().any():
+            null_count = traj["segment_end"].isnull().sum()
+            logger.warning(f"Found {null_count} NULL values in segment_end. These rows will be skipped.")
 
         seasonal_wins = total_percentiles.copy()
         traj_start = traj["segment_start"].min()
@@ -239,20 +278,40 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
             traj["season"] = None
             return traj
 
-        season_bins = pd.IntervalIndex(data=seasonal_wins.apply(lambda x: pd.Interval(x["start"], x["end"]), axis=1))
+        # Validate intervals don't overlap (optional but recommended)
+        seasonal_wins = seasonal_wins.sort_values("start").reset_index(drop=True)
+        for i in range(len(seasonal_wins) - 1):
+            if seasonal_wins.loc[i, "end"] > seasonal_wins.loc[i + 1, "start"]:
+                logger.warning(
+                    f"Overlapping seasonal windows detected: "
+                    f"[{seasonal_wins.loc[i, 'start']} - {seasonal_wins.loc[i, 'end']}] and "
+                    f"[{seasonal_wins.loc[i+1, 'start']} - {seasonal_wins.loc[i+1, 'end']}]"
+                )
+
+        season_bins = pd.IntervalIndex(
+            data=seasonal_wins.apply(lambda x: pd.Interval(x["start"], x["end"]), axis=1)
+        )
         logger.info(f"Created {len(season_bins)} seasonal bins")
 
         labels = seasonal_wins["season"].values
-        traj["season"] = pd.cut(traj["segment_start"], bins=season_bins, include_lowest=True).map(
-            dict(zip(season_bins, labels))
-        )
+        traj["season"] = pd.cut(
+            traj["segment_start"], 
+            bins=season_bins, 
+            include_lowest=True
+        ).map(dict(zip(season_bins, labels)))
+        
         null_count = traj["season"].isnull().sum()
         if null_count > 0:
             logger.warning(f"Warning: {null_count} trajectory segments couldn't be assigned to any season")
 
         logger.info("Seasonal labeling complete. Season distribution:")
         logger.info(traj["season"].value_counts(dropna=False))
+        
+        # FIXED: Drop rows with NULL seasons but keep all columns
+        traj = traj.dropna(subset=["season"])
+        
         return traj
+        
     except Exception as e:
         logger.error(f"Failed to apply seasonal label to trajectory: {e}")
         return None

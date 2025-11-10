@@ -141,16 +141,22 @@ workflow:
             get_fill_color: [85, 107, 47]
             get_line_color: [85, 107, 47]
             opacity: 0.15
+            stroked: true
+            get_line_width: 1.25
           
           National Reserve:
             get_fill_color: [143, 188, 139]
             get_line_color: [143, 188, 139]
             opacity: 0.15
+            stroked: true
+            get_line_width: 1.25
 
           National Park: 
             get_fill_color: [255, 250, 205]
             get_line_color: [255, 250, 205]
             opacity: 0.15
+            stroked: true
+            get_line_width: 1.25
 
         legend:
           labels: ["Community Conservancy","National Reserve", "National Park"]
@@ -283,6 +289,7 @@ workflow:
       df: ${{ workflow.rename_reloc_cols.return }}
       filetype: "gpkg"
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename: relocations
 
   - name: Persist Relocations as GPKG
     id: persist_relocs_df
@@ -291,6 +298,7 @@ workflow:
       df: ${{ workflow.annotate_day_night.return }}
       filetype: "gpkg"
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename: trajectories
 
   # split subject trajectories into groups based on grouping strategy
   - name: Split Trajectories by Group
@@ -749,6 +757,10 @@ workflow:
   - name: Determine Seasonal Windows 
     id: determine_seasonal_windows
     task: determine_season_windows
+    skipif:
+      conditions: 
+      - any_is_empty_df
+      - any_dependency_skipped
     partial:
       client: ${{ workflow.gee_project_name.return }}
       time_range: ${{ workflow.define_time_range.return }}
@@ -759,6 +771,10 @@ workflow:
   - name: Zip etd and grouped trajectories
     id: zip_etd_and_grouped_trajs
     task: zip_grouped_by_key
+    skipif:
+      conditions: 
+      - any_is_empty_df
+      - any_dependency_skipped
     partial:
       left: ${{ workflow.determine_seasonal_windows.return }}
       right: ${{ workflow.split_trajectories_by_group.return }}
@@ -767,6 +783,10 @@ workflow:
   - name: Generate seasonal labels
     id: add_season_labels
     task: create_seasonal_labels
+    skipif:
+      conditions: 
+      - any_is_empty_df
+      - any_dependency_skipped
     mapvalues:
       argnames:
         - total_percentiles
@@ -786,6 +806,11 @@ workflow:
   - name: Apply Colormap to Home Range Percentiles
     id: apply_etd_percentile_colormap
     task: apply_color_map
+    skipif:
+      conditions: 
+      - any_is_empty_df
+      - any_dependency_skipped
+
     partial:
       input_column_name: percentile
       colormap: RdYlGn
@@ -1153,6 +1178,10 @@ workflow:
   - name: Time Density colormap
     id: season_colormap
     task: apply_color_map
+    skipif:
+      conditions: 
+      - any_is_empty_df
+      - any_dependency_skipped
     partial:
       input_column_name: season
       output_column_name: season_colormap

@@ -411,16 +411,22 @@ create_styled_landdx_layers = (
                     "get_fill_color": [85, 107, 47],
                     "get_line_color": [85, 107, 47],
                     "opacity": 0.15,
+                    "stroked": True,
+                    "get_line_width": 1.25,
                 },
                 "National Reserve": {
                     "get_fill_color": [143, 188, 139],
                     "get_line_color": [143, 188, 139],
                     "opacity": 0.15,
+                    "stroked": True,
+                    "get_line_width": 1.25,
                 },
                 "National Park": {
                     "get_fill_color": [255, 250, 205],
                     "get_line_color": [255, 250, 205],
                     "opacity": 0.15,
+                    "stroked": True,
+                    "get_line_width": 1.25,
                 },
             },
             "legend": {
@@ -727,9 +733,7 @@ rename_reloc_cols = (
 # %%
 # parameters
 
-persist_trajectory_df_params = dict(
-    filename=...,
-)
+persist_trajectory_df_params = dict()
 
 # %%
 # call the task
@@ -741,6 +745,7 @@ persist_trajectory_df = (
         df=rename_reloc_cols,
         filetype="gpkg",
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="relocations",
         **persist_trajectory_df_params,
     )
     .call()
@@ -753,9 +758,7 @@ persist_trajectory_df = (
 # %%
 # parameters
 
-persist_relocs_df_params = dict(
-    filename=...,
-)
+persist_relocs_df_params = dict()
 
 # %%
 # call the task
@@ -767,6 +770,7 @@ persist_relocs_df = (
         df=annotate_day_night,
         filetype="gpkg",
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="trajectories",
         **persist_relocs_df_params,
     )
     .call()
@@ -1621,6 +1625,13 @@ determine_seasonal_windows = (
     determine_season_windows.handle_errors(
         task_instance_id="determine_seasonal_windows"
     )
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         client=gee_project_name,
         time_range=define_time_range,
@@ -1644,6 +1655,13 @@ zip_etd_and_grouped_trajs_params = dict()
 
 zip_etd_and_grouped_trajs = (
     zip_grouped_by_key.handle_errors(task_instance_id="zip_etd_and_grouped_trajs")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         left=determine_seasonal_windows,
         right=split_trajectories_by_group,
@@ -1667,6 +1685,13 @@ add_season_labels_params = dict()
 
 add_season_labels = (
     create_seasonal_labels.handle_errors(task_instance_id="add_season_labels")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(**add_season_labels_params)
     .mapvalues(
         argnames=["total_percentiles", "traj"], argvalues=zip_etd_and_grouped_trajs
@@ -1707,6 +1732,13 @@ apply_etd_percentile_colormap_params = dict()
 
 apply_etd_percentile_colormap = (
     apply_color_map.handle_errors(task_instance_id="apply_etd_percentile_colormap")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         input_column_name="percentile",
         colormap="RdYlGn",
@@ -2371,6 +2403,13 @@ season_colormap_params = dict()
 
 season_colormap = (
     apply_color_map.handle_errors(task_instance_id="season_colormap")
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         input_column_name="season",
         output_column_name="season_colormap",
