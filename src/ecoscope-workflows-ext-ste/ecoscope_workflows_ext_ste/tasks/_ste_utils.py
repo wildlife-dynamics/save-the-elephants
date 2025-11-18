@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import uuid
 import logging
+import warnings
 import hashlib
 import zipfile
 import numpy as np 
@@ -31,6 +32,8 @@ from ecoscope_workflows_ext_ecoscope.tasks.analysis import calculate_elliptical_
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, AdvancedField
 
 logger = logging.getLogger(__name__)
+
+warnings.filterwarnings("ignore")
 
 @dataclass
 class MapbookContext:
@@ -164,16 +167,13 @@ def generate_ecograph_raster(
 
     if (movement_covariate is None) == (network_metric is None):
         raise ValueError("`generate_ecograph_raster`:Provide exactly one of 'movement_covariate' or 'network_metric'.")
-        
+    
+
     if output_dir is None or str(output_dir).strip() == "":
         output_dir = os.getcwd()
-    else:
-        output_dir = str(output_dir).strip()
 
-    if output_dir.startswith("file://"):
-        parsed = urlparse(output_dir)
-        output_dir = url2pathname(parsed.path)
-
+    output_dir = normalize_file_url(output_dir)
+    
     if not filename:
         df_hash = hashlib.sha256(pd.util.hash_pandas_object(gdf, index=True).values).hexdigest()
         filename = df_hash[:7]
@@ -220,10 +220,47 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
     Applies to the entire trajectory without grouping.
     """
     try:
+        # Validate input DataFrames are not empty
         if traj is None or traj.empty:
-            raise ValueError("`create_seasonal_labels`:traj gdf is empty.")
+            raise ValueError("`create_seasonal_labels`: traj gdf is empty.")
         if total_percentiles is None or total_percentiles.empty:
-            raise ValueError("`create_seasonal_labels `:total_percentiles df is empty.")
+            raise ValueError("`create_seasonal_labels`: total_percentiles df is empty.")
+
+        # Validate required columns in trajectory
+        required_traj_cols = ["segment_start", "segment_end"]
+        missing_traj_cols = [col for col in required_traj_cols if col not in traj.columns]
+        if missing_traj_cols:
+            raise ValueError(
+                f"`create_seasonal_labels`: traj is missing required columns: {missing_traj_cols}. "
+                f"Available columns: {list(traj.columns)}"
+            )
+
+        # Validate required columns in seasonal windows
+        required_season_cols = ["start", "end", "season"]
+        missing_season_cols = [col for col in required_season_cols if col not in total_percentiles.columns]
+        if missing_season_cols:
+            raise ValueError(
+                f"`create_seasonal_labels`: total_percentiles is missing required columns: {missing_season_cols}. "
+                f"Available columns: {list(total_percentiles.columns)}"
+            )
+
+        # Validate datetime types
+        if not pd.api.types.is_datetime64_any_dtype(traj["segment_start"]):
+            raise TypeError(f"`segment_start` must be datetime type, got {traj['segment_start'].dtype}")
+        if not pd.api.types.is_datetime64_any_dtype(traj["segment_end"]):
+            raise TypeError(f"`segment_end` must be datetime type, got {traj['segment_end'].dtype}")
+        if not pd.api.types.is_datetime64_any_dtype(total_percentiles["start"]):
+            raise TypeError(f"`start` must be datetime type, got {total_percentiles['start'].dtype}")
+        if not pd.api.types.is_datetime64_any_dtype(total_percentiles["end"]):
+            raise TypeError(f"`end` must be datetime type, got {total_percentiles['end'].dtype}")
+
+        # Check for NULL values in critical columns
+        if traj["segment_start"].isnull().any():
+            null_count = traj["segment_start"].isnull().sum()
+            logger.warning(f"Found {null_count} NULL values in segment_start. These rows will be skipped.")
+        if traj["segment_end"].isnull().any():
+            null_count = traj["segment_end"].isnull().sum()
+            logger.warning(f"Found {null_count} NULL values in segment_end. These rows will be skipped.")
 
         seasonal_wins = total_percentiles.copy()
         traj_start = traj["segment_start"].min()
@@ -241,20 +278,40 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
             traj["season"] = None
             return traj
 
-        season_bins = pd.IntervalIndex(data=seasonal_wins.apply(lambda x: pd.Interval(x["start"], x["end"]), axis=1))
+        # Validate intervals don't overlap (optional but recommended)
+        seasonal_wins = seasonal_wins.sort_values("start").reset_index(drop=True)
+        for i in range(len(seasonal_wins) - 1):
+            if seasonal_wins.loc[i, "end"] > seasonal_wins.loc[i + 1, "start"]:
+                logger.warning(
+                    f"Overlapping seasonal windows detected: "
+                    f"[{seasonal_wins.loc[i, 'start']} - {seasonal_wins.loc[i, 'end']}] and "
+                    f"[{seasonal_wins.loc[i+1, 'start']} - {seasonal_wins.loc[i+1, 'end']}]"
+                )
+
+        season_bins = pd.IntervalIndex(
+            data=seasonal_wins.apply(lambda x: pd.Interval(x["start"], x["end"]), axis=1)
+        )
         logger.info(f"Created {len(season_bins)} seasonal bins")
 
         labels = seasonal_wins["season"].values
-        traj["season"] = pd.cut(traj["segment_start"], bins=season_bins, include_lowest=True).map(
-            dict(zip(season_bins, labels))
-        )
+        traj["season"] = pd.cut(
+            traj["segment_start"], 
+            bins=season_bins, 
+            include_lowest=True
+        ).map(dict(zip(season_bins, labels)))
+        
         null_count = traj["season"].isnull().sum()
         if null_count > 0:
             logger.warning(f"Warning: {null_count} trajectory segments couldn't be assigned to any season")
 
         logger.info("Seasonal labeling complete. Season distribution:")
         logger.info(traj["season"].value_counts(dropna=False))
+        
+        # FIXED: Drop rows with NULL seasons but keep all columns
+        traj = traj.dropna(subset=["season"])
+        
         return traj
+        
     except Exception as e:
         logger.error(f"Failed to apply seasonal label to trajectory: {e}")
         return None
@@ -615,13 +672,49 @@ def build_mapbook_report_template(
 
 @task
 def create_context_page(
-    template_path: str,
-    output_directory: str,
-    context: dict,
-    logo_width_cm: float = 7.7,
-    logo_height_cm: float = 1.93,
-    filename: str = None
-) -> str:
+    template_path: Annotated[
+        str,
+        Field(
+            description="Path to the .docx template file.",
+        ),
+    ],
+    output_directory: Annotated[
+        str,
+        Field(
+            description="Directory to save the generated .docx file.",
+        ),
+    ],
+    context: Annotated[
+        dict,
+        Field(
+            description="Dictionary with context values for the template.",
+        ),
+    ],
+    logo_width_cm: Annotated[
+        float,
+        Field(
+            description="Width of the logo in centimeters.",
+        ),
+    ] = 7.7,
+    logo_height_cm: Annotated[
+        float,
+        Field(
+            description="Height of the logo in centimeters.",
+        ),
+    ] = 1.93,
+    filename: Annotated[
+        Optional[str],
+        Field(
+            description="Optional filename for the generated file. If not provided, a random UUID-based filename will be generated.",
+            exclude=True,
+        ),
+    ] = None,
+) -> Annotated[
+    str,
+    Field(
+        description="Full path to the generated .docx file.",
+    ),
+]:
     """
     Create a context page document from a template and context dictionary.
 
@@ -629,6 +722,8 @@ def create_context_page(
         template_path (str): Path to the .docx template file.
         output_directory (str): Directory to save the generated .docx file.
         context (dict): Dictionary with context values for the template.
+        logo_width_cm (float): Width of the logo in centimeters. Default is 7.7.
+        logo_height_cm (float): Height of the logo in centimeters. Default is 1.93.
         filename (str, optional): Optional filename for the generated file.
             If not provided, a random UUID-based filename will be generated.
 

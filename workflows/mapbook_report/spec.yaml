@@ -1,17 +1,20 @@
 id: mapbook_report
 requirements:
   - name: ecoscope-workflows-core
-    version: "*"
+    version: "0.14.0.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
-  - name: ecoscope-workflows-ext-custom
-    version: "0.0.3.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+  - name: ecoscope-workflows-ext-ecoscope
+    version: "0.14.0.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-ste
     version: "*"
     channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
 
+  - name: ecoscope-workflows-ext-custom
+    version: "*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 workflow:
 # set workflow metadata
   - name: Initialize Workflow Metadata
@@ -43,6 +46,8 @@ workflow:
       url: https://www.dropbox.com/scl/fi/1373gi65ji918rxele5h9/cover_page_v3.docx?rlkey=ur01wtpa98tcyq8f0f6dtksl8&st=eq39sgwz&dl=0
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false
+      unzip: false
+      retries: 3
 
   # Download section templates
   - name: Download Mapbook section templates
@@ -52,6 +57,8 @@ workflow:
       url: https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false
+      unzip: false
+      retries: 3
 
   # Download Logo
   - name: Download Logo Path 
@@ -60,6 +67,8 @@ workflow:
     partial:
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false 
+      unzip: false
+      retries: 3
 
 
   # download LandDx database, unzip, and save to output directory
@@ -71,6 +80,7 @@ workflow:
       url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
       overwrite_existing: false
       unzip: true
+      retries: 3
 
   # Load AOI from LandDx 
   - name: Load AOI from landDx
@@ -78,7 +88,32 @@ workflow:
     task: load_landdx_aoi
     partial:
       map_path: ${{ workflow.download_ldx_db.return }}
+      aoi:
+        - Community Conservancy
+        - National Reserve
+        - National Park
 
+  # create text layer from filtered aoi
+  - name: Create text layer from filtered aoi
+    id: custom_text_layer
+    task: make_text_layer
+    partial:
+      txt_gdf: ${{ workflow.load_aoi.return }}
+      label_column: label
+      name_column: name
+      use_centroid: true
+      color: [0, 0, 0, 255]
+      size: 16
+      font_weight: normal
+      font_family: Arial
+      text_anchor: middle
+      alignment_baseline: center
+      pickable: true
+      tooltip_columns: null 
+      zoom: false
+      target_crs: epsg:4326
+    
+  
   # split LandDx AOI features by 'type' column
   - name: Split LandDx Layers by Type
     id: split_landdx_by_type
@@ -100,6 +135,33 @@ workflow:
     task: create_map_layers_from_annotated_dict
     partial:
       annotated_dict: ${{ workflow.annotate_geometry_types.return }}
+      style_config:
+        styles:
+          Community Conservancy:
+            get_fill_color: [85, 107, 47]
+            get_line_color: [85, 107, 47]
+            opacity: 0.15
+            stroked: true
+            get_line_width: 1.55
+          
+          National Reserve:
+            get_fill_color: [143, 188, 139]
+            get_line_color: [143, 188, 139]
+            opacity: 0.15
+            stroked: true
+            get_line_width: 1.55
+
+          National Park: 
+            get_fill_color: [255, 250, 205]
+            get_line_color: [255, 250, 205]
+            opacity: 0.15
+            stroked: true
+            get_line_width: 1.55
+
+        legend:
+          labels: ["Community Conservancy","National Reserve", "National Park"]
+          colors: ["#556b2f","#8fbc8b","#fffacd"]
+
 
   # Connect to ER
   - name: Connect to EarthRanger Instance
@@ -227,6 +289,7 @@ workflow:
       df: ${{ workflow.rename_reloc_cols.return }}
       filetype: "gpkg"
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename: relocations
 
   - name: Persist Relocations as GPKG
     id: persist_relocs_df
@@ -235,6 +298,7 @@ workflow:
       df: ${{ workflow.annotate_day_night.return }}
       filetype: "gpkg"
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename: trajectories
 
   # split subject trajectories into groups based on grouping strategy
   - name: Split Trajectories by Group
@@ -252,6 +316,7 @@ workflow:
     partial:
       column_name: speed_bins
       na_position: last
+      ascending: true
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
@@ -342,7 +407,9 @@ workflow:
     id: ldx_speed_layers
     task: combine_map_layers
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_speedmap_layers.return }}
@@ -475,7 +542,9 @@ workflow:
     id: ldx_dn_layers
     task: combine_map_layers
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_day_night_ecomap_layers.return }}
@@ -591,7 +660,9 @@ workflow:
     id: combine_quarter_ecomap_layers
     task: combine_map_layers
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_quarter_ecomap_layers.return }}
@@ -662,6 +733,10 @@ workflow:
     id: generate_etd
     task: calculate_elliptical_time_density
     partial:
+      auto_scale_or_custom_cell_size:
+        auto_scale_or_custom: Customize
+        grid_cell_size: 2000
+
       crs: ESRI:53042
       percentiles:
         - 50.0
@@ -673,7 +748,8 @@ workflow:
         - 99.9
       nodata_value: nan
       band_count: 1
-
+      max_speed_factor : 1.05
+      expansion_factor : 1.3
     mapvalues:
       argnames: trajectory_gdf
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
@@ -681,6 +757,10 @@ workflow:
   - name: Determine Seasonal Windows 
     id: determine_seasonal_windows
     task: determine_season_windows
+    skipif:
+      conditions: 
+      - any_is_empty_df
+      - any_dependency_skipped
     partial:
       client: ${{ workflow.gee_project_name.return }}
       time_range: ${{ workflow.define_time_range.return }}
@@ -691,6 +771,10 @@ workflow:
   - name: Zip etd and grouped trajectories
     id: zip_etd_and_grouped_trajs
     task: zip_grouped_by_key
+    skipif:
+      conditions: 
+      - any_is_empty_df
+      - any_dependency_skipped
     partial:
       left: ${{ workflow.determine_seasonal_windows.return }}
       right: ${{ workflow.split_trajectories_by_group.return }}
@@ -699,6 +783,10 @@ workflow:
   - name: Generate seasonal labels
     id: add_season_labels
     task: create_seasonal_labels
+    skipif:
+      conditions: 
+      - any_is_empty_df
+      - any_dependency_skipped
     mapvalues:
       argnames:
         - total_percentiles
@@ -718,6 +806,11 @@ workflow:
   - name: Apply Colormap to Home Range Percentiles
     id: apply_etd_percentile_colormap
     task: apply_color_map
+    skipif:
+      conditions: 
+      - any_is_empty_df
+      - any_dependency_skipped
+
     partial:
       input_column_name: percentile
       colormap: RdYlGn
@@ -729,7 +822,7 @@ workflow:
   # create polygon map layers from ETD (home range) percentiles
   - name: Create Home Range Ecomap Layers
     id: generate_etd_ecomap_layers
-    task: create_polygon_layer
+    task: custom_polygon_layer
     skipif:
       conditions:
         - any_is_empty_df
@@ -750,7 +843,7 @@ workflow:
   # create polygon map layers for MCP
   - name: Create MCP Polygon Layer 
     id: generate_mcp_layers
-    task: create_polygon_layer
+    task: custom_polygon_layer
     skipif:
       conditions:
         - any_is_empty_df
@@ -764,7 +857,7 @@ workflow:
         stroked: true
       legend:
         labels: 
-          - mcp
+          - MCP
         colors: 
           - '#ff1493'
       tooltip_columns:
@@ -777,6 +870,10 @@ workflow:
   - name: Zoom hr movement by view state
     id: zoom_hr_view
     task: create_view_state_from_gdf
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       pitch: 0
       bearing: 0
@@ -788,6 +885,10 @@ workflow:
   - name: zip mcp and hr
     id: zip_mcp_hr
     task: zip_grouped_by_key
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       left: ${{ workflow.generate_mcp_layers.return }}
       right: ${{ workflow.generate_etd_ecomap_layers.return }}
@@ -796,8 +897,14 @@ workflow:
   - name: Combine LandDx and Home Range Ecomap Layers
     id: combine_landdx_hr_ecomap_layers
     task: combine_map_layers
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.zip_mcp_hr.return }}
@@ -806,6 +913,10 @@ workflow:
   - name: Zip hr layers and zoom values
     id: hr_view_zip
     task: zip_grouped_by_key
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       left:  ${{ workflow.combine_landdx_hr_ecomap_layers.return }}
       right: ${{ workflow.zoom_hr_view.return }}
@@ -814,13 +925,17 @@ workflow:
   - name: Draw Home Range Ecomap
     id: draw_hr_ecomap
     task: draw_ecomap
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       tile_layers: ${{ workflow.configure_base_maps.return }}
       north_arrow_style:
         placement: top-left
       legend_style:
         placement: bottom-right
-        title: "ETD Metrics"
+        title: ETD Metrics
       static: false
       title: null
       max_zoom: 20
@@ -834,6 +949,9 @@ workflow:
   - name: Persist Home Range Ecomap HTML Paths
     id: persist_hr_ecomap_urls
     task: persist_text
+    skipif:
+      conditions:
+        - any_dependency_skipped
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
     mapvalues:
@@ -867,11 +985,22 @@ workflow:
   - name: Generate Speed Rasters
     id: generate_speed_raster
     task: generate_ecograph_raster
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
+      step_length: 2000
       dist_col: dist_meters
       interpolation: mean
       movement_covariate: speed
-      # output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      radius: 2
+      cutoff: null
+      tortuosity_length : 3
+      resolution: null
+      network_metric: null
+      output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename: null 
     mapvalues:
       argnames: gdf 
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
@@ -880,6 +1009,9 @@ workflow:
   - name: Extract Features from Speed Raster TIFFs
     id: extract_speed_rasters
     task: retrieve_feature_gdf
+    skipif:
+      conditions:
+        - any_dependency_skipped
     mapvalues:
       argnames: file_path
       argvalues: ${{ workflow.generate_speed_raster.return }}
@@ -888,9 +1020,14 @@ workflow:
   - name: Sort Speed Features by Value
     id: sort_speed_features_by_value
     task: sort_values
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       column_name: value
       na_position: last
+      ascending: true
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.extract_speed_rasters.return }}
@@ -899,6 +1036,10 @@ workflow:
   - name: Classify Speed Feature GeoDataFrames
     id: classify_speed_features
     task: apply_classification
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       input_column_name: value
       output_column_name: bins
@@ -916,6 +1057,10 @@ workflow:
   - name: Apply Colormap to Speed Raster Bins
     id: apply_speed_raster_colormap
     task: apply_color_map
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       input_column_name: bins
       output_column_name: speedraster_bins_colors
@@ -934,6 +1079,10 @@ workflow:
   - name: Format Speed Raster Bin Labels
     id: format_speed_raster_labels
     task: map_values_with_unit
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       input_column_name: bins
       output_column_name: bins_formatted
@@ -947,7 +1096,7 @@ workflow:
   # create polygon map layers from classified speed raster features
   - name: Create Speed Raster Map Layers
     id: generate_raster_layers
-    task: create_polygon_layer
+    task: custom_polygon_layer
     skipif:
       conditions:
         - any_is_empty_df
@@ -971,6 +1120,10 @@ workflow:
   - name: Zoom speed rasters by view state
     id: zoom_speedraster_view
     task: create_view_state_from_gdf
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       pitch: 0
       bearing: 0
@@ -982,8 +1135,14 @@ workflow:
   - name: Combine LandDx and SpeedRaster Map Layers
     id: combine_seasonal_raster_layers
     task: combine_map_layers
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_raster_layers.return }}
@@ -992,6 +1151,10 @@ workflow:
   - name: Zip speedraster layers and zoom values
     id: speedraster_view_zip
     task: zip_grouped_by_key
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       left:  ${{ workflow.combine_seasonal_raster_layers.return }}
       right: ${{ workflow.zoom_speedraster_view.return }}
@@ -1000,6 +1163,10 @@ workflow:
   - name: Draw Speed Raster Ecomaps by Group
     id: draw_speed_raster_ecomaps
     task: draw_ecomap
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       tile_layers: ${{ workflow.configure_base_maps.return }}
       north_arrow_style:
@@ -1020,6 +1187,10 @@ workflow:
   - name: Persist Speed Raster Ecomap HTML Paths
     id: speed_raster_ecomap_urls
     task: persist_text
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
     mapvalues:
@@ -1061,6 +1232,11 @@ workflow:
       groupby_cols:
         - subject_name
         - season
+      percentiles:
+        - 99.9
+      auto_scale_or_custom_cell_size:
+        auto_scale_or_custom: Customize
+        grid_cell_size: 2000
     mapvalues:
       argnames: gdf
       argvalues: ${{ workflow.add_season_labels.return }}
@@ -1068,6 +1244,10 @@ workflow:
   - name: Time Density colormap
     id: season_colormap
     task: apply_color_map
+    skipif:
+      conditions: 
+      - any_is_empty_df
+      - any_dependency_skipped
     partial:
       input_column_name: season
       output_column_name: season_colormap
@@ -1080,7 +1260,7 @@ workflow:
   
   - name: Create map layers from Seasons
     id: season_etd_map_layer
-    task: create_polygon_layer
+    task: custom_polygon_layer
     skipif:
       conditions:
         - any_is_empty_df
@@ -1103,6 +1283,10 @@ workflow:
   - name: Zoom seasons by view state
     id: zoom_season_view
     task: create_view_state_from_gdf
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       pitch: 0
       bearing: 0
@@ -1114,7 +1298,9 @@ workflow:
     id: comb_season_map_layers
     task: combine_map_layers
     partial:
-      static_layers: ${{ workflow.create_styled_landdx_layers.return }}
+      static_layers: 
+        - ${{ workflow.create_styled_landdx_layers.return }}
+        - ${{ workflow.custom_text_layer.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.season_etd_map_layer.return }}
@@ -1338,6 +1524,7 @@ workflow:
       template_path: ${{ workflow.download_mapbook_cover_page.return }}
       output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       context: ${{ workflow.create_cover_template_context.return }}
+      filename: null
   
   # convert  ecomaps html to png using playwright and persist
   # 1. speedmap
@@ -1485,6 +1672,11 @@ workflow:
       subject_name: ${{ workflow.get_subject_name.return }}
       time_period: ${{ workflow.define_time_range.return }}
       period: ${{ workflow.round_report_duration.return }} # months
+      filename: null
+      validate_images: true
+      box_h_cm: 6.5
+      box_w_cm: 11.11
+
     mapvalues:
       argnames:
         - grid_area
@@ -1506,6 +1698,7 @@ workflow:
       cover_page_path: ${{ workflow.persist_context_cover.return }}
       output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       context_page_items: ${{ workflow.individual_mapbook_context.return }}
+      filename: mapbook_report.docx
 
   - name: Mapbook Dashboard
     id: mapbook_dashboard

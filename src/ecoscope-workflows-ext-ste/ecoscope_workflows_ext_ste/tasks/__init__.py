@@ -8,14 +8,14 @@ from ._map_utils import (
     load_geospatial_files,
     create_layer_from_gdf,
     build_landdx_style_config,
-    remove_invalid_geometries,
+    make_text_layer,
     create_view_state_from_gdf,
     annotate_gdf_dict_with_geometry_type,
     create_map_layers_from_annotated_dict,
+    custom_polygon_layer,
 )
 
 from ._inspect import view_df,print_output # testing only
-from ._file_ import create_directory # testing only
 
 # write test functions for these functions
 from ._ste_utils import (
@@ -41,6 +41,7 @@ from ._zip import zip_grouped_by_key ,flatten_tuple
 from ._example import add_one_thousand
 
 __all__ = [
+    "custom_polygon_layer",
     "download_land_dx",
     "view_df",
     "round_off_values",
@@ -52,10 +53,9 @@ __all__ = [
     "generate_mcp_gdf",
     "load_geospatial_files",
     "load_landdx_aoi",
-    "create_directory",
     "create_map_layers",
     "combine_map_layers",
-    "clean_geodataframe",
+    "make_text_layer",
     "download_file_and_persist",
     "zip_grouped_by_key",
     "split_gdf_by_column",

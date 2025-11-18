@@ -3,14 +3,13 @@
 from typing import get_args
 from unittest.mock import patch
 
-import pytest
 import pydantic
-from fastapi.testclient import TestClient
-
-from ecoscope_workflows_mapbook_report_workflow.params import Params
+import pytest
 from ecoscope_workflows_mapbook_report_workflow.formdata import FormData
-from ecoscope_workflows_runner.testing import Case
+from ecoscope_workflows_mapbook_report_workflow.params import Params
 from ecoscope_workflows_runner.app import app
+from ecoscope_workflows_runner.testing import Case
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture
