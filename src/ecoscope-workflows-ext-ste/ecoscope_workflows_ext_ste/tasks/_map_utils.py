@@ -4,14 +4,13 @@ import math
 import logging
 import ecoscope
 import traceback
-import dataclasses
 from enum import Enum
 import geopandas as gpd
 from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 from ecoscope_workflows_core.decorators import task
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AdvancedField
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import ViewState
@@ -21,23 +20,27 @@ from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LayerDefinitio
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LegendDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolygonLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolylineLayerStyle
-from typing import Union,Any, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
+from typing import Union, Any, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_point_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polygon_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polyline_layer
 
 logger = logging.getLogger(__name__)
 
+
 class MapStyleConfig(BaseModel):
     styles: Dict[str, Dict] = Field(default_factory=dict)
     legend: Dict[str, List[str]] = Field(default_factory=dict)
+
 
 class SupportedFormat(str, Enum):
     GPKG = ".gpkg"
     GEOJSON = ".geojson"
     SHP = ".shp"
 
+
 SUPPORTED_FORMATS = [f.value for f in SupportedFormat]
+
 
 class MapProcessingConfig(BaseModel):
     path: str = Field(..., description="Directory path to load geospatial files from")
@@ -63,6 +66,7 @@ def remove_invalid_geometries(
         GeoDataFrame: Filtered GeoDataFrame containing only non-empty, non-null geometries.
     """
     return gdf.loc[(~gdf.geometry.isna()) & (~gdf.geometry.is_empty)]
+
 
 @task
 def detect_geometry_type(gdf: AnyGeoDataFrame) -> GeometrySummary:
@@ -94,25 +98,27 @@ def detect_geometry_type(gdf: AnyGeoDataFrame) -> GeometrySummary:
 
     return {"primary_type": primary_type, "counts": geom_counts}
 
+
 def normalize_file_url(path: str) -> str:
     """Convert file:// URL to local path, handling malformed Windows URLs."""
     if not path.startswith("file://"):
         return path
 
     path = path[7:]
-    
-    if os.name == 'nt':
+
+    if os.name == "nt":
         # Remove leading slash before drive letter: /C:/path -> C:/path
-        if path.startswith('/') and len(path) > 2 and path[2] in (':', '|'):
+        if path.startswith("/") and len(path) > 2 and path[2] in (":", "|"):
             path = path[1:]
 
-        path = path.replace('/', '\\')
-        path = path.replace('|', ':')
+        path = path.replace("/", "\\")
+        path = path.replace("|", ":")
     else:
-        if not path.startswith('/'):
-            path = '/' + path
-    
+        if not path.startswith("/"):
+            path = "/" + path
+
     return path
+
 
 @task
 def load_geospatial_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFrame]:
@@ -123,22 +129,19 @@ def load_geospatial_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFr
     # Convert to Path object
     base_path_str = normalize_file_url(config.path)
     base_path = Path(base_path_str)
-    
+
     # Validate path exists
     if not base_path.exists():
         raise FileNotFoundError(f"Path does not exist: {base_path}")
-    
+
     if not base_path.is_dir():
         raise NotADirectoryError(f"Path is not a directory: {base_path}")
 
     target_crs = config.target_crs
 
     loaded_files: Dict[str, AnyGeoDataFrame] = {}
-    normalized_suffixes = {
-        s.lower() if s.startswith(".") else f".{s.lower()}" 
-        for s in SUPPORTED_FORMATS
-    }
-    
+    normalized_suffixes = {s.lower() if s.startswith(".") else f".{s.lower()}" for s in SUPPORTED_FORMATS}
+
     # Use correct iterator method
     iterator = base_path.rglob("*") if config.recursive else base_path.iterdir()
 
@@ -170,7 +173,7 @@ def load_geospatial_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFr
 
             # Remove invalid geometries
             cleaned = remove_invalid_geometries(gdf)
-            
+
             # Create relative path key
             key = str(p.relative_to(base_path))
             loaded_files[key] = cleaned
@@ -190,17 +193,20 @@ def clean_file_keys(file_dict: Dict[str, AnyGeoDataFrame]) -> Dict[str, AnyGeoDa
     Returns:
         A new dictionary with standardized, lowercase keys suitable for map layer identifiers.
     """
+
     def clean_key(key: str) -> str:
         for ext in SUPPORTED_FORMATS:
             if key.lower().endswith(ext):
                 key = key[: -len(ext)]
                 break
 
-        key = re.sub(r'\band\b', '_', key, flags=re.IGNORECASE)
-        key = re.sub(r'[^A-Za-z0-9_]+', '_', key)
-        key = re.sub(r'_+', '_', key)  # collapse multiple underscores
-        return key.strip('_').lower()
+        key = re.sub(r"\band\b", "_", key, flags=re.IGNORECASE)
+        key = re.sub(r"[^A-Za-z0-9_]+", "_", key)
+        key = re.sub(r"_+", "_", key)  # collapse multiple underscores
+        return key.strip("_").lower()
+
     return {clean_key(k): v for k, v in file_dict.items()}
+
 
 @task
 def create_layer_from_gdf(
@@ -263,11 +269,12 @@ def create_layer_from_gdf(
             return create_polyline_layer(gdf, layer_style=PolylineLayerStyle(**style_params), legend=legend)
 
         logger.warning("Unsupported geometry type '%s' for file '%s'", primary_type, filename)
-    except TypeError as te:
-        logger.error("Invalid style params for '%s': %s", filename, te, exc_info=True)
-    except Exception as e:
-        logger.error("Error creating layer for '%s': %s", filename, e, exc_info=True)
+    except TypeError as type_err:
+        logger.error("Invalid style params for '%s': %s", filename, type_err, exc_info=True)
+    except Exception as exc:
+        logger.error("Error creating layer for '%s': %s", filename, exc, exc_info=True)
     return None
+
 
 @task
 def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapStyleConfig) -> List[LayerDefinition]:
@@ -337,13 +344,13 @@ def _zoom_from_bbox(minx, miny, maxx, maxy, map_width_px=800, map_height_px=600)
     zoom = round(max(0, min(20, zoom)), 2)
     return zoom
 
+
 @task
 def create_view_state_from_gdf(
-    gdf: AnyGeoDataFrame, 
-    pitch: int = 0, 
+    gdf: AnyGeoDataFrame,
+    pitch: int = 0,
     bearing: int = 0,
 ) -> ViewState:
-
     if gdf.empty:
         raise ValueError("GeoDataFrame is empty. Cannot compute ViewState.")
 
@@ -354,13 +361,9 @@ def create_view_state_from_gdf(
     center_lon = (minx + maxx) / 2.0
     center_lat = (miny + maxy) / 2.0
     zoom = _zoom_from_bbox(minx, miny, maxx, maxy)
-    return ViewState(
-        longitude=center_lon, 
-        latitude=center_lat, 
-        zoom=zoom, 
-        pitch=pitch, 
-        bearing=bearing
-        )
+    return ViewState(longitude=center_lon, latitude=center_lat, zoom=zoom, pitch=pitch, bearing=bearing)
+
+
 @task
 def download_land_dx(
     url: Annotated[str, Field(description="URL to retrieve the LandDx database")],
@@ -389,7 +392,8 @@ def download_land_dx(
         unzip=unzip,
     )
     return path
-    
+
+
 @task
 def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[int, int, int]]) -> MapStyleConfig:
     """
@@ -413,57 +417,54 @@ def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[in
             "get_elevation": 1000,
             "get_fill_color": rgb,
             "opacity": 0.25,
-            "get_line_width": 4.00,
             "get_width": 5,
             "get_line_color": rgb,
             "get_line_width": 2,
-            "stroked":True
+            "stroked": True,
         }
 
         legend["labels"].append(aoi)
         legend["colors"].append(hex_color)
     return MapStyleConfig(styles=styles, legend=legend)
 
+
 @task
 def load_landdx_aoi(
     map_path: str,
     aoi: Optional[List[str]] = None,
 ) -> Optional[AnyGeoDataFrame]:
-    if map_path is None: 
-        logger.error(f"Provided map path is empty")
+    if map_path is None:
+        logger.error("Provided map path is empty")
         return None  # Add explicit return here
-    
+
     ldx_path = None  # Initialize to avoid potential UnboundLocalError
     for root, _, files in os.walk(map_path):
         if "landDx.gpkg" in files:
             ldx_path = os.path.join(root, "landDx.gpkg")
             break
-    
+
     if ldx_path is None:
         logger.error(f"landDx.gpkg not found in {map_path}")
         return None
-    
+
     # Load and filter
     try:
         geodataframe = gpd.read_file(ldx_path, layer="landDx_polygons").set_index("globalid")
-        
+
         # Check if AOI filtering is needed
         if aoi is None or not aoi:
             print(f"Loaded landDx.gpkg — total features: {len(geodataframe)} (no filtering applied)")
-            return geodataframe 
-        
+            return geodataframe
+
         # Filter by AOI
         filtered = geodataframe[geodataframe["type"].isin(aoi)]
-        print(
-            f"Loaded landDx.gpkg — total: {len(geodataframe)}, "
-            f"filtered by {aoi}: {len(filtered)}"
-        )
-        
+        print(f"Loaded landDx.gpkg — total: {len(geodataframe)}, " f"filtered by {aoi}: {len(filtered)}")
+
         if filtered.empty:
             print(f"No features found matching AOI types: {aoi}")
-        
-        return filtered 
-    except FileNotFoundError as e:
+
+        return filtered
+    except FileNotFoundError:
         logger.error(f"File not found: {ldx_path}")
         return None
     except KeyError as e:
@@ -472,6 +473,7 @@ def load_landdx_aoi(
     except Exception as e:
         logger.error(f"Error loading or filtering landDx.gpkg: {e}")
         return None
+
 
 @task
 def annotate_gdf_dict_with_geometry_type(gdf_dict: Dict[str, AnyGeoDataFrame]) -> Dict[str, Dict[str, object]]:
@@ -507,6 +509,7 @@ def annotate_gdf_dict_with_geometry_type(gdf_dict: Dict[str, AnyGeoDataFrame]) -
         result[name] = {"gdf": gdf, "geometry_type": primary_type}
     return result
 
+
 @task
 def create_map_layers_from_annotated_dict(
     annotated_dict: Dict[str, Dict[str, object]], style_config: MapStyleConfig
@@ -534,12 +537,7 @@ def create_map_layers_from_annotated_dict(
         geometry_type = content.get("geometry_type")
 
         try:
-            layer = create_layer_from_gdf(
-                filename=name, 
-                gdf=gdf, 
-                style_config=style_config, 
-                primary_type=geometry_type
-                )
+            layer = create_layer_from_gdf(filename=name, gdf=gdf, style_config=style_config, primary_type=geometry_type)
 
             if layer:
                 layers.append(layer)
@@ -550,11 +548,12 @@ def create_map_layers_from_annotated_dict(
     print(f"Created {len(layers)} layers from annotated dict")
     return layers
 
+
 @task
 def combine_map_layers(
     static_layers: Annotated[
-        Union[LayerDefinition, List[LayerDefinition | List[LayerDefinition]]], 
-        Field(description="Static layers from local files or base maps.")
+        Union[LayerDefinition, List[LayerDefinition | List[LayerDefinition]]],
+        Field(description="Static layers from local files or base maps."),
     ] = [],
     grouped_layers: Annotated[
         Union[LayerDefinition, List[LayerDefinition | List[LayerDefinition]]],
@@ -565,11 +564,12 @@ def combine_map_layers(
     Combine static and grouped map layers into a single list for rendering in `draw_ecomap`.
     Automatically flattens nested lists to handle cases where layer generation tasks return lists.
     """
+
     def flatten_layers(layers):
         """Recursively flatten nested lists of LayerDefinition objects."""
         if not isinstance(layers, list):
             return [layers]
-        
+
         flattened = []
         for item in layers:
             if isinstance(item, list):
@@ -579,84 +579,64 @@ def combine_map_layers(
                 # Add individual LayerDefinition objects
                 flattened.append(item)
         return flattened
-    
+
     # Flatten both static and grouped layers
     flat_static = flatten_layers(static_layers) if static_layers else []
     flat_grouped = flatten_layers(grouped_layers) if grouped_layers else []
-    
-        # Combine all layers
+
+    # Combine all layers
     all_layers = flat_static + flat_grouped
-    
+
     # Separate text layers from other layers
     text_layers = []
     other_layers = []
-    
+
     for layer in all_layers:
         if isinstance(layer.layer_style, TextLayerStyle):
             text_layers.append(layer)
         else:
             other_layers.append(layer)
-    
+
     return other_layers + text_layers
+
 
 @task
 def make_text_layer(
-    txt_gdf: Annotated[
-        AnyGeoDataFrame,
-        Field(description="Input GeoDataFrame containing geometries and label data.")
-    ],
-    label_column: Annotated[
-        str,
-        Field(default="label", description="Column name containing text labels.")
-    ] = "label",
+    txt_gdf: Annotated[AnyGeoDataFrame, Field(description="Input GeoDataFrame containing geometries and label data.")],
+    label_column: Annotated[str, Field(default="label", description="Column name containing text labels.")] = "label",
     name_column: Annotated[
-        str,
-        Field(default="name", description="Fallback column name to use as label if label_column doesn’t exist.")
+        str, Field(default="name", description="Fallback column name to use as label if label_column doesn’t exist.")
     ] = "name",
     use_centroid: Annotated[
-        bool,
-        Field(default=True, description="Whether to use geometry centroids for text placement.")
+        bool, Field(default=True, description="Whether to use geometry centroids for text placement.")
     ] = True,
-    color: Annotated[
-        List[int],
-        Field(default=[0, 0, 0, 255], description="RGBA color values for text (0–255).")
-    ] = [0, 0, 0, 255],
-    size: Annotated[
-        int,
-        Field(default=16, description="Font size in pixels.")
-    ] = 16,
+    color: Annotated[List[int], Field(default=[0, 0, 0, 255], description="RGBA color values for text (0–255).")] = [
+        0,
+        0,
+        0,
+        255,
+    ],
+    size: Annotated[int, Field(default=16, description="Font size in pixels.")] = 16,
     font_weight: Annotated[
-        str,
-        Field(default="normal", description="Font weight (e.g., normal, bold, italic).")
+        str, Field(default="normal", description="Font weight (e.g., normal, bold, italic).")
     ] = "normal",
-    font_family: Annotated[
-        str,
-        Field(default="Arial", description="Font family name.")
-    ] = "Arial",
+    font_family: Annotated[str, Field(default="Arial", description="Font family name.")] = "Arial",
     text_anchor: Annotated[
-        str,
-        Field(default="middle", description="Horizontal text anchor (start, middle, end).")
+        str, Field(default="middle", description="Horizontal text anchor (start, middle, end).")
     ] = "middle",
     alignment_baseline: Annotated[
-        str,
-        Field(default="center", description="Vertical alignment (top, center, bottom).")
+        str, Field(default="center", description="Vertical alignment (top, center, bottom).")
     ] = "center",
-    pickable: Annotated[
-        bool,
-        Field(default=True, description="Whether the layer is interactive (pickable).")
-    ] = True,
+    pickable: Annotated[bool, Field(default=True, description="Whether the layer is interactive (pickable).")] = True,
     tooltip_columns: Annotated[
-        Optional[List[str]],
-        Field(default=None, description="Columns to display in tooltip when hovered.")
+        Optional[List[str]], Field(default=None, description="Columns to display in tooltip when hovered.")
     ] = None,
     zoom: Annotated[
-        bool,
-        Field(default=False, description="Whether to zoom to the layer extent when displayed.")
+        bool, Field(default=False, description="Whether to zoom to the layer extent when displayed.")
     ] = False,
     target_crs: Annotated[
-        str,
-        Field(default="epsg:4326", description="Target CRS for layer coordinates.")
-    ] = "epsg:4326"
+        str, Field(default="epsg:4326", description="Target CRS for layer coordinates.")
+    ] = "epsg:4326",
 ) -> LayerDefinition:
     """
     Create a text layer from a GeoDataFrame with annotated parameters.
@@ -673,8 +653,7 @@ def make_text_layer(
             gdf = gdf.rename(columns={name_column: label_column})
         else:
             raise ValueError(
-                f"Neither '{label_column}' nor '{name_column}' found. "
-                f"Available columns: {list(gdf.columns)}"
+                f"Neither '{label_column}' nor '{name_column}' found. " f"Available columns: {list(gdf.columns)}"
             )
 
     # Use centroids if requested
@@ -705,7 +684,7 @@ def make_text_layer(
     )
 
 
-@task 
+@task
 def custom_polygon_layer(
     geodataframe: Annotated[
         AnyGeoDataFrame,
@@ -713,9 +692,7 @@ def custom_polygon_layer(
     ],
     layer_style: Annotated[
         PolygonLayerStyle | SkipJsonSchema[None],
-        AdvancedField(
-            default=PolygonLayerStyle(), description="Style arguments for the layer."
-        ),
+        AdvancedField(default=PolygonLayerStyle(), description="Style arguments for the layer."),
     ] = None,
     legend: Annotated[
         LegendDefinition | SkipJsonSchema[None],

@@ -15,7 +15,7 @@ from ._map_utils import (
     custom_polygon_layer,
 )
 
-from ._inspect import view_df,print_output # testing only
+from ._inspect import view_df, print_output  # testing only
 
 # write test functions for these functions
 from ._ste_utils import (
@@ -34,10 +34,10 @@ from ._ste_utils import (
     create_context_page,
     create_mapbook_context,
     combine_docx_files,
-    round_off_values
+    round_off_values,
 )
 
-from ._zip import zip_grouped_by_key ,flatten_tuple
+from ._zip import zip_grouped_by_key, flatten_tuple
 from ._example import add_one_thousand
 
 __all__ = [

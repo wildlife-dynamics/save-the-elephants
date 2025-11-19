@@ -5,7 +5,7 @@ import logging
 import warnings
 import hashlib
 import zipfile
-import numpy as np 
+import numpy as np
 import pandas as pd
 import geopandas as gpd
 from pathlib import Path
@@ -14,19 +14,17 @@ from datetime import datetime
 from urllib.parse import urlparse
 from ecoscope.io import download_file
 from urllib.request import url2pathname
-from dataclasses import asdict,dataclass
+from dataclasses import asdict, dataclass
 from ecoscope.trajectory import Trajectory
 from ecoscope.base.utils import hex_to_rgba
-from docxtpl import DocxTemplate,InlineImage 
+from docxtpl import DocxTemplate, InlineImage
 from pydantic.json_schema import SkipJsonSchema
-from dateutil.relativedelta import relativedelta
 from pydantic import Field, BaseModel, ConfigDict
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.indexes import CompositeFilter
 from ecoscope.analysis.ecograph import Ecograph, get_feature_gdf
-from typing import Annotated, Optional, Dict, cast, Literal,Union
-from ecoscope_workflows_core.tasks.filter._filter import TimeRange 
-from ecoscope.analysis.seasons import seasonal_windows, std_ndvi_vals, val_cuts
+from typing import Annotated, Optional, Dict, Literal, Union
+from ecoscope_workflows_core.tasks.filter._filter import TimeRange
 from ecoscope_workflows_core.skip import SkippedDependencyFallback, SkipSentinel
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import calculate_elliptical_time_density
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, AdvancedField
@@ -34,6 +32,7 @@ from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, A
 logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore")
+
 
 @dataclass
 class MapbookContext:
@@ -49,6 +48,7 @@ class MapbookContext:
     night_day_ecomap: Optional[str] = None
     seasonal_homerange: Optional[str] = None
 
+
 class AutoScaleGridCellSize(BaseModel):
     model_config = ConfigDict(json_schema_extra={"title": "Auto-scale"})
     auto_scale_or_custom: Annotated[
@@ -59,6 +59,7 @@ class AutoScaleGridCellSize(BaseModel):
             description="Define the resolution of the raster grid (in meters per pixel).",
         ),
     ] = "Auto-scale"
+
 
 class CustomGridCellSize(BaseModel):
     model_config = ConfigDict(json_schema_extra={"title": "Customize"})
@@ -81,25 +82,27 @@ class CustomGridCellSize(BaseModel):
         ),
     ] = 5000
 
+
 def normalize_file_url(path: str) -> str:
     """Convert file:// URL to local path, handling malformed Windows URLs."""
     if not path.startswith("file://"):
         return path
 
     path = path[7:]
-    
-    if os.name == 'nt':
+
+    if os.name == "nt":
         # Remove leading slash before drive letter: /C:/path -> C:/path
-        if path.startswith('/') and len(path) > 2 and path[2] in (':', '|'):
+        if path.startswith("/") and len(path) > 2 and path[2] in (":", "|"):
             path = path[1:]
 
-        path = path.replace('/', '\\')
-        path = path.replace('|', ':')
+        path = path.replace("/", "\\")
+        path = path.replace("|", ":")
     else:
-        if not path.startswith('/'):
-            path = '/' + path
-    
+        if not path.startswith("/"):
+            path = "/" + path
+
     return path
+
 
 @task
 def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
@@ -116,7 +119,7 @@ def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
     """
     if gdf is None or gdf.empty:
         raise ValueError("`label_quarter_status`:gdf is empty.")
-    
+
     gdf[timestamp_col] = pd.to_datetime(gdf[timestamp_col])
     latest_date = gdf[timestamp_col].max()
     most_recent_quarter = latest_date.to_period("Q")
@@ -127,12 +130,12 @@ def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
     )
     return gdf
 
+
 @task
 def generate_ecograph_raster(
     gdf: Annotated[AnyGeoDataFrame, Field(description="GeoDataFrame with trajectory data")],
     dist_col: Annotated[str, Field(description="Column name for step distance")],
-    output_dir: Annotated[
-        Optional[str], Field(description="Directory to save the output raster")]= None,
+    output_dir: Annotated[Optional[str], Field(description="Directory to save the output raster")] = None,
     filename: Annotated[
         Optional[str],
         Field(
@@ -154,7 +157,6 @@ def generate_ecograph_raster(
     ] = None,
     network_metric: Optional[Literal["weight", "betweenness", "degree", "collective_influence"]] = None,
 ) -> str:
-
     if gdf is None or gdf.empty:
         raise ValueError("`generate_ecograph_raster`:Trajectory gdf is empty.")
 
@@ -163,17 +165,18 @@ def generate_ecograph_raster(
 
     dist_series = pd.to_numeric(gdf[dist_col], errors="coerce")
     if dist_series.dropna().empty:
-        raise ValueError(f"`generate_ecograph_raster`:Column '{dist_col}' has no numeric values to compute a mean resolution.")
+        raise ValueError(
+            f"`generate_ecograph_raster`:Column '{dist_col}' has no numeric values to compute a mean resolution."
+        )
 
     if (movement_covariate is None) == (network_metric is None):
-        raise ValueError("`generate_ecograph_raster`:Provide exactly one of 'movement_covariate' or 'network_metric'.")
-    
+        raise ValueError("Provide exactly one of 'movement_covariate' or 'network_metric'.")
 
     if output_dir is None or str(output_dir).strip() == "":
         output_dir = os.getcwd()
 
     output_dir = normalize_file_url(output_dir)
-    
+
     if not filename:
         df_hash = hashlib.sha256(pd.util.hash_pandas_object(gdf, index=True).values).hexdigest()
         filename = df_hash[:7]
@@ -199,6 +202,7 @@ def generate_ecograph_raster(
     ecograph.to_geotiff(covariate, raster_path, interpolation=interpolation)
     return raster_path
 
+
 @task
 def retrieve_feature_gdf(
     file_path: Annotated[str, Field(description="Path to the saved Ecograph feature file")],
@@ -212,6 +216,7 @@ def retrieve_feature_gdf(
 
     gdf = get_feature_gdf(file_path)
     return gdf
+
 
 @task
 def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFrame) -> Optional[AnyGeoDataFrame]:
@@ -288,33 +293,30 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
                     f"[{seasonal_wins.loc[i+1, 'start']} - {seasonal_wins.loc[i+1, 'end']}]"
                 )
 
-        season_bins = pd.IntervalIndex(
-            data=seasonal_wins.apply(lambda x: pd.Interval(x["start"], x["end"]), axis=1)
-        )
+        season_bins = pd.IntervalIndex(data=seasonal_wins.apply(lambda x: pd.Interval(x["start"], x["end"]), axis=1))
         logger.info(f"Created {len(season_bins)} seasonal bins")
 
         labels = seasonal_wins["season"].values
-        traj["season"] = pd.cut(
-            traj["segment_start"], 
-            bins=season_bins, 
-            include_lowest=True
-        ).map(dict(zip(season_bins, labels)))
-        
+        traj["season"] = pd.cut(traj["segment_start"], bins=season_bins, include_lowest=True).map(
+            dict(zip(season_bins, labels))
+        )
+
         null_count = traj["season"].isnull().sum()
         if null_count > 0:
             logger.warning(f"Warning: {null_count} trajectory segments couldn't be assigned to any season")
 
         logger.info("Seasonal labeling complete. Season distribution:")
         logger.info(traj["season"].value_counts(dropna=False))
-        
+
         # FIXED: Drop rows with NULL seasons but keep all columns
         traj = traj.dropna(subset=["season"])
-        
+
         return traj
-        
+
     except Exception as e:
         logger.error(f"Failed to apply seasonal label to trajectory: {e}")
         return None
+
 
 @task
 def split_gdf_by_column(
@@ -332,6 +334,7 @@ def split_gdf_by_column(
 
     grouped = {str(k): v for k, v in gdf.groupby(column)}
     return grouped
+
 
 @task
 def generate_mcp_gdf(
@@ -352,7 +355,7 @@ def generate_mcp_gdf(
     valid_points_gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notnull()].copy()
     if valid_points_gdf.empty:
         raise ValueError("`generate_mcp_gdf`:No valid geometries in gdf.")
-    
+
     projected_gdf = valid_points_gdf.to_crs(planar_crs)
     if not all(projected_gdf.geometry.geom_type.isin(["Point"])):
         projected_gdf.geometry = projected_gdf.geometry.centroid
@@ -364,15 +367,12 @@ def generate_mcp_gdf(
     convex_hull_original_crs = gpd.GeoSeries([convex_hull], crs=planar_crs).to_crs(original_crs).iloc[0]
 
     result_gdf = gpd.GeoDataFrame(
-        {
-            "area_m2": [area_sq_meters], 
-            "area_km2": [area_sq_km], 
-            "mcp": "mcp"
-        },
+        {"area_m2": [area_sq_meters], "area_km2": [area_sq_km], "mcp": "mcp"},
         geometry=[convex_hull_original_crs],
         crs=original_crs,
     )
     return result_gdf
+
 
 @task
 def dataframe_column_first_unique_str(
@@ -383,12 +383,9 @@ def dataframe_column_first_unique_str(
         raise ValueError("`dataframe_column_first_unique_str`:df is empty.")
     return str(df[column_name].unique()[0])
 
+
 @task
-def assign_quarter_status_colors(
-    gdf: AnyDataFrame, 
-    hex_column: str, 
-    previous_color_hex: str
-    ) -> AnyDataFrame:
+def assign_quarter_status_colors(gdf: AnyDataFrame, hex_column: str, previous_color_hex: str) -> AnyDataFrame:
     if gdf is None or gdf.empty:
         raise ValueError("`assign_quarter_status_colors`:gdf is empty.")
 
@@ -398,11 +395,10 @@ def assign_quarter_status_colors(
 
     if hex_column not in df.columns:
         raise ValueError(f"`assign_quarter_status_colors`:Column '{hex_column}' not found in gdf.")
-    
+
     if "quarter_status" not in df.columns:
         raise ValueError("`assign_quarter_status_colors`:Column 'quarter_status' not found in gdf.")
 
-    prev_rgba = hex_to_rgba(previous_color_hex)
     df["quarter_status_hex_colors"] = np.where(
         df["quarter_status"] == "Present Quarter Movement",
         df[hex_column],
@@ -410,6 +406,7 @@ def assign_quarter_status_colors(
     )
     df["quarter_status_colors"] = df["quarter_status_hex_colors"].apply(hex_to_rgba)
     return df
+
 
 @task
 def calculate_seasonal_home_range(
@@ -441,19 +438,18 @@ def calculate_seasonal_home_range(
 
     if groupby_cols is None:
         groupby_cols = ["groupby_col", "season"]
-    
-    if 'season' not in gdf.columns:
+
+    if "season" not in gdf.columns:
         raise ValueError("`calculate_seasonal_home_range`: gdf must have a 'season' column.")
-    
+
     if auto_scale_or_custom_cell_size is None:
         auto_scale_or_custom_cell_size = AutoScaleGridCellSize()
 
-    gdf = gdf[gdf['season'].notna()].copy()
-    group_counts = gdf.groupby(groupby_cols).size()
+    gdf = gdf[gdf["season"].notna()].copy()
     try:
         season_etd = gdf.groupby(groupby_cols).apply(
             lambda df: calculate_elliptical_time_density(
-                df, 
+                df,
                 auto_scale_or_custom_cell_size=auto_scale_or_custom_cell_size,
                 percentiles=percentiles,
             )
@@ -461,7 +457,7 @@ def calculate_seasonal_home_range(
     except TypeError:
         season_etd = gdf.groupby(groupby_cols).apply(
             lambda df: calculate_elliptical_time_density(
-                df, 
+                df,
                 auto_scale_or_custom_cell_size=auto_scale_or_custom_cell_size,
                 percentiles=percentiles,
             ),
@@ -471,6 +467,7 @@ def calculate_seasonal_home_range(
     if isinstance(season_etd.index, pd.MultiIndex):
         season_etd = season_etd.reset_index()
     return season_etd
+
 
 @task
 def get_duration(
@@ -498,17 +495,22 @@ def get_duration(
 
     elif time_unit == "months":
         from dateutil.relativedelta import relativedelta
+
         rd = relativedelta(until, since)
         months = rd.years * 12 + rd.months + rd.days / 30.44
         return months
 
     else:
         raise ValueError("`get_duration`:time_unit must be either 'days' or 'months'")
-        
+
+
 @task
 def download_file_and_persist(
     url: Annotated[str, Field(description="URL to download the file from")],
-    output_path: Annotated[Optional[str], Field(description="Path to save the downloaded file or directory. Defaults to current working directory")] = None,
+    output_path: Annotated[
+        Optional[str],
+        Field(description="Path to save the downloaded file or directory."),
+    ] = None,
     retries: Annotated[int, Field(description="Number of retries on failure", ge=0)] = 3,
     overwrite_existing: Annotated[bool, Field(description="Whether to overwrite existing files")] = False,
     unzip: Annotated[bool, Field(description="Whether to unzip the file if it's a zip archive")] = False,
@@ -536,7 +538,9 @@ def download_file_and_persist(
         os.makedirs(output_path, exist_ok=True)
 
         # determine filename from Content-Disposition or URL
-        import requests, email
+        import requests
+        import email
+
         try:
             s = requests.Session()
             r = s.head(url, allow_redirects=True, timeout=10)
@@ -578,8 +582,7 @@ def download_file_and_persist(
     except Exception as e:
         # include debug info so callers can see what was attempted
         raise RuntimeError(
-            f"download_file failed for url={url!r} path={target_path!r} retries={retries}. "
-            f"Original error: {e}"
+            f"download_file failed for url={url!r} path={target_path!r} retries={retries}. " f"Original error: {e}"
         ) from e
 
     # Determine the final persisted path
@@ -588,7 +591,7 @@ def download_file_and_persist(
         new_items = after_extraction - before_extraction
         zip_filename = os.path.basename(target_path)
         new_items.discard(zip_filename)
-        
+
         if len(new_items) == 1:
             new_item = new_items.pop()
             new_item_path = os.path.join(parent_dir, new_item)
@@ -599,7 +602,7 @@ def download_file_and_persist(
         elif len(new_items) > 1:
             persisted_path = str(Path(parent_dir).resolve())
         else:
-            extracted_dir = target_path.rsplit('.zip', 1)[0]
+            extracted_dir = target_path.rsplit(".zip", 1)[0]
             if os.path.isdir(extracted_dir):
                 persisted_path = str(Path(extracted_dir).resolve())
             else:
@@ -612,20 +615,18 @@ def download_file_and_persist(
         if os.path.exists(parent):
             actual_files = os.listdir(parent)
             raise FileNotFoundError(
-                f"Download failed — {persisted_path} not found after execution. "
-                f"Files in {parent}: {actual_files}"
+                f"Download failed — {persisted_path} not found after execution. " f"Files in {parent}: {actual_files}"
             )
         else:
-            raise FileNotFoundError(
-                f"Download failed — {persisted_path}. Parent dir missing: {parent}"
-            )
+            raise FileNotFoundError(f"Download failed — {persisted_path}. Parent dir missing: {parent}")
     return persisted_path
+
 
 @task
 def build_mapbook_report_template(
     count: int,
     org_logo_path: Union[str, Path],
-    report_period:TimeRange,
+    report_period: TimeRange,
     prepared_by: str,
 ) -> Dict[str, str]:
     """
@@ -648,9 +649,7 @@ def build_mapbook_report_template(
     formatted_date = datetime.now()
     formatted_date_str = formatted_date.strftime("%Y-%m-%d %H:%M:%S")
     fmt = getattr(report_period, "time_format", "%Y-%m-%d")
-    formatted_time_range = (
-        f"{report_period.since.strftime(fmt)} to {report_period.until.strftime(fmt)}"
-    )
+    formatted_time_range = f"{report_period.since.strftime(fmt)} to {report_period.until.strftime(fmt)}"
 
     logger.info(f"Report period: {formatted_time_range}")
     logger.info(f"Report date generated: {formatted_date_str}")
@@ -705,7 +704,7 @@ def create_context_page(
     filename: Annotated[
         Optional[str],
         Field(
-            description="Optional filename for the generated file. If not provided, a random UUID-based filename will be generated.",
+            description="Optional filename for the generated file.",
             exclude=True,
         ),
     ] = None,
@@ -729,11 +728,11 @@ def create_context_page(
 
     Returns:
         str: Full path to the generated .docx file.
-    """    
+    """
     # Normalize paths
     template_path = normalize_file_url(template_path)
     output_directory = normalize_file_url(output_directory)
-    
+
     # Validate paths
     if not template_path.strip():
         raise ValueError("template_path is empty after normalization")
@@ -744,7 +743,7 @@ def create_context_page(
         raise FileNotFoundError(f"Template file not found: {template_path}")
 
     os.makedirs(output_directory, exist_ok=True)
-    
+
     if not filename:
         filename = f"context_page_{uuid.uuid4().hex}.docx"
     output_path = Path(output_directory) / filename
@@ -761,6 +760,7 @@ def create_context_page(
     doc.render(context)
     doc.save(output_path)
     return str(output_path)
+
 
 @task
 def create_mapbook_context(
@@ -782,10 +782,9 @@ def create_mapbook_context(
     box_h_cm: float = 6.5,
     box_w_cm: float = 11.11,
 ) -> str:
-
     template_path = normalize_file_url(template_path)
     output_directory = normalize_file_url(output_directory)
-    
+
     # Validate paths
     if not template_path.strip():
         raise ValueError("template_path is empty after normalization")
@@ -838,14 +837,17 @@ def create_mapbook_context(
     tpl.save(output_path)
     return str(output_path)
 
+
 def _fallback_to_none_doc(
-    obj: tuple[CompositeFilter | None, str] | SkipSentinel
-    ) -> tuple[CompositeFilter | None, str] | None:
+    obj: tuple[CompositeFilter | None, str] | SkipSentinel,
+) -> tuple[CompositeFilter | None, str] | None:
     return None if isinstance(obj, SkipSentinel) else obj
+
 
 @dataclass
 class GroupedDoc:
     """Analogous to GroupedWidget but for document pages."""
+
     views: dict[CompositeFilter | None, Optional[str]]
 
     @classmethod
@@ -875,6 +877,7 @@ class GroupedDoc:
         self.views.update(other.views)
         return self
 
+
 @task
 def combine_docx_files(
     cover_page_path: Annotated[str, Field(description="Path to the cover page .docx file")],
@@ -895,7 +898,7 @@ def combine_docx_files(
     """
     from docx import Document
     from docxcompose.composer import Composer
-    
+
     valid_items = [it for it in context_page_items if it is not None]
     grouped_docs = [GroupedDoc.from_single_view(it) for it in valid_items]
 
@@ -915,11 +918,11 @@ def combine_docx_files(
 
     if not os.path.exists(cover_page_path):
         raise FileNotFoundError(f"Cover page file not found: {cover_page_path}")
-        
+
     for p in final_paths:
         if not os.path.exists(p):
             raise FileNotFoundError(f"Context page file not found: {p}")
-    
+
     output_directory = normalize_file_url(output_directory)
     if not output_directory.strip():
         raise ValueError("output_directory is empty after normalization")
@@ -933,10 +936,11 @@ def combine_docx_files(
     composer = Composer(master)
     for doc_path in final_paths:
         doc = Document(doc_path)
-        composer.append(doc) 
-        
+        composer.append(doc)
+
     composer.save(output_path)
     return str(output_path)
+
 
 @task
 def round_off_values(value: float, dp: int) -> float:
