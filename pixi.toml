@@ -20,8 +20,8 @@ pip = "*"
 [feature.compile.dependencies]
 # Include this if you add new tasks and the package has been built
 ecoscope-workflows-ext-ste = "*"
-ecoscope-workflows-ext-custom = "0.0.3.*"
-ecoscope-workflows-core = "0.7.2.*"
+ecoscope-workflows-core = "0.14.0.*"
+ecoscope-workflows-ext-custom = "*"
 # Here we don't specify the channel on purpose, as we want to use the local channel if it exists,
 # otherwise we fall back to the remote channel.
 # If you want to ensure a specific channel to incorporate your local changes, you can uncomment the line below.

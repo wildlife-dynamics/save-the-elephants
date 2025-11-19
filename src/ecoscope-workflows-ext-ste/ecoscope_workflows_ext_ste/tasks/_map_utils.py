@@ -1,8 +1,10 @@
 import os
+import re
 import math
 import logging
 import ecoscope
 import traceback
+import dataclasses
 from enum import Enum
 import geopandas as gpd
 from pathlib import Path
@@ -10,20 +12,19 @@ from urllib.parse import urlparse
 from urllib.request import url2pathname
 from ecoscope_workflows_core.decorators import task
 from pydantic import BaseModel, Field, field_validator
-from ecoscope_workflows_core.annotations import AnyGeoDataFrame
+from pydantic.json_schema import SkipJsonSchema
+from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AdvancedField
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import ViewState
+from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import TextLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PointLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LayerDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LegendDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolygonLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolylineLayerStyle
-from typing import Union, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
+from typing import Union,Any, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_point_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polygon_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polyline_layer
-from ecoscope_workflows_ext_ecoscope.tasks.analysis._time_density import CustomGridCellSize
-from ecoscope_workflows_ext_ecoscope.tasks.analysis._create_meshgrid import create_meshgrid
-from ecoscope_workflows_ext_ecoscope.tasks.analysis._calculate_feature_density import calculate_feature_density
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +44,6 @@ class MapProcessingConfig(BaseModel):
     target_crs: Union[int, str] = Field(default=4326, description="Target CRS to convert maps to")
     recursive: bool = Field(default=False, description="Whether to walk folders recursively")
 
-    @field_validator("path")
-    @classmethod
-    def validate_path_exists(cls, v):
-        if not os.path.exists(v):
-            raise ValueError(f"Invalid path: {v}")
-        return v
 
 class GeometrySummary(TypedDict):
     primary_type: Literal["Polygon", "Point", "LineString", "Other", "Mixed", "Line"]
@@ -99,20 +94,52 @@ def detect_geometry_type(gdf: AnyGeoDataFrame) -> GeometrySummary:
 
     return {"primary_type": primary_type, "counts": geom_counts}
 
+def normalize_file_url(path: str) -> str:
+    """Convert file:// URL to local path, handling malformed Windows URLs."""
+    if not path.startswith("file://"):
+        return path
+
+    path = path[7:]
+    
+    if os.name == 'nt':
+        # Remove leading slash before drive letter: /C:/path -> C:/path
+        if path.startswith('/') and len(path) > 2 and path[2] in (':', '|'):
+            path = path[1:]
+
+        path = path.replace('/', '\\')
+        path = path.replace('|', ':')
+    else:
+        if not path.startswith('/'):
+            path = '/' + path
+    
+    return path
+
 @task
 def load_geospatial_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFrame]:
     """
     Load geospatial files from `config.path` and return a dict mapping
     relative file path -> cleaned GeoDataFrame (reprojected to target_crs).
     """
-    base_path = Path(config.path)
+    # Convert to Path object
+    base_path_str = normalize_file_url(config.path)
+    base_path = Path(base_path_str)
+    
+    # Validate path exists
     if not base_path.exists():
-        raise FileNotFoundError(f"Path does not exist: {base_path!s}")
+        raise FileNotFoundError(f"Path does not exist: {base_path}")
+    
+    if not base_path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {base_path}")
 
-    target_crs = CRS.from_user_input(config.target_crs)
+    target_crs = config.target_crs
 
     loaded_files: Dict[str, AnyGeoDataFrame] = {}
-    normalized_suffixes = {s.lower() if s.startswith(".") else f".{s.lower()}" for s in SUPPORTED_FORMATS}
+    normalized_suffixes = {
+        s.lower() if s.startswith(".") else f".{s.lower()}" 
+        for s in SUPPORTED_FORMATS
+    }
+    
+    # Use correct iterator method
     iterator = base_path.rglob("*") if config.recursive else base_path.iterdir()
 
     for p in iterator:
@@ -134,14 +161,17 @@ def load_geospatial_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFr
                 logger.warning("File has no CRS, skipping reprojection: %s", file_path)
             else:
                 try:
-                    gdf_crs = CRS.from_user_input(gdf.crs)
-                    if not gdf_crs == target_crs:
-                        # geopandas accepts a CRS-like input string/object
-                        gdf = gdf.to_crs(target_crs.to_string())
+                    gdf_crs = gdf.crs
+                    if gdf_crs != target_crs:
+                        # Reproject to target CRS
+                        gdf = gdf.to_crs(target_crs)
                 except Exception as e:
                     logger.warning("Failed to normalize or compare CRS for %s: %s", file_path, e)
 
+            # Remove invalid geometries
             cleaned = remove_invalid_geometries(gdf)
+            
+            # Create relative path key
             key = str(p.relative_to(base_path))
             loaded_files[key] = cleaned
 
@@ -399,27 +429,28 @@ def load_landdx_aoi(
     map_path: str,
     aoi: Optional[List[str]] = None,
 ) -> Optional[AnyGeoDataFrame]:
-
-    # testing purposes
-    print(f"Map path -->{map_path}")
-
     if map_path is None: 
         logger.error(f"Provided map path is empty")
-
-    for root,_, files in os.walk(map_path):
+        return None  # Add explicit return here
+    
+    ldx_path = None  # Initialize to avoid potential UnboundLocalError
+    for root, _, files in os.walk(map_path):
         if "landDx.gpkg" in files:
             ldx_path = os.path.join(root, "landDx.gpkg")
             break
     
-    print(f"landDx Path --> {ldx_path}")
+    if ldx_path is None:
+        logger.error(f"landDx.gpkg not found in {map_path}")
+        return None
     
     # Load and filter
     try:
         geodataframe = gpd.read_file(ldx_path, layer="landDx_polygons").set_index("globalid")
         
+        # Check if AOI filtering is needed
         if aoi is None or not aoi:
-           print(f"Loaded landDx.gpkg — total features: {len(geodataframe)} (no filtering applied)")
-        return geodataframe
+            print(f"Loaded landDx.gpkg — total features: {len(geodataframe)} (no filtering applied)")
+            return geodataframe 
         
         # Filter by AOI
         filtered = geodataframe[geodataframe["type"].isin(aoi)]
@@ -430,16 +461,16 @@ def load_landdx_aoi(
         
         if filtered.empty:
             print(f"No features found matching AOI types: {aoi}")
-        return filtered
-
+        
+        return filtered 
     except FileNotFoundError as e:
-        print(f"File not found: {ldx_path}")
+        logger.error(f"File not found: {ldx_path}")
         return None
     except KeyError as e:
-        print(f"Required column missing: {e}")
+        logger.error(f"Required column missing: {e}")
         return None
     except Exception as e:
-        print(f"Error loading or filtering landDx.gpkg: {e}")
+        logger.error(f"Error loading or filtering landDx.gpkg: {e}")
         return None
 
 @task
@@ -522,18 +553,208 @@ def create_map_layers_from_annotated_dict(
 @task
 def combine_map_layers(
     static_layers: Annotated[
-        Union[LayerDefinition, list[LayerDefinition]], Field(description="Static layers from local files or base maps.")
+        Union[LayerDefinition, List[LayerDefinition | List[LayerDefinition]]], 
+        Field(description="Static layers from local files or base maps.")
     ] = [],
     grouped_layers: Annotated[
-        Union[LayerDefinition, list[LayerDefinition]],
+        Union[LayerDefinition, List[LayerDefinition | List[LayerDefinition]]],
         Field(description="Grouped layers generated from split/grouped data."),
     ] = [],
 ) -> list[LayerDefinition]:
     """
     Combine static and grouped map layers into a single list for rendering in `draw_ecomap`.
+    Automatically flattens nested lists to handle cases where layer generation tasks return lists.
     """
-    if not isinstance(static_layers, list):
-        static_layers = [static_layers]
-    if not isinstance(grouped_layers, list):
-        grouped_layers = [grouped_layers]
-    return static_layers + grouped_layers
+    def flatten_layers(layers):
+        """Recursively flatten nested lists of LayerDefinition objects."""
+        if not isinstance(layers, list):
+            return [layers]
+        
+        flattened = []
+        for item in layers:
+            if isinstance(item, list):
+                # Recursively flatten if it's a list
+                flattened.extend(flatten_layers(item))
+            else:
+                # Add individual LayerDefinition objects
+                flattened.append(item)
+        return flattened
+    
+    # Flatten both static and grouped layers
+    flat_static = flatten_layers(static_layers) if static_layers else []
+    flat_grouped = flatten_layers(grouped_layers) if grouped_layers else []
+    
+        # Combine all layers
+    all_layers = flat_static + flat_grouped
+    
+    # Separate text layers from other layers
+    text_layers = []
+    other_layers = []
+    
+    for layer in all_layers:
+        if isinstance(layer.layer_style, TextLayerStyle):
+            text_layers.append(layer)
+        else:
+            other_layers.append(layer)
+    
+    return other_layers + text_layers
+
+@task
+def make_text_layer(
+    txt_gdf: Annotated[
+        AnyGeoDataFrame,
+        Field(description="Input GeoDataFrame containing geometries and label data.")
+    ],
+    label_column: Annotated[
+        str,
+        Field(default="label", description="Column name containing text labels.")
+    ] = "label",
+    name_column: Annotated[
+        str,
+        Field(default="name", description="Fallback column name to use as label if label_column doesn’t exist.")
+    ] = "name",
+    use_centroid: Annotated[
+        bool,
+        Field(default=True, description="Whether to use geometry centroids for text placement.")
+    ] = True,
+    color: Annotated[
+        List[int],
+        Field(default=[0, 0, 0, 255], description="RGBA color values for text (0–255).")
+    ] = [0, 0, 0, 255],
+    size: Annotated[
+        int,
+        Field(default=16, description="Font size in pixels.")
+    ] = 16,
+    font_weight: Annotated[
+        str,
+        Field(default="normal", description="Font weight (e.g., normal, bold, italic).")
+    ] = "normal",
+    font_family: Annotated[
+        str,
+        Field(default="Arial", description="Font family name.")
+    ] = "Arial",
+    text_anchor: Annotated[
+        str,
+        Field(default="middle", description="Horizontal text anchor (start, middle, end).")
+    ] = "middle",
+    alignment_baseline: Annotated[
+        str,
+        Field(default="center", description="Vertical alignment (top, center, bottom).")
+    ] = "center",
+    pickable: Annotated[
+        bool,
+        Field(default=True, description="Whether the layer is interactive (pickable).")
+    ] = True,
+    tooltip_columns: Annotated[
+        Optional[List[str]],
+        Field(default=None, description="Columns to display in tooltip when hovered.")
+    ] = None,
+    zoom: Annotated[
+        bool,
+        Field(default=False, description="Whether to zoom to the layer extent when displayed.")
+    ] = False,
+    target_crs: Annotated[
+        str,
+        Field(default="epsg:4326", description="Target CRS for layer coordinates.")
+    ] = "epsg:4326"
+) -> LayerDefinition:
+    """
+    Create a text layer from a GeoDataFrame with annotated parameters.
+    """
+    # Validate input
+    if txt_gdf is None or txt_gdf.empty:
+        raise ValueError("txt_gdf cannot be None or empty")
+
+    gdf = txt_gdf.copy()
+
+    # Handle label column
+    if label_column not in gdf.columns:
+        if name_column in gdf.columns:
+            gdf = gdf.rename(columns={name_column: label_column})
+        else:
+            raise ValueError(
+                f"Neither '{label_column}' nor '{name_column}' found. "
+                f"Available columns: {list(gdf.columns)}"
+            )
+
+    # Use centroids if requested
+    if use_centroid:
+        gdf["geometry"] = gdf.centroid
+
+    # Transform to target CRS
+    gdf = gdf.to_crs(target_crs)
+
+    # Build text style
+    style = TextLayerStyle(
+        get_color=color,
+        get_size=size,
+        font_weight=font_weight,
+        get_text_anchor=text_anchor,
+        get_alignment_baseline=alignment_baseline,
+        font_family=font_family,
+        pickable=pickable,
+    )
+
+    # Return the layer definition
+    return LayerDefinition(
+        geodataframe=gdf,
+        layer_style=style,
+        legend=None,
+        tooltip_columns=tooltip_columns,
+        zoom=zoom,
+    )
+
+
+@task 
+def custom_polygon_layer(
+    geodataframe: Annotated[
+        AnyGeoDataFrame,
+        Field(description="The geodataframe to visualize.", exclude=True),
+    ],
+    layer_style: Annotated[
+        PolygonLayerStyle | SkipJsonSchema[None],
+        AdvancedField(
+            default=PolygonLayerStyle(), description="Style arguments for the layer."
+        ),
+    ] = None,
+    legend: Annotated[
+        LegendDefinition | SkipJsonSchema[None],
+        AdvancedField(
+            default=None,
+            description="If present, includes this layer in the map legend",
+        ),
+    ] = None,
+    tooltip_columns: Annotated[
+        list[str] | SkipJsonSchema[None],
+        AdvancedField(
+            default=None,
+            description="If present, only the listed dataframe columns will display in the layer's picking info",
+        ),
+    ] = None,
+    zoom: Annotated[
+        bool,
+        AdvancedField(
+            default=False,
+            description="If true, the map will be zoomed to the bounds of this layer",
+            exclude=True,
+        ),
+    ] = False,
+) -> Annotated[LayerDefinition, Field()]:
+    """
+    Creates a polygon layer definition based on the provided configuration.
+
+    Args:
+    geodataframe (geopandas.GeoDataFrame): The geodataframe to visualize.
+    layer_style (PolygonLayerStyle): Style arguments for the data visualization.
+
+    Returns:
+    The generated LayerDefinition
+    """
+
+    return LayerDefinition(
+        geodataframe=geodataframe,
+        layer_style=layer_style if layer_style else PolygonLayerStyle(),
+        legend=legend,  # type: ignore[arg-type]
+        tooltip_columns=tooltip_columns,
+        zoom=zoom,
+    )

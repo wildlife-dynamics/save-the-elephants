@@ -3,19 +3,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 
-from pydantic import (
-    AwareDatetime,
-    BaseModel,
-    ConfigDict,
-    Field,
-    RootModel,
-    confloat,
-    conint,
-    constr,
-)
+from pydantic import BaseModel, ConfigDict, Field, RootModel, confloat, constr
 
 
 class InitializeWorkflowMetadata(BaseModel):
@@ -24,14 +16,6 @@ class InitializeWorkflowMetadata(BaseModel):
     )
     name: str = Field(..., title="Workflow Name")
     description: Optional[str] = Field("", title="Workflow Description")
-
-
-class DefineTimeRange(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    since: AwareDatetime = Field(..., description="The start time", title="Since")
-    until: AwareDatetime = Field(..., description="The end time", title="Until")
 
 
 class Url(str, Enum):
@@ -200,43 +184,11 @@ class ConfigureBaseMaps(BaseModel):
     )
 
 
-class DownloadMapbookCoverPage(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
-    unzip: Optional[bool] = Field(False, title="Unzip")
-
-
-class DownloadSectTemplates(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
-    unzip: Optional[bool] = Field(False, title="Unzip")
-
-
 class DownloadLogoPath(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     url: str = Field(..., title="Url")
-    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
-    unzip: Optional[bool] = Field(False, title="Unzip")
-
-
-class DownloadLdxDb(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    retries: Optional[conint(ge=0)] = Field(3, title="Retries")
-
-
-class LoadAoi(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    aoi: Optional[List[str]] = Field(None, title="Aoi")
 
 
 class SubjectObservations(BaseModel):
@@ -246,67 +198,11 @@ class SubjectObservations(BaseModel):
     subject_group_name: str = Field(..., title="Subject Group Name")
 
 
-class SortTrajectoriesBySpeed(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    ascending: Optional[bool] = Field(
-        True, description="Sort ascending if true", title="Ascending"
-    )
-
-
-class NetworkMetric(str, Enum):
-    weight = "weight"
-    betweenness = "betweenness"
-    degree = "degree"
-    collective_influence = "collective_influence"
-
-
-class GenerateSpeedRaster(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    output_dir: Optional[str] = Field(None, title="Output Dir")
-    filename: Optional[str] = Field(None, title="Filename")
-    resolution: Optional[float] = Field(None, title="Resolution")
-    radius: Optional[int] = Field(2, title="Radius")
-    cutoff: Optional[float] = Field(None, title="Cutoff")
-    tortuosity_length: Optional[int] = Field(3, title="Tortuosity Length")
-    step_length: Optional[int] = Field(None, title="Step Length")
-    network_metric: Optional[NetworkMetric] = Field(None, title="Network Metric")
-
-
-class SortSpeedFeaturesByValue(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    ascending: Optional[bool] = Field(
-        True, description="Sort ascending if true", title="Ascending"
-    )
-
-
-class PersistContextCover(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    filename: Optional[str] = Field(None, title="Filename")
-
-
-class IndividualMapbookContext(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    filename: Optional[str] = Field(None, title="Filename")
-    validate_images: Optional[bool] = Field(True, title="Validate Images")
-    box_h_cm: Optional[float] = Field(6.5, title="Box H Cm")
-    box_w_cm: Optional[float] = Field(11.11, title="Box W Cm")
-
-
-class GenerateMapbookReport(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    filename: Optional[str] = Field(None, title="Filename")
+class TimezoneInfo(BaseModel):
+    label: str = Field(..., title="Label")
+    tzCode: str = Field(..., title="Tzcode")
+    name: str = Field(..., title="Name")
+    utc: str = Field(..., title="Utc")
 
 
 class TemporalGrouper(RootModel[str]):
@@ -315,11 +211,6 @@ class TemporalGrouper(RootModel[str]):
 
 class ValueGrouper(RootModel[str]):
     root: str = Field(..., title="Category")
-
-
-class MapStyleConfig(BaseModel):
-    styles: Optional[Dict[str, Dict[str, Any]]] = Field(None, title="Styles")
-    legend: Optional[Dict[str, List[str]]] = Field(None, title="Legend")
 
 
 class EarthRangerConnection(BaseModel):
@@ -351,31 +242,13 @@ class TrajectorySegmentFilter(BaseModel):
     )
 
 
-class AutoScaleOrCustom(str, Enum):
-    Auto_scale = "Auto-scale"
-
-
-class AutoScaleGridCellSize(BaseModel):
-    auto_scale_or_custom: Literal["Auto-scale"] = Field(
-        "Auto-scale",
-        description="Define the resolution of the raster grid (in meters per pixel).",
-        title=" ",
+class DefineTimeRange(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
     )
-
-
-class AutoScaleOrCustom1(str, Enum):
-    Customize = "Customize"
-
-
-class CustomGridCellSize(BaseModel):
-    auto_scale_or_custom: Literal["Customize"] = Field(
-        "Customize",
-        description="Define the resolution of the raster grid (in meters per pixel).",
-        title=" ",
-    )
-    grid_cell_size: Optional[confloat(lt=10000.0, gt=0.0)] = Field(
-        5000, description="Custom Raster Pixel Size (Meters)", title="Grid Cell Size"
-    )
+    since: datetime = Field(..., description="The start time", title="Since")
+    until: datetime = Field(..., description="The end time", title="Until")
+    timezone: Optional[TimezoneInfo] = Field(None, title="Timezone")
 
 
 class ConfigureGroupingStrategy(BaseModel):
@@ -387,13 +260,6 @@ class ConfigureGroupingStrategy(BaseModel):
         description="            Specify how the data should be grouped to create the views for your dashboard.\n            This field is optional; if left blank, all the data will appear in a single view.\n            ",
         title=" ",
     )
-
-
-class CreateStyledLanddxLayers(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    style_config: MapStyleConfig = Field(..., title="Style Config")
 
 
 class ErClientName(BaseModel):
@@ -434,35 +300,6 @@ class ConvertToTrajectories(BaseModel):
     )
 
 
-class GenerateEtd(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    auto_scale_or_custom_cell_size: Optional[
-        Union[AutoScaleGridCellSize, CustomGridCellSize]
-    ] = Field({"auto_scale_or_custom": "Auto-scale"}, title="Grid Cell Size")
-    max_speed_factor: Optional[float] = Field(
-        1.05,
-        description="An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
-        title="Max Speed Factor (Kilometers per Hour)",
-    )
-    expansion_factor: Optional[float] = Field(
-        1.05,
-        description="Controls how far time density values spread across the grid, affecting the smoothness of the output.",
-        title="Shape Buffer Expansion Factor",
-    )
-
-
-class SeasonalHomeRange(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    percentiles: Optional[List[float]] = Field([99.9], title="Percentiles")
-    auto_scale_or_custom_cell_size: Optional[
-        Union[AutoScaleGridCellSize, CustomGridCellSize]
-    ] = Field(None, title="Auto Scale Or Custom Cell Size")
-
-
 class FormData(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -483,21 +320,8 @@ class FormData(BaseModel):
     configure_base_maps: Optional[ConfigureBaseMaps] = Field(
         None, title="Configure Base Map Layers"
     )
-    download_mapbook_cover_page: Optional[DownloadMapbookCoverPage] = Field(
-        None, title="Download Mapbook cover page templates"
-    )
-    download_sect_templates: Optional[DownloadSectTemplates] = Field(
-        None, title="Download Mapbook section templates"
-    )
     download_logo_path: Optional[DownloadLogoPath] = Field(
         None, title="Download Logo Path"
-    )
-    download_ldx_db: Optional[DownloadLdxDb] = Field(
-        None, title="Download LandDx Database and extract"
-    )
-    load_aoi: Optional[LoadAoi] = Field(None, title="Load AOI from landDx")
-    create_styled_landdx_layers: Optional[CreateStyledLanddxLayers] = Field(
-        None, title="Style LandDx Map Layers"
     )
     er_client_name: Optional[ErClientName] = Field(
         None, title="Connect to EarthRanger Instance"
@@ -508,28 +332,4 @@ class FormData(BaseModel):
     )
     convert_to_trajectories: Optional[ConvertToTrajectories] = Field(
         None, title="Convert Relocations to Trajectories"
-    )
-    sort_trajectories_by_speed: Optional[SortTrajectoriesBySpeed] = Field(
-        None, title="Sort Trajectories by Speed Bins"
-    )
-    generate_etd: Optional[GenerateEtd] = Field(
-        None, title="Generate Home Range Ecomap"
-    )
-    generate_speed_raster: Optional[GenerateSpeedRaster] = Field(
-        None, title="Generate Speed Rasters"
-    )
-    sort_speed_features_by_value: Optional[SortSpeedFeaturesByValue] = Field(
-        None, title="Sort Speed Features by Value"
-    )
-    seasonal_home_range: Optional[SeasonalHomeRange] = Field(
-        None, title="Calculate seasonal home range"
-    )
-    persist_context_cover: Optional[PersistContextCover] = Field(
-        None, title="Persist context to cover template"
-    )
-    individual_mapbook_context: Optional[IndividualMapbookContext] = Field(
-        None, title="Create individual mapbook context"
-    )
-    generate_mapbook_report: Optional[GenerateMapbookReport] = Field(
-        None, title="Generate final mapbook report"
     )
