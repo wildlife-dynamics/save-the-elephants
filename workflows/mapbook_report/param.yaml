@@ -4,7 +4,7 @@ initialize_workflow_metadata:
   description: "Workflow to showcase movement of STE Collared Elephants that entails various metrics"
 
 # Desired time range
-define_time_range:
+time_range:
   since: "2025-05-01T00:00:00Z"
   until: "2025-10-31T23:59:59Z"
 
@@ -20,7 +20,7 @@ gee_project_name:
     
 
 # Value grouper /temporal grouper
-configure_grouping_strategy:
+groupers:
   groupers: 
      - subject_name
 

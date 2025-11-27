@@ -1,11 +1,11 @@
 id: mapbook_report
 requirements:
   - name: ecoscope-workflows-core
-    version: "0.14.0.*"
+    version: "0.18.0.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-ecoscope
-    version: "0.14.0.*"
+    version: "0.18.0.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-ste
@@ -13,35 +13,47 @@ requirements:
     channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
 
   - name: ecoscope-workflows-ext-custom
-    version: "*"
+    version: "0.0.7.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+task-instance-defaults:
+  skipif:
+    conditions:
+      - any_is_empty_df
+      - any_dependency_skipped
+
 workflow:
 # set workflow metadata
-  - name: Initialize Workflow Metadata
+  - name: Initialize workflow metadata
     id: initialize_workflow_metadata
     task: set_workflow_details
 
   # define workflow time range
-  - name: Define Time Range
-    id: define_time_range
+  - name: Define time range
+    id: time_range
     task: set_time_range
     partial:
       time_format: "%d %b %Y %H:%M:%S %Z"
+      timezone: 
+        label: UTC 
+        tzCode: UTC 
+        name: UTC 
+        utc_offset: "+00:00"
 
   # configure dynamic grouping strategy --> for this workflow, by subject name
-  - name: Configure Grouping Strategy
-    id: configure_grouping_strategy
+  - name: Configure grouping strategy
+    id: groupers
     task: set_groupers
 
   # define base map layers
-  - name: Configure Base Map Layers
+  - name: Configure base map layers
     id: configure_base_maps
     task: set_base_maps
   
   # Download cover template
-  - name: Download Mapbook cover page templates
+  - name: Download mapbook cover page templates
     id: download_mapbook_cover_page
-    task: download_file_and_persist
+    task: fetch_and_persist_file
     partial:
       url: https://www.dropbox.com/scl/fi/1373gi65ji918rxele5h9/cover_page_v3.docx?rlkey=ur01wtpa98tcyq8f0f6dtksl8&st=eq39sgwz&dl=0
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
@@ -50,9 +62,9 @@ workflow:
       retries: 3
 
   # Download section templates
-  - name: Download Mapbook section templates
+  - name: Download mapbook section templates
     id: download_sect_templates
-    task: download_file_and_persist
+    task: fetch_and_persist_file
     partial:
       url: https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
@@ -61,20 +73,20 @@ workflow:
       retries: 3
 
   # Download Logo
-  - name: Download Logo Path 
+  - name: Download logo path 
     id: download_logo_path
-    task: download_file_and_persist
+    task: fetch_and_persist_file
     partial:
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false 
       unzip: false
       retries: 3
 
-
+  # 1. Download landdx database,split by type, create styled layers
   # download LandDx database, unzip, and save to output directory
-  - name: Download LandDx Database and extract
+  - name: Download landDx db and extract
     id: download_ldx_db
-    task: download_file_and_persist
+    task: fetch_and_persist_file
     partial:
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
@@ -82,23 +94,39 @@ workflow:
       unzip: true
       retries: 3
 
-  # Load AOI from LandDx 
-  - name: Load AOI from landDx
-    id: load_aoi
-    task: load_landdx_aoi
+  - name: Find landDx gpkg path
+    id: return_ldx_path
+    task: find_landdx_gpkg_path
     partial:
-      map_path: ${{ workflow.download_ldx_db.return }}
-      aoi:
+      output_dir: ${{ workflow.download_ldx_db.return }}
+
+  # Load AOI from LandDx 
+  - name: Load landDx gpkg 
+    id: load_landdx
+    task: load_df 
+    partial: 
+      file_path: ${{ workflow.return_ldx_path.return }}
+      layer: landDx_polygons 
+      deserialize_json: false 
+  
+  # Filter LandDx AOI by type
+  - name: Filter loaded landDX by AOI 
+    id: filter_landdx_aoi 
+    task: filter_by_value
+    partial: 
+      df: ${{ workflow.load_landdx.return }}
+      column_name: type 
+      value: 
         - Community Conservancy
         - National Reserve
         - National Park
 
   # create text layer from filtered aoi
-  - name: Create text layer from filtered aoi
-    id: custom_text_layer
-    task: make_text_layer
+  - name : Create text layer from filtered aoi 
+    id: custom_text_layer 
+    task: make_text_layer 
     partial:
-      txt_gdf: ${{ workflow.load_aoi.return }}
+      txt_gdf: ${{ workflow.filter_landdx_aoi.return }}
       label_column: label
       name_column: name
       use_centroid: true
@@ -112,25 +140,24 @@ workflow:
       tooltip_columns: null 
       zoom: false
       target_crs: epsg:4326
-    
-  
+
   # split LandDx AOI features by 'type' column
-  - name: Split LandDx Layers by Type
+  - name: Split landDx layers by type
     id: split_landdx_by_type
     task: split_gdf_by_column
     partial:
-      gdf: ${{ workflow.load_aoi.return }}
+      gdf: ${{ workflow.filter_landdx_aoi.return }}
       column: type
 
   # annotate each LandDx AOI layer with its geometry type
-  - name: Annotate Geometry Types
+  - name: Annotate geometry types to landdx dicts
     id: annotate_geometry_types
     task: annotate_gdf_dict_with_geometry_type
     partial:
       gdf_dict: ${{ workflow.split_landdx_by_type.return }}
 
   # create styled map layers for LandDx features
-  - name: Style LandDx Map Layers
+  - name: Style landDx map layers
     id: create_styled_landdx_layers
     task: create_map_layers_from_annotated_dict
     partial:
@@ -162,9 +189,9 @@ workflow:
           labels: ["Community Conservancy","National Reserve", "National Park"]
           colors: ["#556b2f","#8fbc8b","#fffacd"]
 
-
+  # 2. Connect to earthranger , engine  and retrieve subject observations 
   # Connect to ER
-  - name: Connect to EarthRanger Instance
+  - name: Connect to ER instance
     id: er_client_name
     task: set_er_connection
   
@@ -174,17 +201,17 @@ workflow:
     task: set_gee_connection
 
   # Retrieve observations from ER
-  - name: Get subject Group Observations from ER
+  - name: Get subject group observations from ER
     id: subject_observations
     task: get_subjectgroup_observations
     partial:
       client: ${{ workflow.er_client_name.return }}
-      time_range: ${{ workflow.define_time_range.return }}
+      time_range: ${{ workflow.time_range.return }}
       raise_on_empty: false
       include_details: false
       include_subjectsource_details: false
   
-  - name: Transform Observations to Relocations
+  - name: Transform observations to relocations
     id: subject_reloc
     task: process_relocations
     partial:
@@ -209,32 +236,32 @@ workflow:
           y: 1.000000
 
   # classify relocations as day or night
-  - name: Annotate Relocations with Day/Night Labels
+  - name: Annotate relocations with Day/Night Labels
     id: annotate_day_night
     task: classify_is_night
     partial:
       relocations: ${{ workflow.subject_reloc.return }}
 
   # convert subject relocations to movement trajectories
-  - name: Convert Relocations to Trajectories
+  - name: Convert relocations to trajectories
     id: convert_to_trajectories
     task: relocations_to_trajectory
     partial:
       relocations: ${{ workflow.annotate_day_night.return }}
 
   # add temporal index to subject trajectories using segment_start
-  - name: Add Temporal Index to Trajectories
+  - name: Add temporal index to trajectories
     id: add_temporal_index_to_traj
     task: add_temporal_index
     partial:
       df: ${{ workflow.convert_to_trajectories.return }}
       time_col: segment_start
-      groupers: ${{ workflow.configure_grouping_strategy.return }}
+      groupers: ${{ workflow.groupers.return }}
       cast_to_datetime: true
       format: mixed
 
   # classify trajectories into speed bins
-  - name: Classify Trajectories by Speed
+  - name: Classify trajectories by speed
     id: classify_trajectory_speed_bins
     task: apply_classification
     partial:
@@ -249,24 +276,26 @@ workflow:
         label_decimals: 1
 
   # classify trajectories by quarterly time periods
-  - name: Label Trajectories by Quarter
+  - name: Label trajectories by quarter
     id: label_trajectory_quarters
     task: label_quarter_status
     partial:
       gdf: ${{ workflow.classify_trajectory_speed_bins.return }}
       timestamp_col: segment_start
 
-  - name: Assign Quarter Status Colors
+  - name: Assign quarter status colors
     id: assign_quarter_colors_traj
     task: assign_quarter_status_colors
     partial:
       gdf: ${{ workflow.label_trajectory_quarters.return }}
       hex_column: extra__hex
       previous_color_hex: "#808080"
+      use_hex_column_for_current: true
+      default_current_hex: null 
 
   # rename trajectory columns
-  - name: Rename reloc columns 
-    id: rename_reloc_cols
+  - name: Rename trajectory columnns
+    id: rename_traj_cols
     task: map_columns
     partial:
       drop_columns: []
@@ -282,35 +311,35 @@ workflow:
       df: ${{ workflow.assign_quarter_colors_traj.return }}
 
   # persist trajectories and relocations
-  - name: Persist Trajectories as GPKG
+  - name: Persist trajectories as gpkg
     id: persist_trajectory_df
     task: persist_df 
     partial:
-      df: ${{ workflow.rename_reloc_cols.return }}
+      df: ${{ workflow.rename_traj_cols.return }}
       filetype: "gpkg"
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: relocations
+      filename: trajectories
 
-  - name: Persist Relocations as GPKG
+  - name: Persist relocations as gpkg
     id: persist_relocs_df
     task: persist_df
     partial:
       df: ${{ workflow.annotate_day_night.return }}
       filetype: "gpkg"
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: trajectories
+      filename: relocations
 
   # split subject trajectories into groups based on grouping strategy
-  - name: Split Trajectories by Group
+  - name: Split trajectories by group
     id: split_trajectories_by_group
     task: split_groups
     partial:
-      df: ${{ workflow.rename_reloc_cols.return }}
-      groupers: ${{ workflow.configure_grouping_strategy.return }}
+      df: ${{ workflow.rename_traj_cols.return }}
+      groupers: ${{ workflow.groupers.return }}
 
   # 1.SPEEDMAP
   # sort grouped trajectories by speed classification
-  - name: Sort Trajectories by Speed Bins
+  - name: Sort trajectories by speed bins
     id: sort_trajectories_by_speed
     task: sort_values
     partial:
@@ -322,7 +351,7 @@ workflow:
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
 
   # apply color mapping to trajectories based on speed bins
-  - name: Apply Colormap to Speed Bins
+  - name: Apply colormap to speed bins
     id: apply_speed_colormap
     task: apply_color_map
     partial:
@@ -340,7 +369,7 @@ workflow:
       argvalues: ${{ workflow.sort_trajectories_by_speed.return }}
 
   # format speed bin labels for legend with units
-  - name: Format Speed Bins for Legend
+  - name: Format speed bins for legend
     id: format_speed_bin_labels
     task: map_values_with_unit
     partial:
@@ -354,7 +383,7 @@ workflow:
       argvalues: ${{ workflow.apply_speed_colormap.return }}
 
   # format raw speed values for display with units
-  - name: Format Speed Values for Display
+  - name: Format speed values for display
     id: format_speed_values
     task: map_values_with_unit
     partial:
@@ -368,7 +397,7 @@ workflow:
       argvalues: ${{ workflow.format_speed_bin_labels.return }}
 
   # Generate speedmap polyline layers
-  - name: Generate Speedmap Layers
+  - name: Generate speedmap layers
     id: generate_speedmap_layers
     task: create_polyline_layer
     skipif:
@@ -403,7 +432,7 @@ workflow:
       argvalues: ${{ workflow.format_speed_values.return }}
 
   # combine static LandDx layers with speed ecomap trajectory layers
-  - name: Combine LandDx and Speed Ecomap Layers
+  - name: Combine landDx and speedmap layers
     id: ldx_speed_layers
     task: combine_map_layers
     partial:
@@ -423,7 +452,7 @@ workflow:
       right: ${{ workflow.zoom_speed_traj_view.return }} # view_state
 
   # draw speed ecomap for each traj group
-  - name: Draw Speed Ecomaps by Group
+  - name: Draw Speepmap by group
     id: draw_speed_ecomap
     task: draw_ecomap
     partial:
@@ -435,7 +464,7 @@ workflow:
         title: Speed Values(Km/h)
       static: false
       title: null
-      max_zoom: 20
+      max_zoom: 12
     mapvalues:
       argnames: 
         - geo_layers
@@ -443,7 +472,7 @@ workflow:
       argvalues: ${{ workflow.zip_speed_zoom_values.return }}
 
   # persist HTML URLs of speed ecomaps as text files
-  - name: Persist Speed Ecomap HTML Paths
+  - name: Persist speedmap HTML paths
     id: persist_speed_ecomap_urls
     task: persist_text
     partial:
@@ -453,7 +482,7 @@ workflow:
       argvalues: ${{ workflow.draw_speed_ecomap.return }}
 
   # create single-view map widgets for speed trajectory ecomaps
-  - name: Create Speedmap Widgets
+  - name: Create speedmap widgets
     id: create_speedmap_widgets
     task: create_map_widget_single_view
     skipif:
@@ -468,7 +497,7 @@ workflow:
       argvalues: ${{ workflow.persist_speed_ecomap_urls.return }}
 
   # merge individual speed ecomap widgets into a grouped view
-  - name: Merge Speed Ecomap Widgets
+  - name: Merge speedmap widgets
     id: merge_speedmap_widgets
     task: merge_widget_views
     partial:
@@ -476,7 +505,7 @@ workflow:
 
   # 2.DAY/NIGHT ECOMAPS
   # sort trajectories by night/day classification
-  - name: Sort Trajectories by Night/Day
+  - name: Sort trajectories by Night/Day
     id: sort_trajs_by_day_night
     task: sort_values
     partial:
@@ -488,7 +517,7 @@ workflow:
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
 
   # apply color to trajectories based on day/night classification
-  - name: Apply Color to Trajectories by Day/Night
+  - name: Apply color to trajectories by Day/Night
     id: apply_day_night_colormap
     task: apply_color_map
     partial:
@@ -502,7 +531,7 @@ workflow:
       argvalues: ${{ workflow.sort_trajs_by_day_night.return }}
 
   # create polyline map layers for trajectories colored by day/night
-  - name: Create Day/Night Ecomap Layers
+  - name: Create Day/Night ecomap layers
     id: generate_day_night_ecomap_layers
     task: create_polyline_layer
     skipif:
@@ -538,7 +567,7 @@ workflow:
       argvalues: ${{ workflow.apply_day_night_colormap.return }}
 
   # combine static LandDx layers with day/night ecomap trajectory layers
-  - name: Combine LandDx and Day/Night Ecomap Layers
+  - name: Combine landDx and Day/Night ecomap layers
     id: ldx_dn_layers
     task: combine_map_layers
     partial:
@@ -558,7 +587,7 @@ workflow:
       right: ${{ workflow.zoom_dn_view.return }}
 
   # draw day/night ecomaps for each trajectory group
-  - name: Draw Day/Night Ecomaps by Group
+  - name: Draw Day/Night ecomaps by group
     id: draw_day_night_ecomap
     task: draw_ecomap
     partial:
@@ -570,7 +599,7 @@ workflow:
         title: Night Day Tracks
       static: false
       title: null
-      max_zoom: 20
+      max_zoom: 12
     mapvalues:
       argnames: 
         - geo_layers
@@ -578,7 +607,7 @@ workflow:
       argvalues: ${{ workflow.dn_view_zip.return }}
 
   # persist HTML URLs of day/night ecomaps as text files
-  - name: Persist Day/Night Ecomap HTML Paths
+  - name: Persist Day/Night ecomap HTML paths
     id: persist_day_night_ecomap_urls
     task: persist_text
     partial:
@@ -588,7 +617,7 @@ workflow:
       argvalues: ${{ workflow.draw_day_night_ecomap.return }}
 
   # create single-view map widgets for day/night trajectory ecomaps
-  - name: Create Day/Night Ecomap Widgets
+  - name: Create Day/Night ecomap widgets
     id: create_day_night_ecomap_widgets
     task: create_map_widget_single_view
     skipif:
@@ -603,7 +632,7 @@ workflow:
       argvalues: ${{ workflow.persist_day_night_ecomap_urls.return }}
 
   # merge day/night ecomap widgets into a grouped view
-  - name: Merge Day/Night Ecomap Widgets
+  - name: Merge Day/Night ecomap widgets
     id: merge_day_night_ecomap_widgets
     task: merge_widget_views
     partial:
@@ -611,7 +640,7 @@ workflow:
 
   # 3. PREVIOUS/CURRENT QUARTER MOVEMENT TRACKS
   # sort trajectories by previous/current quarter status
-  - name: Sort Trajectories by Quarter Status
+  - name: Sort trajectories by quarter status
     id: sort_trajs_by_quarter_status
     task: sort_values
     partial:
@@ -623,7 +652,7 @@ workflow:
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
 
   # create polyline map layers for trajectories colored by quarter status
-  - name: Create Quarter Status Ecomap Layers
+  - name: Create quarter status ecomap layers
     id: generate_quarter_ecomap_layers
     task: create_polyline_layer
     skipif:
@@ -656,7 +685,7 @@ workflow:
       argvalues: ${{ workflow.format_speed_values.return }}
 
   # combine static LandDx layers with quarter status movement ecomap layers
-  - name: Combine LandDx and Quarter Status Ecomap Layers
+  - name: Combine landDx and quarter status ecomap layers
     id: combine_quarter_ecomap_layers
     task: combine_map_layers
     partial:
@@ -676,7 +705,7 @@ workflow:
       right: ${{ workflow.zoom_qm_view.return }}
 
   # draw previous/current quarter movement ecomaps for each trajectory group
-  - name: Draw Quarter Status Ecomaps by Group
+  - name: Draw quarter status ecomaps by group
     id: draw_quarter_status_ecomap
     task: draw_ecomap
     partial:
@@ -688,7 +717,7 @@ workflow:
         title: Legend
       static: false
       title: null
-      max_zoom: 20
+      max_zoom: 12
     mapvalues:
       argnames: 
         - geo_layers
@@ -696,7 +725,7 @@ workflow:
       argvalues: ${{ workflow.qm_view_zip.return }}
 
   # persist HTML URLs of quarter status ecomaps as text files
-  - name: Persist Quarter Status Ecomap HTML Paths
+  - name: Persist quarter status ecomap HTML paths
     id: persist_quarter_ecomap_urls
     task: persist_text
     partial:
@@ -706,7 +735,7 @@ workflow:
       argvalues: ${{ workflow.draw_quarter_status_ecomap.return }}
 
   # create single-view map widgets for quarter status ecomaps
-  - name: Create Quarter Status Ecomap Widgets
+  - name: Create quarter status ecomap widgets
     id: create_quarter_ecomap_widgets
     task: create_map_widget_single_view
     skipif:
@@ -721,7 +750,7 @@ workflow:
       argvalues: ${{ workflow.persist_quarter_ecomap_urls.return }}
 
   # merge quarter status ecomap widgets into a grouped view
-  - name: Merge Quarter Status Ecomap Widgets
+  - name: Merge quarter status ecomap widgets
     id: merge_quarter_ecomap_widgets
     task: merge_widget_views
     partial:
@@ -729,7 +758,7 @@ workflow:
 
   # 4.HOME RANGE ETD ECOMAP
   # generate elliptical time density (ETD) home range maps per group
-  - name: Generate Home Range Ecomap
+  - name: Generate Home Range ecomap
     id: generate_etd
     task: calculate_elliptical_time_density
     partial:
@@ -754,7 +783,7 @@ workflow:
       argnames: trajectory_gdf
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
 
-  - name: Determine Seasonal Windows 
+  - name: Determine seasonal windows 
     id: determine_seasonal_windows
     task: determine_season_windows
     skipif:
@@ -763,7 +792,7 @@ workflow:
       - any_dependency_skipped
     partial:
       client: ${{ workflow.gee_project_name.return }}
-      time_range: ${{ workflow.define_time_range.return }}
+      time_range: ${{ workflow.time_range.return }}
     mapvalues:
       argnames: roi 
       argvalues: ${{ workflow.generate_etd.return }}
@@ -789,8 +818,8 @@ workflow:
       - any_dependency_skipped
     mapvalues:
       argnames:
-        - total_percentiles
-        - traj
+        - seasons_df
+        - trajectories
       argvalues: ${{ workflow.zip_etd_and_grouped_trajs.return }}
 
   - name: Generate MCP gdf 
@@ -803,7 +832,7 @@ workflow:
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
 
   # apply colormap to ETD home range percentiles
-  - name: Apply Colormap to Home Range Percentiles
+  - name: Apply colormap to Home Range percentiles
     id: apply_etd_percentile_colormap
     task: apply_color_map
     skipif:
@@ -820,9 +849,9 @@ workflow:
       argvalues: ${{ workflow.generate_etd.return }}
 
   # create polygon map layers from ETD (home range) percentiles
-  - name: Create Home Range Ecomap Layers
+  - name: Create Home Range ecomap layers
     id: generate_etd_ecomap_layers
-    task: custom_polygon_layer
+    task: create_polygon_layer
     skipif:
       conditions:
         - any_is_empty_df
@@ -841,9 +870,9 @@ workflow:
       argvalues: ${{ workflow.apply_etd_percentile_colormap.return }}
 
   # create polygon map layers for MCP
-  - name: Create MCP Polygon Layer 
+  - name: Create MCP polygon layer 
     id: generate_mcp_layers
-    task: custom_polygon_layer
+    task: create_polygon_layer
     skipif:
       conditions:
         - any_is_empty_df
@@ -852,7 +881,7 @@ workflow:
       layer_style:
         get_fill_color: '#FFFFFF00' # transparent fill
         get_line_color: '#ff1493'
-        get_line_width: 3
+        get_line_width: 3.55
         opacity: 0.75
         stroked: true
       legend:
@@ -894,7 +923,7 @@ workflow:
       right: ${{ workflow.generate_etd_ecomap_layers.return }}
 
   # combine static LandDx layers with home range (ETD) ecomap layers
-  - name: Combine LandDx and Home Range Ecomap Layers
+  - name: Combine landDx and Home Range ecomap layers
     id: combine_landdx_hr_ecomap_layers
     task: combine_map_layers
     skipif:
@@ -922,7 +951,7 @@ workflow:
       right: ${{ workflow.zoom_hr_view.return }}
 
   # draw home range (ETD) ecomaps for each subject group
-  - name: Draw Home Range Ecomap
+  - name: Draw Home Range ecomap
     id: draw_hr_ecomap
     task: draw_ecomap
     skipif:
@@ -938,7 +967,7 @@ workflow:
         title: ETD Metrics
       static: false
       title: null
-      max_zoom: 20
+      max_zoom: 12
     mapvalues:
       argnames: 
         - geo_layers
@@ -946,7 +975,7 @@ workflow:
       argvalues: ${{ workflow.hr_view_zip.return }}
 
   # persist HTML URLs of home range ecomaps as text files
-  - name: Persist Home Range Ecomap HTML Paths
+  - name: Persist Home Range ecomap HTML paths
     id: persist_hr_ecomap_urls
     task: persist_text
     skipif:
@@ -959,7 +988,7 @@ workflow:
       argvalues: ${{ workflow.draw_hr_ecomap.return }}
 
   # create single-view map widgets for home range ecomaps
-  - name: Create Home Range Ecomap Widgets
+  - name: Create Home Range ecomap widgets
     id: create_hr_ecomap_widgets
     task: create_map_widget_single_view
     skipif:
@@ -974,7 +1003,7 @@ workflow:
       argvalues: ${{ workflow.persist_hr_ecomap_urls.return }}
 
   # merge home range ecomap widgets into a grouped view
-  - name: Merge Home Range Ecomap Widgets
+  - name: Merge Home Range ecomap widgets
     id: merge_hr_ecomap_widgets
     task: merge_widget_views
     partial:
@@ -982,7 +1011,7 @@ workflow:
 
   # 5.MEAN SPEED RASTER ECOMAP
   # generate mean speed raster for each subject trajectory group
-  - name: Generate Speed Rasters
+  - name: Generate speed rasters
     id: generate_speed_raster
     task: generate_ecograph_raster
     skipif:
@@ -1006,7 +1035,7 @@ workflow:
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
 
   # extract feature GeoDataFrame from generated speed raster TIFFs
-  - name: Extract Features from Speed Raster TIFFs
+  - name: Extract features from speed raster TIFFs
     id: extract_speed_rasters
     task: retrieve_feature_gdf
     skipif:
@@ -1017,7 +1046,7 @@ workflow:
       argvalues: ${{ workflow.generate_speed_raster.return }}
 
   # sort extracted speed features by raster value
-  - name: Sort Speed Features by Value
+  - name: Sort speed features by value
     id: sort_speed_features_by_value
     task: sort_values
     skipif:
@@ -1033,7 +1062,7 @@ workflow:
       argvalues: ${{ workflow.extract_speed_rasters.return }}
 
   # apply classification to sorted speed feature GeoDataFrames
-  - name: Classify Speed Feature GeoDataFrames
+  - name: Classify speed feature gdf
     id: classify_speed_features
     task: apply_classification
     skipif:
@@ -1054,7 +1083,7 @@ workflow:
       argvalues: ${{ workflow.sort_speed_features_by_value.return }}
 
   # apply color map to classified speed raster features
-  - name: Apply Colormap to Speed Raster Bins
+  - name: Apply colormap to speed raster bins
     id: apply_speed_raster_colormap
     task: apply_color_map
     skipif:
@@ -1076,7 +1105,7 @@ workflow:
       argvalues: ${{ workflow.classify_speed_features.return }}
       
   # format speed raster bin labels for legend display
-  - name: Format Speed Raster Bin Labels
+  - name: Format speed raster bin labels
     id: format_speed_raster_labels
     task: map_values_with_unit
     skipif:
@@ -1094,9 +1123,9 @@ workflow:
       argvalues: ${{ workflow.apply_speed_raster_colormap.return }}
 
   # create polygon map layers from classified speed raster features
-  - name: Create Speed Raster Map Layers
+  - name: Create speed raster map layers
     id: generate_raster_layers
-    task: custom_polygon_layer
+    task: create_polygon_layer
     skipif:
       conditions:
         - any_is_empty_df
@@ -1132,7 +1161,7 @@ workflow:
       argvalues: ${{ workflow.format_speed_raster_labels.return }}
 
   # combine static LandDx layers with seasonal raster-based ecomap layers
-  - name: Combine LandDx and SpeedRaster Map Layers
+  - name: Combine landDx and speedraster map layers
     id: combine_seasonal_raster_layers
     task: combine_map_layers
     skipif:
@@ -1160,7 +1189,7 @@ workflow:
       right: ${{ workflow.zoom_speedraster_view.return }}
 
   # draw speed raster ecomaps for each trajectory group
-  - name: Draw Speed Raster Ecomaps by Group
+  - name: Draw speedraster ecomaps by group
     id: draw_speed_raster_ecomaps
     task: draw_ecomap
     skipif:
@@ -1176,7 +1205,7 @@ workflow:
         title: Mean Speed Value (km/h)
       static: false
       title: null
-      max_zoom: 20
+      max_zoom: 12
     mapvalues:
       argnames: 
         - geo_layers
@@ -1184,7 +1213,7 @@ workflow:
       argvalues: ${{ workflow.speedraster_view_zip.return }}
 
   # persist HTML URLs of speed raster ecomaps as text files
-  - name: Persist Speed Raster Ecomap HTML Paths
+  - name: Persist speedraster ecomap HTML paths
     id: speed_raster_ecomap_urls
     task: persist_text
     skipif:
@@ -1198,7 +1227,7 @@ workflow:
       argvalues: ${{ workflow.draw_speed_raster_ecomaps.return }}
 
   # create single-view map widgets for speed raster ecomaps
-  - name: Create Speed Raster Ecomap Widgets
+  - name: Create speedraster ecomap widgets
     id: speed_raster_ecomap_widgets
     task: create_map_widget_single_view
     skipif:
@@ -1213,7 +1242,7 @@ workflow:
       argvalues: ${{ workflow.speed_raster_ecomap_urls.return }}
 
   # merge speed raster ecomap widgets into a grouped view
-  - name: Merge Speed Raster Ecomap Widgets
+  - name: Merge speed raster ecomap widgets
     id: speedraster_ecomap_widgets
     task: merge_widget_views
     partial:
@@ -1230,7 +1259,7 @@ workflow:
         - all_geometry_are_none
     partial:
       groupby_cols:
-        - subject_name
+        # - subject_name
         - season
       percentiles:
         - 99.9
@@ -1241,7 +1270,7 @@ workflow:
       argnames: gdf
       argvalues: ${{ workflow.add_season_labels.return }}
 
-  - name: Time Density colormap
+  - name: Time density colormap
     id: season_colormap
     task: apply_color_map
     skipif:
@@ -1258,9 +1287,9 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.seasonal_home_range.return }}
   
-  - name: Create map layers from Seasons
+  - name: Create map layers from seasons
     id: season_etd_map_layer
-    task: custom_polygon_layer
+    task: create_polygon_layer
     skipif:
       conditions:
         - any_is_empty_df
@@ -1294,7 +1323,7 @@ workflow:
       argnames: gdf
       argvalues: ${{ workflow.season_colormap.return }}
 
-  - name: Combine Map Layers
+  - name: Combine map layers
     id: comb_season_map_layers
     task: combine_map_layers
     partial:
@@ -1313,7 +1342,7 @@ workflow:
       left:  ${{ workflow.comb_season_map_layers.return }}
       right: ${{ workflow.zoom_season_view.return }}
 
-  - name: Draw Season Ecomap 
+  - name: Draw season ecomap 
     id: seasonal_ecomap
     task: draw_ecomap
     partial:
@@ -1325,7 +1354,7 @@ workflow:
         title: Seasons
       static: false
       title: null
-      max_zoom: 20
+      max_zoom: 12
     
     mapvalues:
       argnames: 
@@ -1333,7 +1362,7 @@ workflow:
          - view_state
       argvalues: ${{ workflow.seasons_view_zip.return }}
 
-  - name: Perist HR ecomap as text
+  - name: Perist season ecomap as text
     id: season_etd_ecomap_html_url
     task: persist_text
     partial:
@@ -1343,7 +1372,7 @@ workflow:
       argnames: text 
       argvalues: ${{ workflow.seasonal_ecomap.return }}
 
-  - name: Create Map Widgets for Trajectories
+  - name: Create map widgets for trajectories
     id: season_etd_widgets_single_view
     task: create_map_widget_single_view
     skipif:
@@ -1358,7 +1387,7 @@ workflow:
       
       argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}
 
-  - name: Merge Ecomap Widgets 
+  - name: Merge ecomap widgets 
     id: season_grouped_map_widget
     task: merge_widget_views
     partial:
@@ -1366,7 +1395,7 @@ workflow:
 
   # 7. METRIC SUMMARY WIDGETS
   # calculate total MCP area per group
-  - name: Calculate Total MCP Area
+  - name: Calculate total mcp area
     id: total_mcp_area
     task: dataframe_column_sum
     partial:
@@ -1375,7 +1404,7 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.calculate_mcp.return }}
 
-  - name: Round off mcp area to 2 decimal_places
+  - name: Round off mcp area to 2 decimal places
     id: round_mcp_area
     task: round_off_values
     partial:
@@ -1385,7 +1414,7 @@ workflow:
       argvalues: ${{ workflow.total_mcp_area.return }}
 
   # calculate total grid area per group
-  - name: Calculate Total Grid Area
+  - name: Calculate total grid area
     id: total_grid_area
     task: dataframe_column_sum
     partial:
@@ -1394,7 +1423,7 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.generate_etd.return }}
 
-  - name: Round off grid area to 2 decimal_places
+  - name: Round off grid area to 2 decimal places
     id: round_grid_area
     task: round_off_values
     partial:
@@ -1403,7 +1432,7 @@ workflow:
       argnames: value
       argvalues: ${{ workflow.total_grid_area.return }}
 
-  - name: Create Single Value Widgets for Total MCP Area Per Group
+  - name: Create single value widgets for total MCP area per group
     id: total_mcp_sv_widgets
     task: create_single_value_widget_single_view
     skipif:
@@ -1418,13 +1447,13 @@ workflow:
         - data
       argvalues: ${{ workflow.round_mcp_area.return }}
 
-  - name: Merge per group Total MCP Area SV widgets
+  - name: Merge per group total MCP area SV widgets
     id: total_mcp_grouped_sv_widget
     task: merge_widget_views
     partial:
       widgets: ${{ workflow.total_mcp_sv_widgets.return }}
   
-  - name: Create Single Value Widgets for Total grid Area Per Group
+  - name: Create single value widgets for total grid area per group
     id: total_grid_sv_widgets
     task: create_single_value_widget_single_view
     skipif:
@@ -1439,7 +1468,7 @@ workflow:
         - data
       argvalues: ${{ workflow.round_grid_area.return }}
 
-  - name: Merge per group Total Grid Area SV widgets
+  - name: Merge per group total grid area SV widgets
     id: total_grid_grouped_sv_widget
     task: merge_widget_views
     partial:
@@ -1454,7 +1483,7 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.split_trajectories_by_group.return }}
 
-  - name: Create Single Value Widgets for Subject Gender Per Group
+  - name: Create Single Value Widgets for subject gender per group
     id: gender_widgets
     task: create_text_widget_single_view
     skipif:
@@ -1468,17 +1497,17 @@ workflow:
         - data
       argvalues: ${{ workflow.subject_gender.return }}
 
-  - name: Merge per group Gender SV widgets
+  - name: Merge per group gender SV widgets
     id: gender_sv_widget
     task: merge_widget_views
     partial:
       widgets: ${{ workflow.gender_widgets.return }}
 
-  - name: Get Report Duration 
+  - name: Get report duration 
     id: report_duration
     task: get_duration
     partial:
-      time_range: ${{ workflow.define_time_range.return }}
+      time_range: ${{ workflow.time_range.return }}
       time_unit: months
 
   - name: Round off report duration to 2 decimal_places
@@ -1502,7 +1531,7 @@ workflow:
     id: unique_subjects
     task: dataframe_column_nunique
     partial:
-      df: ${{ workflow.rename_reloc_cols.return }}
+      df: ${{ workflow.rename_traj_cols.return }}
       column_name: subject_name
 
   # Create cover context and persist 
@@ -1512,7 +1541,7 @@ workflow:
     partial:
       count: ${{ workflow.unique_subjects.return }}
       org_logo_path: ${{ workflow.download_logo_path.return }}
-      report_period: ${{ workflow.define_time_range.return }}
+      report_period: ${{ workflow.time_range.return }}
       prepared_by: "Ecoscope"
       
   - name: Persist context to cover template
@@ -1599,8 +1628,7 @@ workflow:
       argnames: html_path
       argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}
 
-    # === Zip mapbook context inputs into a single grouped iterable ===
-    # there's a groupby task I recently saw on workflows: 
+  # === Zip mapbook context inputs into a single grouped iterable ===
   - name: Zip grid and mcp
     id: zip_grid_mcp
     task: zip_grouped_by_key
@@ -1670,7 +1698,7 @@ workflow:
       template_path: ${{ workflow.download_sect_templates.return }}
       output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       subject_name: ${{ workflow.get_subject_name.return }}
-      time_period: ${{ workflow.define_time_range.return }}
+      time_period: ${{ workflow.time_range.return }}
       period: ${{ workflow.round_report_duration.return }} # months
       filename: null
       validate_images: true
@@ -1693,14 +1721,14 @@ workflow:
   # func to merge all individual subject mapbook sections and cover page
   - name: Generate final mapbook report
     id: generate_mapbook_report
-    task: combine_docx_files
+    task: merge_docx_files
     partial:
       cover_page_path: ${{ workflow.persist_context_cover.return }}
       output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       context_page_items: ${{ workflow.individual_mapbook_context.return }}
       filename: mapbook_report.docx
 
-  - name: Mapbook Dashboard
+  - name: Mapbook dashboard
     id: mapbook_dashboard
     task: gather_dashboard
     partial:
@@ -1716,5 +1744,5 @@ workflow:
         - ${{ workflow.speedraster_ecomap_widgets.return }} # speedraster widgets
         - ${{ workflow.season_grouped_map_widget.return }} # seasons 
 
-      time_range: ${{ workflow.define_time_range.return }}
-      groupers: ${{ workflow.configure_grouping_strategy.return }}
+      time_range: ${{ workflow.time_range.return }}
+      groupers: ${{ workflow.groupers.return }}
