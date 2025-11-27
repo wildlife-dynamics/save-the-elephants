@@ -24,16 +24,16 @@ requirements:
     - pip
   run:
     - python
-    - ecoscope-workflows-core
     - ecoscope
+    - ecoscope-workflows-core
     - ecoscope-workflows-ext-ecoscope
     - ecoscope-workflows-ext-custom
     - geopandas
     - shapely
     - python-igraph
     - earthengine-api
-    - docxtpl # for word document template generation
-    - playwright # html to image conversion
+    - docxtpl
+    - playwright
     
 about:
   license: BSD-3-Clause

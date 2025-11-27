@@ -214,57 +214,65 @@ def retrieve_feature_gdf(
     return gdf
 
 @task
-def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFrame) -> Optional[AnyGeoDataFrame]:
+def create_seasonal_labels(
+    trajectories: AnyGeoDataFrame, 
+    seasons_df: AnyDataFrame
+    ) -> Optional[AnyGeoDataFrame]:
     """
     Annotates trajectory segments with seasonal labels (wet/dry) based on NDVI-derived windows.
     Applies to the entire trajectory without grouping.
+
+    Args:
+        trajectories: GeoDataFrame containing trajectory segments with 'segment_start' and 'segment_end'.
+        seasons_df: DataFrame containing seasonal windows with 'start', 'end', and 'season' columns.
+
+    Returns:
+        GeoDataFrame with a new 'season' column containing the assigned seasonal label.
+        Rows that could not be assigned a season are dropped.
+        Returns None if an error occurs.
     """
     try:
         # Validate input DataFrames are not empty
-        if traj is None or traj.empty:
-            raise ValueError("`create_seasonal_labels`: traj gdf is empty.")
-        if total_percentiles is None or total_percentiles.empty:
-            raise ValueError("`create_seasonal_labels`: total_percentiles df is empty.")
+        if trajectories is None or trajectories.empty:
+            raise ValueError("`create_seasonal_labels`: trajectories gdf is empty.")
+        if seasons_df is None or seasons_df.empty:
+            raise ValueError("`create_seasonal_labels`: seasons_df is empty.")
 
-        # Validate required columns in trajectory
+        # Validate required columns in trajectories
         required_traj_cols = ["segment_start", "segment_end"]
-        missing_traj_cols = [col for col in required_traj_cols if col not in traj.columns]
+        missing_traj_cols = [col for col in required_traj_cols if col not in trajectories.columns]
         if missing_traj_cols:
             raise ValueError(
-                f"`create_seasonal_labels`: traj is missing required columns: {missing_traj_cols}. "
-                f"Available columns: {list(traj.columns)}"
+                f"`create_seasonal_labels`: trajectories is missing required columns: {missing_traj_cols}. "
+                f"Available columns: {list(trajectories.columns)}"
             )
 
-        # Validate required columns in seasonal windows
+        # Validate required columns in seasons_df
         required_season_cols = ["start", "end", "season"]
-        missing_season_cols = [col for col in required_season_cols if col not in total_percentiles.columns]
+        missing_season_cols = [col for col in required_season_cols if col not in seasons_df.columns]
         if missing_season_cols:
             raise ValueError(
-                f"`create_seasonal_labels`: total_percentiles is missing required columns: {missing_season_cols}. "
-                f"Available columns: {list(total_percentiles.columns)}"
+                f"`create_seasonal_labels`: seasons_df is missing required columns: {missing_season_cols}. "
+                f"Available columns: {list(seasons_df.columns)}"
             )
 
         # Validate datetime types
-        if not pd.api.types.is_datetime64_any_dtype(traj["segment_start"]):
-            raise TypeError(f"`segment_start` must be datetime type, got {traj['segment_start'].dtype}")
-        if not pd.api.types.is_datetime64_any_dtype(traj["segment_end"]):
-            raise TypeError(f"`segment_end` must be datetime type, got {traj['segment_end'].dtype}")
-        if not pd.api.types.is_datetime64_any_dtype(total_percentiles["start"]):
-            raise TypeError(f"`start` must be datetime type, got {total_percentiles['start'].dtype}")
-        if not pd.api.types.is_datetime64_any_dtype(total_percentiles["end"]):
-            raise TypeError(f"`end` must be datetime type, got {total_percentiles['end'].dtype}")
+        for col in ["segment_start", "segment_end"]:
+            if not pd.api.types.is_datetime64_any_dtype(trajectories[col]):
+                raise TypeError(f"`{col}` must be datetime type, got {trajectories[col].dtype}")
+        for col in ["start", "end"]:
+            if not pd.api.types.is_datetime64_any_dtype(seasons_df[col]):
+                raise TypeError(f"`{col}` must be datetime type, got {seasons_df[col].dtype}")
 
-        # Check for NULL values in critical columns
-        if traj["segment_start"].isnull().any():
-            null_count = traj["segment_start"].isnull().sum()
-            logger.warning(f"Found {null_count} NULL values in segment_start. These rows will be skipped.")
-        if traj["segment_end"].isnull().any():
-            null_count = traj["segment_end"].isnull().sum()
-            logger.warning(f"Found {null_count} NULL values in segment_end. These rows will be skipped.")
+        # Warn for NULL values in critical columns
+        for col in ["segment_start", "segment_end"]:
+            null_count = trajectories[col].isnull().sum()
+            if null_count > 0:
+                logger.warning(f"Found {null_count} NULL values in {col}. These rows will be skipped.")
 
-        seasonal_wins = total_percentiles.copy()
-        traj_start = traj["segment_start"].min()
-        traj_end = traj["segment_end"].max()
+        seasonal_wins = seasons_df.copy()
+        traj_start = trajectories["segment_start"].min()
+        traj_end = trajectories["segment_end"].max()
 
         seasonal_wins = seasonal_wins[
             (seasonal_wins["end"] >= traj_start) & (seasonal_wins["start"] <= traj_end)
@@ -275,10 +283,10 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
 
         if seasonal_wins.empty:
             logger.error("No seasonal windows overlap with trajectory timeframe.")
-            traj["season"] = None
-            return traj
+            trajectories["season"] = None
+            return trajectories
 
-        # Validate intervals don't overlap (optional but recommended)
+        # Validate intervals don't overlap
         seasonal_wins = seasonal_wins.sort_values("start").reset_index(drop=True)
         for i in range(len(seasonal_wins) - 1):
             if seasonal_wins.loc[i, "end"] > seasonal_wins.loc[i + 1, "start"]:
@@ -291,88 +299,26 @@ def create_seasonal_labels(traj: AnyGeoDataFrame, total_percentiles: AnyDataFram
         season_bins = pd.IntervalIndex(
             data=seasonal_wins.apply(lambda x: pd.Interval(x["start"], x["end"]), axis=1)
         )
-        logger.info(f"Created {len(season_bins)} seasonal bins")
-
         labels = seasonal_wins["season"].values
-        traj["season"] = pd.cut(
-            traj["segment_start"], 
+
+        trajectories["season"] = pd.cut(
+            trajectories["segment_start"], 
             bins=season_bins, 
             include_lowest=True
         ).map(dict(zip(season_bins, labels)))
-        
-        null_count = traj["season"].isnull().sum()
-        if null_count > 0:
-            logger.warning(f"Warning: {null_count} trajectory segments couldn't be assigned to any season")
 
-        logger.info("Seasonal labeling complete. Season distribution:")
-        logger.info(traj["season"].value_counts(dropna=False))
-        
-        # FIXED: Drop rows with NULL seasons but keep all columns
-        traj = traj.dropna(subset=["season"])
-        
-        return traj
-        
+        null_count = trajectories["season"].isnull().sum()
+        if null_count > 0:
+            logger.warning(f"{null_count} trajectory segments couldn't be assigned to any season")
+
+        trajectories = trajectories.dropna(subset=["season"])
+        return trajectories
+
     except Exception as e:
-        logger.error(f"Failed to apply seasonal label to trajectory: {e}")
+        logger.error(f"Failed to apply seasonal label to trajectories: {e}")
         return None
 
-@task
-def split_gdf_by_column(
-    gdf: Annotated[AnyGeoDataFrame, Field(description="The GeoDataFrame to split")],
-    column: Annotated[str, Field(description="Column name to split GeoDataFrame by")],
-) -> Dict[str, AnyGeoDataFrame]:
-    """
-    Splits a GeoDataFrame into a dictionary of GeoDataFrames based on unique values in the specified column.
-    """
-    if gdf is None or gdf.empty:
-        raise ValueError("`split_gdf_by_column`:gdf is empty.")
 
-    if column not in gdf.columns:
-        raise ValueError(f"`split_gdf_by_column`:Column '{column}' not found in GeoDataFrame.")
-
-    grouped = {str(k): v for k, v in gdf.groupby(column)}
-    return grouped
-
-@task
-def generate_mcp_gdf(
-    gdf: AnyGeoDataFrame,
-    planar_crs: str = "ESRI:102022",  # Africa Albers Equal Area
-) -> AnyGeoDataFrame:
-    """
-    Create a Minimum Convex Polygon (MCP) from input point geometries and compute its area.
-    """
-    if gdf is None or gdf.empty:
-        raise ValueError("`generate_mcp_gdf`:gdf is empty.")
-    if gdf.geometry is None:
-        raise ValueError("`generate_mcp_gdf`:gdf has no 'geometry' column.")
-    if gdf.crs is None:
-        raise ValueError("`generate_mcp_gdf`:gdf must have a CRS set (e.g., EPSG:4326).")
-
-    original_crs = gdf.crs
-    valid_points_gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notnull()].copy()
-    if valid_points_gdf.empty:
-        raise ValueError("`generate_mcp_gdf`:No valid geometries in gdf.")
-    
-    projected_gdf = valid_points_gdf.to_crs(planar_crs)
-    if not all(projected_gdf.geometry.geom_type.isin(["Point"])):
-        projected_gdf.geometry = projected_gdf.geometry.centroid
-
-    convex_hull = projected_gdf.geometry.unary_union.convex_hull
-
-    area_sq_meters = float(convex_hull.area)
-    area_sq_km = area_sq_meters / 1_000_000.0
-    convex_hull_original_crs = gpd.GeoSeries([convex_hull], crs=planar_crs).to_crs(original_crs).iloc[0]
-
-    result_gdf = gpd.GeoDataFrame(
-        {
-            "area_m2": [area_sq_meters], 
-            "area_km2": [area_sq_km], 
-            "mcp": "mcp"
-        },
-        geometry=[convex_hull_original_crs],
-        crs=original_crs,
-    )
-    return result_gdf
 
 @task
 def dataframe_column_first_unique_str(
@@ -385,29 +331,57 @@ def dataframe_column_first_unique_str(
 
 @task
 def assign_quarter_status_colors(
-    gdf: AnyDataFrame, 
-    hex_column: str, 
-    previous_color_hex: str
-    ) -> AnyDataFrame:
+    gdf: AnyDataFrame,
+    hex_column: str,
+    previous_color_hex: str,
+    use_hex_column_for_current: bool = True,
+    default_current_hex: Optional[str] = None,
+) -> AnyDataFrame:
+    """
+    Assign RGBA colors for quarter status.
+    
+    Args:
+        gdf: GeoDataFrame / DataFrame with quarter_status and hex column.
+        hex_column: Column containing hex color codes for current quarter.
+        previous_color_hex: Fallback hex for previous quarter.
+        use_hex_column_for_current: 
+            If True  -> use gdf[hex_column] for Present Quarter Movement.
+            If False -> use default_current_hex if given, else previous_color_hex.
+        default_current_hex:
+            Optional override hex for Present Quarter when use_hex_column_for_current=False.
+    """
     if gdf is None or gdf.empty:
-        raise ValueError("`assign_quarter_status_colors`:gdf is empty.")
+        raise ValueError("`assign_quarter_status_colors`: gdf is empty.")
 
     df = gdf.copy()
+
     if not isinstance(previous_color_hex, str) or not previous_color_hex.startswith("#"):
-        raise ValueError("`assign_quarter_status_colors`:Invalid hex color code for previous_color_hex.")
+        raise ValueError("`assign_quarter_status_colors`: Invalid previous_color_hex.")
 
     if hex_column not in df.columns:
-        raise ValueError(f"`assign_quarter_status_colors`:Column '{hex_column}' not found in gdf.")
-    
-    if "quarter_status" not in df.columns:
-        raise ValueError("`assign_quarter_status_colors`:Column 'quarter_status' not found in gdf.")
+        raise ValueError(f"`assign_quarter_status_colors`: Missing column {hex_column!r}")
 
-    prev_rgba = hex_to_rgba(previous_color_hex)
+    if "quarter_status" not in df.columns:
+        raise ValueError("`assign_quarter_status_colors`: Missing 'quarter_status' column.")
+
+    # Validate override if provided
+    if default_current_hex is not None:
+        if not isinstance(default_current_hex, str) or not default_current_hex.startswith("#"):
+            raise ValueError("Invalid default_current_hex provided.")
+
+    # Determine logic for current quarter color
+    if use_hex_column_for_current:
+        current_hex_series = df[hex_column]
+    else:
+        current_hex = default_current_hex or previous_color_hex
+        current_hex_series = current_hex
+
     df["quarter_status_hex_colors"] = np.where(
         df["quarter_status"] == "Present Quarter Movement",
-        df[hex_column],
+        current_hex_series,
         previous_color_hex,
     )
+
     df["quarter_status_colors"] = df["quarter_status_hex_colors"].apply(hex_to_rgba)
     return df
 
@@ -449,7 +423,6 @@ def calculate_seasonal_home_range(
         auto_scale_or_custom_cell_size = AutoScaleGridCellSize()
 
     gdf = gdf[gdf['season'].notna()].copy()
-    group_counts = gdf.groupby(groupby_cols).size()
     try:
         season_etd = gdf.groupby(groupby_cols).apply(
             lambda df: calculate_elliptical_time_density(
@@ -505,121 +478,7 @@ def get_duration(
     else:
         raise ValueError("`get_duration`:time_unit must be either 'days' or 'months'")
         
-@task
-def download_file_and_persist(
-    url: Annotated[str, Field(description="URL to download the file from")],
-    output_path: Annotated[Optional[str], Field(description="Path to save the downloaded file or directory. Defaults to current working directory")] = None,
-    retries: Annotated[int, Field(description="Number of retries on failure", ge=0)] = 3,
-    overwrite_existing: Annotated[bool, Field(description="Whether to overwrite existing files")] = False,
-    unzip: Annotated[bool, Field(description="Whether to unzip the file if it's a zip archive")] = False,
-) -> str:
-    """
-    Downloads a file from the provided URL and persists it locally.
-    If output_path is not specified, saves to the current working directory.
-    Returns the full path to the downloaded file, or if unzipped, the path to the extracted directory.
-    """
-    if output_path is None or str(output_path).strip() == "":
-        output_path = os.getcwd()
-    else:
-        output_path = str(output_path).strip()
 
-    output_path = normalize_file_url(output_path)
-    looks_like_dir = (
-        output_path.endswith(os.sep)
-        or output_path.endswith("/")
-        or output_path.endswith("\\")
-        or os.path.isdir(output_path)
-    )
-
-    if looks_like_dir:
-        # ensure directory exists
-        os.makedirs(output_path, exist_ok=True)
-
-        # determine filename from Content-Disposition or URL
-        import requests, email
-        try:
-            s = requests.Session()
-            r = s.head(url, allow_redirects=True, timeout=10)
-            cd = r.headers.get("content-disposition", "")
-            filename = None
-            if cd:
-                # parse content-disposition safely
-                m = email.message.Message()
-                m["content-disposition"] = cd
-                filename = m.get_param("filename")
-            if not filename:
-                filename = os.path.basename(urlparse(url).path.split("?")[0]) or "downloaded_file"
-        except Exception:
-            filename = os.path.basename(urlparse(url).path.split("?")[0]) or "downloaded_file"
-
-        target_path = os.path.join(output_path, filename)
-    else:
-        target_path = output_path
-
-    if not target_path or str(target_path).strip() == "":
-        raise ValueError("Computed download target path is empty. Check 'output_path' argument.")
-
-    # Store the parent directory to check for extracted content
-    parent_dir = os.path.dirname(target_path)
-    before_extraction = set()
-    if unzip:
-        if os.path.exists(parent_dir):
-            before_extraction = set(os.listdir(parent_dir))
-
-    # Do the download and bubble up useful context on failure
-    try:
-        download_file(
-            url=url,
-            path=target_path,
-            retries=retries,
-            overwrite_existing=overwrite_existing,
-            unzip=unzip,
-        )
-    except Exception as e:
-        # include debug info so callers can see what was attempted
-        raise RuntimeError(
-            f"download_file failed for url={url!r} path={target_path!r} retries={retries}. "
-            f"Original error: {e}"
-        ) from e
-
-    # Determine the final persisted path
-    if unzip and zipfile.is_zipfile(target_path):
-        after_extraction = set(os.listdir(parent_dir))
-        new_items = after_extraction - before_extraction
-        zip_filename = os.path.basename(target_path)
-        new_items.discard(zip_filename)
-        
-        if len(new_items) == 1:
-            new_item = new_items.pop()
-            new_item_path = os.path.join(parent_dir, new_item)
-            if os.path.isdir(new_item_path):
-                persisted_path = str(Path(new_item_path).resolve())
-            else:
-                persisted_path = str(Path(parent_dir).resolve())
-        elif len(new_items) > 1:
-            persisted_path = str(Path(parent_dir).resolve())
-        else:
-            extracted_dir = target_path.rsplit('.zip', 1)[0]
-            if os.path.isdir(extracted_dir):
-                persisted_path = str(Path(extracted_dir).resolve())
-            else:
-                persisted_path = str(Path(parent_dir).resolve())
-    else:
-        persisted_path = str(Path(target_path).resolve())
-
-    if not os.path.exists(persisted_path):
-        parent = os.path.dirname(persisted_path)
-        if os.path.exists(parent):
-            actual_files = os.listdir(parent)
-            raise FileNotFoundError(
-                f"Download failed — {persisted_path} not found after execution. "
-                f"Files in {parent}: {actual_files}"
-            )
-        else:
-            raise FileNotFoundError(
-                f"Download failed — {persisted_path}. Parent dir missing: {parent}"
-            )
-    return persisted_path
 
 @task
 def build_mapbook_report_template(
@@ -876,7 +735,7 @@ class GroupedDoc:
         return self
 
 @task
-def combine_docx_files(
+def merge_docx_files(
     cover_page_path: Annotated[str, Field(description="Path to the cover page .docx file")],
     context_page_items: Annotated[
         list[

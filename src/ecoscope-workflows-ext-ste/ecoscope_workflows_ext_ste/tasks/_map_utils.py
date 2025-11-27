@@ -114,74 +114,6 @@ def normalize_file_url(path: str) -> str:
     
     return path
 
-@task
-def load_geospatial_files(config: MapProcessingConfig) -> Dict[str, AnyGeoDataFrame]:
-    """
-    Load geospatial files from `config.path` and return a dict mapping
-    relative file path -> cleaned GeoDataFrame (reprojected to target_crs).
-    """
-    # Convert to Path object
-    base_path_str = normalize_file_url(config.path)
-    base_path = Path(base_path_str)
-    
-    # Validate path exists
-    if not base_path.exists():
-        raise FileNotFoundError(f"Path does not exist: {base_path}")
-    
-    if not base_path.is_dir():
-        raise NotADirectoryError(f"Path is not a directory: {base_path}")
-
-    target_crs = config.target_crs
-
-    loaded_files: Dict[str, AnyGeoDataFrame] = {}
-    normalized_suffixes = {
-        s.lower() if s.startswith(".") else f".{s.lower()}" 
-        for s in SUPPORTED_FORMATS
-    }
-    
-    # Use correct iterator method
-    iterator = base_path.rglob("*") if config.recursive else base_path.iterdir()
-
-    for p in iterator:
-        try:
-            if not p.is_file():
-                continue
-
-            if p.suffix.lower() not in normalized_suffixes:
-                continue
-
-            file_path = str(p)
-            gdf = gpd.read_file(file_path)
-
-            if gdf is None or gdf.empty:
-                logger.info("Skipped empty or unreadable file: %s", file_path)
-                continue
-
-            if gdf.crs is None:
-                logger.warning("File has no CRS, skipping reprojection: %s", file_path)
-            else:
-                try:
-                    gdf_crs = gdf.crs
-                    if gdf_crs != target_crs:
-                        # Reproject to target CRS
-                        gdf = gdf.to_crs(target_crs)
-                except Exception as e:
-                    logger.warning("Failed to normalize or compare CRS for %s: %s", file_path, e)
-
-            # Remove invalid geometries
-            cleaned = remove_invalid_geometries(gdf)
-            
-            # Create relative path key
-            key = str(p.relative_to(base_path))
-            loaded_files[key] = cleaned
-
-        except Exception:
-            logger.error("Error processing %s", p, exc_info=True)
-
-    logger.info("Loaded %d vector files from %s", len(loaded_files), base_path)
-    return loaded_files
-
-
 def clean_file_keys(file_dict: Dict[str, AnyGeoDataFrame]) -> Dict[str, AnyGeoDataFrame]:
     """
     Clean dictionary keys by removing file extensions and normalizing names.
@@ -361,34 +293,6 @@ def create_view_state_from_gdf(
         pitch=pitch, 
         bearing=bearing
         )
-@task
-def download_land_dx(
-    url: Annotated[str, Field(description="URL to retrieve the LandDx database")],
-    path: Annotated[str, Field(description="Local path to save the LandDx database copy")],
-    overwrite_existing: Annotated[bool, Field(default=False, description="Overwrite the existing file if it exists")],
-    unzip: Annotated[bool, Field(default=True, description="Whether to unzip the downloaded file")],
-) -> str:
-    """
-    Downloads the LandDx database from a given URL and saves it to the specified path.
-    """
-    # --- Normalize path if it starts with file:// ---
-    if path.startswith("file://"):
-        parsed = urlparse(path)
-        path = url2pathname(parsed.path)
-
-    # --- Ensure it's not a directory only ---
-    if os.path.isdir(path) or path.endswith(os.sep):
-        os.makedirs(path, exist_ok=True)
-        filename = os.path.basename(urlparse(url).path) or "landdx.db"
-        path = os.path.join(path, filename)
-
-    ecoscope.io.utils.download_file(
-        url=url,
-        path=path,
-        overwrite_existing=overwrite_existing,
-        unzip=unzip,
-    )
-    return path
     
 @task
 def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[int, int, int]]) -> MapStyleConfig:
@@ -425,55 +329,6 @@ def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[in
     return MapStyleConfig(styles=styles, legend=legend)
 
 @task
-def load_landdx_aoi(
-    map_path: str,
-    aoi: Optional[List[str]] = None,
-) -> Optional[AnyGeoDataFrame]:
-    if map_path is None: 
-        logger.error(f"Provided map path is empty")
-        return None  # Add explicit return here
-    
-    ldx_path = None  # Initialize to avoid potential UnboundLocalError
-    for root, _, files in os.walk(map_path):
-        if "landDx.gpkg" in files:
-            ldx_path = os.path.join(root, "landDx.gpkg")
-            break
-    
-    if ldx_path is None:
-        logger.error(f"landDx.gpkg not found in {map_path}")
-        return None
-    
-    # Load and filter
-    try:
-        geodataframe = gpd.read_file(ldx_path, layer="landDx_polygons").set_index("globalid")
-        
-        # Check if AOI filtering is needed
-        if aoi is None or not aoi:
-            print(f"Loaded landDx.gpkg — total features: {len(geodataframe)} (no filtering applied)")
-            return geodataframe 
-        
-        # Filter by AOI
-        filtered = geodataframe[geodataframe["type"].isin(aoi)]
-        print(
-            f"Loaded landDx.gpkg — total: {len(geodataframe)}, "
-            f"filtered by {aoi}: {len(filtered)}"
-        )
-        
-        if filtered.empty:
-            print(f"No features found matching AOI types: {aoi}")
-        
-        return filtered 
-    except FileNotFoundError as e:
-        logger.error(f"File not found: {ldx_path}")
-        return None
-    except KeyError as e:
-        logger.error(f"Required column missing: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Error loading or filtering landDx.gpkg: {e}")
-        return None
-
-@task
 def annotate_gdf_dict_with_geometry_type(gdf_dict: Dict[str, AnyGeoDataFrame]) -> Dict[str, Dict[str, object]]:
     """
     Annotates each GeoDataFrame in the dictionary with its primary geometry type.
@@ -486,30 +341,33 @@ def annotate_gdf_dict_with_geometry_type(gdf_dict: Dict[str, AnyGeoDataFrame]) -
                          containing the original GeoDataFrame and its geometry type.
     """
     result = {}
-
-    # others to be added soon
+    
     for name, gdf in gdf_dict.items():
         unique_geom_types = gdf.geometry.geom_type.unique()
 
         if len(unique_geom_types) == 1:
             geom_type = unique_geom_types[0]
-            if "Polygon" in geom_type:
+
+            # Normalize types (Point, MultiPoint → "Point"; Polygon, MultiPolygon → "Polygon", etc.)
+            if geom_type in ("Polygon", "MultiPolygon"):
                 primary_type = "Polygon"
-            elif "Point" in geom_type:
-                primary_type = "Point"
-            elif "LineString" in geom_type:
+            elif geom_type in ("LineString", "MultiLineString"):
                 primary_type = "LineString"
+            elif geom_type in ("Point", "MultiPoint"):
+                primary_type = "Point"
             else:
-                primary_type = "Other"
+                primary_type = geom_type  # or "Other"
         else:
             primary_type = "Mixed"
 
         result[name] = {"gdf": gdf, "geometry_type": primary_type}
+
     return result
 
 @task
 def create_map_layers_from_annotated_dict(
-    annotated_dict: Dict[str, Dict[str, object]], style_config: MapStyleConfig
+    annotated_dict: Dict[str, Dict[str, object]], 
+    style_config: MapStyleConfig
 ) -> List[LayerDefinition]:
     """
     Create styled map layers from a dictionary of {name: {gdf, geometry_type}}.
@@ -528,8 +386,6 @@ def create_map_layers_from_annotated_dict(
     layers: List[LayerDefinition] = []
 
     for name, content in annotated_dict.items():
-        print(f"Name: {name}")
-
         gdf = content.get("gdf")
         geometry_type = content.get("geometry_type")
 
@@ -544,10 +400,10 @@ def create_map_layers_from_annotated_dict(
             if layer:
                 layers.append(layer)
         except Exception as e:
-            print(f"Error creating layer for '{name}': {e}")
+            logger.error(f"Error creating layer for '{name}': {e}")
             traceback.print_exc()
 
-    print(f"Created {len(layers)} layers from annotated dict")
+    logger.info(f"Created {len(layers)} layers from annotated dict")
     return layers
 
 @task
@@ -598,6 +454,8 @@ def combine_map_layers(
             other_layers.append(layer)
     
     return other_layers + text_layers
+
+
 
 @task
 def make_text_layer(
@@ -704,57 +562,32 @@ def make_text_layer(
         zoom=zoom,
     )
 
-
-@task 
-def custom_polygon_layer(
-    geodataframe: Annotated[
-        AnyGeoDataFrame,
-        Field(description="The geodataframe to visualize.", exclude=True),
-    ],
-    layer_style: Annotated[
-        PolygonLayerStyle | SkipJsonSchema[None],
-        AdvancedField(
-            default=PolygonLayerStyle(), description="Style arguments for the layer."
-        ),
-    ] = None,
-    legend: Annotated[
-        LegendDefinition | SkipJsonSchema[None],
-        AdvancedField(
-            default=None,
-            description="If present, includes this layer in the map legend",
-        ),
-    ] = None,
-    tooltip_columns: Annotated[
-        list[str] | SkipJsonSchema[None],
-        AdvancedField(
-            default=None,
-            description="If present, only the listed dataframe columns will display in the layer's picking info",
-        ),
-    ] = None,
-    zoom: Annotated[
-        bool,
-        AdvancedField(
-            default=False,
-            description="If true, the map will be zoomed to the bounds of this layer",
-            exclude=True,
-        ),
-    ] = False,
-) -> Annotated[LayerDefinition, Field()]:
+@task
+def find_landdx_gpkg_path(
+    output_dir: str,
+) -> Optional[str]:
     """
-    Creates a polygon layer definition based on the provided configuration.
-
+    Search for landDx.gpkg file in the output directory and return its full path.
+    
     Args:
-    geodataframe (geopandas.GeoDataFrame): The geodataframe to visualize.
-    layer_style (PolygonLayerStyle): Style arguments for the data visualization.
-
+        output_dir: Directory path to search for landDx.gpkg
+    
     Returns:
-    The generated LayerDefinition
+        Full path to landDx.gpkg file if found, None otherwise
     """
-
-    return LayerDefinition(
-        geodataframe=geodataframe,
-        layer_style=layer_style if layer_style else PolygonLayerStyle(),
-        legend=legend,  # type: ignore[arg-type]
-        tooltip_columns=tooltip_columns,
-        zoom=zoom,
-    )
+    if output_dir is None or output_dir == "": 
+        logger.error("Provided output directory is empty")
+        return None
+    
+    if not os.path.exists(output_dir):
+        logger.error(f"Output directory does not exist: {output_dir}")
+        return None
+    
+    for root, _, files in os.walk(output_dir):
+        if "landDx.gpkg" in files:
+            ldx_path = os.path.join(root, "landDx.gpkg")
+            logger.info(f"Found landDx.gpkg at: {ldx_path}")
+            return ldx_path
+    
+    logger.error(f"landDx.gpkg not found in {output_dir}")
+    return None
