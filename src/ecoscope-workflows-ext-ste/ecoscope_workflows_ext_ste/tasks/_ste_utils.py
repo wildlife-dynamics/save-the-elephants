@@ -4,29 +4,25 @@ import uuid
 import logging
 import warnings
 import hashlib
-import zipfile
 import numpy as np 
 import pandas as pd
-import geopandas as gpd
 from pathlib import Path
 from docx.shared import Cm
 from datetime import datetime
 from urllib.parse import urlparse
-from ecoscope.io import download_file
 from urllib.request import url2pathname
 from dataclasses import asdict,dataclass
 from ecoscope.trajectory import Trajectory
+from ._path_utils import normalize_file_url
 from ecoscope.base.utils import hex_to_rgba
 from docxtpl import DocxTemplate,InlineImage 
 from pydantic.json_schema import SkipJsonSchema
-from dateutil.relativedelta import relativedelta
 from pydantic import Field, BaseModel, ConfigDict
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.indexes import CompositeFilter
+from typing import Annotated, Optional, Dict, Literal,Union
 from ecoscope.analysis.ecograph import Ecograph, get_feature_gdf
-from typing import Annotated, Optional, Dict, cast, Literal,Union
 from ecoscope_workflows_core.tasks.filter._filter import TimeRange 
-from ecoscope.analysis.seasons import seasonal_windows, std_ndvi_vals, val_cuts
 from ecoscope_workflows_core.skip import SkippedDependencyFallback, SkipSentinel
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import calculate_elliptical_time_density
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, AdvancedField
@@ -80,26 +76,6 @@ class CustomGridCellSize(BaseModel):
             json_schema_extra={"exclusiveMinimum": 0, "exclusiveMaximum": 10000},
         ),
     ] = 5000
-
-def normalize_file_url(path: str) -> str:
-    """Convert file:// URL to local path, handling malformed Windows URLs."""
-    if not path.startswith("file://"):
-        return path
-
-    path = path[7:]
-    
-    if os.name == 'nt':
-        # Remove leading slash before drive letter: /C:/path -> C:/path
-        if path.startswith('/') and len(path) > 2 and path[2] in (':', '|'):
-            path = path[1:]
-
-        path = path.replace('/', '\\')
-        path = path.replace('|', ':')
-    else:
-        if not path.startswith('/'):
-            path = '/' + path
-    
-    return path
 
 @task
 def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
@@ -318,8 +294,6 @@ def create_seasonal_labels(
         logger.error(f"Failed to apply seasonal label to trajectories: {e}")
         return None
 
-
-
 @task
 def dataframe_column_first_unique_str(
     df: AnyDataFrame,
@@ -479,7 +453,6 @@ def get_duration(
         raise ValueError("`get_duration`:time_unit must be either 'days' or 'months'")
         
 
-
 @task
 def build_mapbook_report_template(
     count: int,
@@ -527,7 +500,6 @@ def build_mapbook_report_template(
         "report_period": formatted_time_range,
         "prepared_by": prepared_by,
     }
-
 
 @task
 def create_context_page(
@@ -797,6 +769,3 @@ def merge_docx_files(
     composer.save(output_path)
     return str(output_path)
 
-@task
-def round_off_values(value: float, dp: int) -> float:
-    return round(value, dp)

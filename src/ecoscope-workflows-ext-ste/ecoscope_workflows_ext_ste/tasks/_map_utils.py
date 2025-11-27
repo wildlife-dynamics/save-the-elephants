@@ -2,18 +2,11 @@ import os
 import re
 import math
 import logging
-import ecoscope
 import traceback
-import dataclasses
 from enum import Enum
-import geopandas as gpd
-from pathlib import Path
-from urllib.parse import urlparse
-from urllib.request import url2pathname
+from pydantic import BaseModel, Field
 from ecoscope_workflows_core.decorators import task
-from pydantic import BaseModel, Field, field_validator
-from pydantic.json_schema import SkipJsonSchema
-from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AdvancedField
+from ecoscope_workflows_core.annotations import AnyGeoDataFrame
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import ViewState
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import TextLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PointLayerStyle
@@ -21,10 +14,10 @@ from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LayerDefinitio
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import LegendDefinition
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolygonLayerStyle
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import PolylineLayerStyle
-from typing import Union,Any, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_point_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polygon_layer
 from ecoscope_workflows_ext_ecoscope.tasks.results._ecomap import create_polyline_layer
+from typing import Union,Any, Dict, Optional, Literal, List, Annotated, TypedDict, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +57,7 @@ def remove_invalid_geometries(
     """
     return gdf.loc[(~gdf.geometry.isna()) & (~gdf.geometry.is_empty)]
 
+# upstream 
 @task
 def detect_geometry_type(gdf: AnyGeoDataFrame) -> GeometrySummary:
     """
@@ -94,26 +88,6 @@ def detect_geometry_type(gdf: AnyGeoDataFrame) -> GeometrySummary:
 
     return {"primary_type": primary_type, "counts": geom_counts}
 
-def normalize_file_url(path: str) -> str:
-    """Convert file:// URL to local path, handling malformed Windows URLs."""
-    if not path.startswith("file://"):
-        return path
-
-    path = path[7:]
-    
-    if os.name == 'nt':
-        # Remove leading slash before drive letter: /C:/path -> C:/path
-        if path.startswith('/') and len(path) > 2 and path[2] in (':', '|'):
-            path = path[1:]
-
-        path = path.replace('/', '\\')
-        path = path.replace('|', ':')
-    else:
-        if not path.startswith('/'):
-            path = '/' + path
-    
-    return path
-
 def clean_file_keys(file_dict: Dict[str, AnyGeoDataFrame]) -> Dict[str, AnyGeoDataFrame]:
     """
     Clean dictionary keys by removing file extensions and normalizing names.
@@ -134,6 +108,7 @@ def clean_file_keys(file_dict: Dict[str, AnyGeoDataFrame]) -> Dict[str, AnyGeoDa
         return key.strip('_').lower()
     return {clean_key(k): v for k, v in file_dict.items()}
 
+# upstream 
 @task
 def create_layer_from_gdf(
     filename: str,
@@ -201,6 +176,7 @@ def create_layer_from_gdf(
         logger.error("Error creating layer for '%s': %s", filename, e, exc_info=True)
     return None
 
+# upstream 
 @task
 def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapStyleConfig) -> List[LayerDefinition]:
     """
@@ -269,6 +245,7 @@ def _zoom_from_bbox(minx, miny, maxx, maxy, map_width_px=800, map_height_px=600)
     zoom = round(max(0, min(20, zoom)), 2)
     return zoom
 
+# upstream 
 @task
 def create_view_state_from_gdf(
     gdf: AnyGeoDataFrame, 
@@ -293,7 +270,8 @@ def create_view_state_from_gdf(
         pitch=pitch, 
         bearing=bearing
         )
-    
+
+# landDx style config specific -- upstream?
 @task
 def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[int, int, int]]) -> MapStyleConfig:
     """
@@ -328,6 +306,7 @@ def build_landdx_style_config(aoi_list: List[str], color_map: Dict[str, Tuple[in
         legend["colors"].append(hex_color)
     return MapStyleConfig(styles=styles, legend=legend)
 
+# upstream 
 @task
 def annotate_gdf_dict_with_geometry_type(gdf_dict: Dict[str, AnyGeoDataFrame]) -> Dict[str, Dict[str, object]]:
     """
@@ -364,6 +343,7 @@ def annotate_gdf_dict_with_geometry_type(gdf_dict: Dict[str, AnyGeoDataFrame]) -
 
     return result
 
+#upstream
 @task
 def create_map_layers_from_annotated_dict(
     annotated_dict: Dict[str, Dict[str, object]], 
@@ -406,6 +386,7 @@ def create_map_layers_from_annotated_dict(
     logger.info(f"Created {len(layers)} layers from annotated dict")
     return layers
 
+# upstream 
 @task
 def combine_map_layers(
     static_layers: Annotated[
@@ -454,8 +435,6 @@ def combine_map_layers(
             other_layers.append(layer)
     
     return other_layers + text_layers
-
-
 
 @task
 def make_text_layer(
@@ -562,6 +541,7 @@ def make_text_layer(
         zoom=zoom,
     )
 
+# upstream?
 @task
 def find_landdx_gpkg_path(
     output_dir: str,

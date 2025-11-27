@@ -3,6 +3,7 @@ from typing import Union,cast,Sequence
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.annotations import AnyDataFrame
 
+# upstream
 @task
 def filter_by_value(
     df: AnyDataFrame,
@@ -28,7 +29,7 @@ def exclude_by_value(
     value: Union[int, str, float, Sequence[Union[int, str, float]]]
 ) -> AnyDataFrame:
     """
-    Return a DataFrame containing rows where the given column matches the specified value
+    Return a DataFrame containing rows where the given column excludes the specified value
     or any value in a list/sequence.
     """
 

@@ -4,6 +4,7 @@ from typing import Annotated,Dict
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, AdvancedField
 
+# upstream?
 # this is useful when you want to label different parts of a gdf separately
 @task
 def split_gdf_by_column(
@@ -62,3 +63,7 @@ def generate_mcp_gdf(
         crs=original_crs,
     )
     return result_gdf
+
+@task
+def round_off_values(value: float, dp: int) -> float:
+    return round(value, dp)

@@ -6,38 +6,19 @@ import requests,email
 from pathlib import Path 
 from pydantic import Field
 from urllib.parse import urlparse
-from ecoscope.io import download_file
 from typing import Annotated,Optional 
+from ecoscope.io import download_file
+from ._path_utils import normalize_file_url
 from ecoscope_workflows_core.decorators import task
 
 logger = logging.getLogger(__name__)
-
 warnings.filterwarnings("ignore")
 
-def normalize_file_url(path: str) -> str:
-    """Convert file:// URL to local path, handling malformed Windows URLs."""
-    if not path.startswith("file://"):
-        return path
-
-    path = path[7:]
-    
-    if os.name == 'nt':
-        # Remove leading slash before drive letter: /C:/path -> C:/path
-        if path.startswith('/') and len(path) > 2 and path[2] in (':', '|'):
-            path = path[1:]
-
-        path = path.replace('/', '\\')
-        path = path.replace('|', ':')
-    else:
-        if not path.startswith('/'):
-            path = '/' + path
-    
-    return path
-
+# upstream:?
 @task
 def fetch_and_persist_file(
     url: Annotated[str, Field(description="URL to download the file from")],
-    output_path: Annotated[Optional[str], Field(description="Path to save the downloaded file or directory. Defaults to current working directory")] = None,
+    output_path: Annotated[Optional[str], Field(description="Path to save the downloaded file or directory.")] = None,
     retries: Annotated[int, Field(description="Number of retries on failure", ge=0)] = 3,
     overwrite_existing: Annotated[bool, Field(description="Whether to overwrite existing files")] = False,
     unzip: Annotated[bool, Field(description="Whether to unzip the file if it's a zip archive")] = False,
