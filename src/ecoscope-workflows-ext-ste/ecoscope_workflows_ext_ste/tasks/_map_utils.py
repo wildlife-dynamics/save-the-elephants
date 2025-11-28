@@ -114,7 +114,6 @@ def create_layer_from_gdf(
     filename: str,
     gdf: AnyGeoDataFrame,
     style_config: MapStyleConfig,
-    primary_type: str,
 ) -> Optional[LayerDefinition]:
     """
     Create an appropriately styled map layer from a GeoDataFrame.
@@ -123,18 +122,10 @@ def create_layer_from_gdf(
         filename: key matching an entry in style_config.styles (use cleaned keys).
         gdf: GeoDataFrame to render.
         style_config: MapStyleConfig containing style definitions and optional legend.
-        primary_type: canonical geometry type (e.g. "Polygon", "Point", "LineString", "Other", "Mixed").
 
     Returns:
         A LayerDefinition (or subclass) or None if creation failed / unsupported.
     """
-    canonical_map = {
-        "MultiPolygon": "Polygon",
-        "MultiPoint": "Point",
-        "MultiLineString": "LineString",
-    }
-    primary = canonical_map.get(primary_type, primary_type)
-
     if filename not in style_config.styles:
         logger.warning("No style config for '%s'", filename)
         return None
@@ -150,11 +141,9 @@ def create_layer_from_gdf(
             legend = LegendDefinition(labels=labels, colors=colors)
         else:
             logger.debug("Skipping legend for '%s' due to missing or mismatched labels/colors", filename)
-
-    try:
-        gdf = remove_invalid_geometries(gdf)
-    except Exception:
-        pass
+    
+    gdf = gdf.loc[(~gdf.geometry.isna()) & (~gdf.geometry.is_empty)]
+    primary = detect_geometry_type(gdf=gdf)["primary_type"]
 
     try:
         if primary == "Polygon":
@@ -168,17 +157,17 @@ def create_layer_from_gdf(
         if primary == "LineString":
             logger.info("Creating line layer for '%s'", filename)
             return create_polyline_layer(gdf, layer_style=PolylineLayerStyle(**style_params), legend=legend)
-
-        logger.warning("Unsupported geometry type '%s' for file '%s'", primary_type, filename)
+        
     except TypeError as te:
         logger.error("Invalid style params for '%s': %s", filename, te, exc_info=True)
-    except Exception as e:
-        logger.error("Error creating layer for '%s': %s", filename, e, exc_info=True)
     return None
 
 # upstream 
 @task
-def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapStyleConfig) -> List[LayerDefinition]:
+def create_map_layers(
+    file_dict: Dict[str, AnyGeoDataFrame], 
+    style_config: MapStyleConfig
+    ) -> List[LayerDefinition]:
     """
     Create styled map layers from a dictionary of GeoDataFrames using the provided style config.
 
@@ -193,16 +182,8 @@ def create_map_layers(file_dict: Dict[str, AnyGeoDataFrame], style_config: MapSt
 
     for filename, gdf in cleaned_files.items():
         try:
-            try:
-                gdf = remove_invalid_geometries(gdf)
-            except Exception:
-                gdf = gdf.loc[(~gdf.geometry.isna()) & (~gdf.geometry.is_empty)]
-
-            geom_analysis = detect_geometry_type(gdf=gdf)
-            gdf_geom_type = geom_analysis["primary_type"]
-            gdf_counts = geom_analysis.get("counts", {})
-            logger.info("%s geometry type: %s counts: %s", filename, gdf_geom_type, gdf_counts)
-            layer = create_layer_from_gdf(filename, gdf, style_config, gdf_geom_type)
+            gdf = gdf.loc[(~gdf.geometry.isna()) & (~gdf.geometry.is_empty)]
+            layer = create_layer_from_gdf(filename, gdf, style_config)
 
             if layer is not None:
                 layers.append(layer)
@@ -313,33 +294,19 @@ def annotate_gdf_dict_with_geometry_type(gdf_dict: Dict[str, AnyGeoDataFrame]) -
     Annotates each GeoDataFrame in the dictionary with its primary geometry type.
 
     Args:
-        gdf_dict (Dict[str, gpd.GeoDataFrame]): Dictionary of GeoDataFrames.
+        gdf_dict: Dictionary of GeoDataFrames.
 
     Returns:
-        Dict[str, Dict]: Dictionary with keys preserved, and each value being a dict
-                         containing the original GeoDataFrame and its geometry type.
+        Dict with keys preserved, each value containing the GeoDataFrame and its geometry type.
     """
     result = {}
     
     for name, gdf in gdf_dict.items():
-        unique_geom_types = gdf.geometry.geom_type.unique()
-
-        if len(unique_geom_types) == 1:
-            geom_type = unique_geom_types[0]
-
-            # Normalize types (Point, MultiPoint → "Point"; Polygon, MultiPolygon → "Polygon", etc.)
-            if geom_type in ("Polygon", "MultiPolygon"):
-                primary_type = "Polygon"
-            elif geom_type in ("LineString", "MultiLineString"):
-                primary_type = "LineString"
-            elif geom_type in ("Point", "MultiPoint"):
-                primary_type = "Point"
-            else:
-                primary_type = geom_type  # or "Other"
-        else:
-            primary_type = "Mixed"
-
-        result[name] = {"gdf": gdf, "geometry_type": primary_type}
+        geometry_summary = detect_geometry_type(gdf)
+        result[name] = {
+            "gdf": gdf, 
+            "geometry_type": geometry_summary["primary_type"]
+        }
 
     return result
 
@@ -367,14 +334,12 @@ def create_map_layers_from_annotated_dict(
 
     for name, content in annotated_dict.items():
         gdf = content.get("gdf")
-        geometry_type = content.get("geometry_type")
 
         try:
             layer = create_layer_from_gdf(
                 filename=name, 
                 gdf=gdf, 
                 style_config=style_config, 
-                primary_type=geometry_type
                 )
 
             if layer:
