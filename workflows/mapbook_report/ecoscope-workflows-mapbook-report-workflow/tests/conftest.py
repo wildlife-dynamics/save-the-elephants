@@ -4,6 +4,7 @@
 import functools
 import hashlib
 import io
+import json
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,8 +16,15 @@ import pytest
 import ruamel.yaml
 from ecoscope_workflows_runner.app import app
 from ecoscope_workflows_runner.testing import Case, CaseRunner
+from ecoscope_workflows_runner.tracing import (
+    build_context_headers,
+    configure_tracer,
+    make_otel_console_exporter_file_dst_kws,
+)
+from opentelemetry import trace
 from PIL import Image
 from playwright.async_api import async_playwright
+from rattler import MatchSpec
 from skimage.metrics import structural_similarity as ssim
 from syrupy import SnapshotAssertion
 from syrupy.extensions.image import PNGImageSnapshotExtension
@@ -29,7 +37,6 @@ ARTIFACTS = Path(__file__).parent.parent
 SNAPSHOT_DIRNAME = ARTIFACTS.parent / "__results_snapshots__"
 SNAPSHOT_DIFF_OUTPUT_DIRNAME = ARTIFACTS.parent / "__diff_output__"
 TEST_CASES_YAML = ARTIFACTS.parent / "test-cases.yaml"
-ENTRYPOINT = f"pixi run -e default ecoscope-workflows-mapbook-report-workflow"
 MATCHSPEC_OVERRIDE = "ecoscope-workflows-mapbook-report-workflow"
 IO_TASKS_IMPORTABLE_REFERENCES = [
     "ecoscope_workflows_ext_ecoscope.tasks.io.get_subjectgroup_observations",
@@ -251,42 +258,37 @@ def run_params(request: pytest.FixtureRequest) -> RunParams:
 def _run_test_case(
     run_params: RunParams,
     case: Case,
-    results_dir: Path,
+    results_subdir: Path,
     matchspec_override: str,
     data_connections_env_vars: dict | None = None,
-    no_data: bool | None = None,
-) -> Generator[dict, None, None]:
-    match no_data:
-        case None:
-            hasdata = ""
-        case True:
-            hasdata = "-nodata"
-        case False:
-            hasdata = "-data"
-        case _:
-            raise ValueError(f"Unknown no_data value: {no_data}")
-    name = case.name.lower().replace(" ", "-") + hasdata
-    results_subdir = results_dir / run_params.subdir_name / name / uuid.uuid4().hex
-    results_subdir.mkdir(parents=True)
+    traceparent: str | None = None,
+) -> dict:
+    results_subdir.mkdir(parents=True, exist_ok=True)
     case_runner = CaseRunner(
         execution_mode=run_params.execution_mode,
         mock_io=run_params.mock_io,
         case=case,
         results_subdir=results_subdir,
+        traceparent=traceparent,
     )
     match run_params.api:
         case "app":
             with patch.dict(
                 "os.environ",
-                {"ECOSCOPE_WORKFLOWS_MATCHSPEC_OVERRIDE": matchspec_override},
+                {
+                    "ECOSCOPE_WORKFLOWS_MATCHSPEC_OVERRIDE": matchspec_override,
+                    "ECOSCOPE_WORKFLOWS_OTEL_EXPORTER": "console",
+                    "ECOSCOPE_WORKFLOWS_OTEL_CONSOLE_EXPORTER_DST": "file",
+                    "ECOSCOPE_WORKFLOWS_OTEL_CONSOLE_EXPORTER_FILE_DST_TARGET_DIR": results_subdir.as_posix(),
+                },
             ):
-                yield case_runner.run_app(
+                return case_runner.run_app(
                     app, data_connections_env_vars=data_connections_env_vars
                 )
         case "cli":
             if case.raises:
                 pytest.skip("CLI tests do not yet support error handling.")
-            yield case_runner.run_cli(ENTRYPOINT)
+            return case_runner.run_cli(matchspec=MatchSpec(matchspec_override))
         case _ as unknown:
             raise ValueError(f"Unknown API: {unknown}")
 
@@ -308,16 +310,75 @@ def io_tasks_importable_references() -> list[str]:
     return IO_TASKS_IMPORTABLE_REFERENCES
 
 
+def _make_results_subdir(
+    case: Case,
+    *,
+    run_params: RunParams,
+    results_dir: Path,
+    no_data: bool | None = None,
+) -> Path:
+    match no_data:
+        case None:
+            hasdata = ""
+        case True:
+            hasdata = "-nodata"
+        case False:
+            hasdata = "-data"
+        case _:
+            raise ValueError(f"Unknown no_data value: {no_data}")
+    name = case.name.lower().replace(" ", "-") + hasdata
+    return results_dir / run_params.subdir_name / name / uuid.uuid4().hex
+
+
+@pytest.fixture(scope="session")
+def results_subdir_kws(
+    run_params: RunParams,
+    results_dir: Path,
+) -> dict[str, Any]:
+    return {
+        "run_params": run_params,
+        "results_dir": results_dir,
+    }
+
+
+@pytest.fixture(scope="session")
+def results_subdir_success(
+    success_case: Case, results_subdir_kws: dict, no_data: bool
+) -> Path:
+    return _make_results_subdir(success_case, no_data=no_data, **results_subdir_kws)
+
+
+@pytest.fixture(scope="session")
+def results_subdir_failure(failure_case: Case, results_subdir_kws: dict) -> Path:
+    return _make_results_subdir(failure_case, **results_subdir_kws)
+
+
+@pytest.fixture(scope="session")
+def conftest_tracer_dst(results_dir: Path):
+    return results_dir / "otel_traces.jsonl"
+
+
+@pytest.fixture(scope="session")
+def conftest_tracer(conftest_tracer_dst: Path) -> trace.Tracer:
+    otel_exporter_kws = make_otel_console_exporter_file_dst_kws(
+        target_dir=conftest_tracer_dst.parent,
+    )
+    configure_tracer("conftest", exporter="console", exporter_kws=otel_exporter_kws)
+    return trace.get_tracer(__name__)
+
+
 @pytest.fixture(scope="session")
 def response_json_success(
     run_params: RunParams,
     success_case: Case,
-    results_dir: Path,
+    results_subdir_success: Path,
     matchspec_override: str,
     no_data: bool,
     tmp_path_factory: pytest.TempPathFactory,
     io_tasks_importable_references: list[str],
-) -> Generator[dict, None, None]:
+    conftest_tracer: trace.Tracer,
+    conftest_tracer_dst: Path,
+) -> Generator[dict]:
     data_connections_env_vars = None
     if no_data:
         import pandas as pd
@@ -329,24 +390,41 @@ def response_json_success(
             f"ECOSCOPE_WORKFLOWS_MOCK_IO__{ref.replace('.', '_').upper()}": example_return_path.as_posix()
             for ref in io_tasks_importable_references
         }
-    yield from _run_test_case(
-        run_params,
-        success_case,
-        results_dir,
-        matchspec_override,
-        data_connections_env_vars,
-        no_data,
-    )
+    with conftest_tracer.start_as_current_span(
+        "response_json_success_pytest_fixture",
+        attributes={
+            "this simulates": "traceparent propagation from the FastAPI app",
+        },
+    ):
+        headers = build_context_headers()
+        traceparent = headers.get("traceparent")
+        result = _run_test_case(
+            run_params,
+            success_case,
+            results_subdir_success,
+            matchspec_override,
+            data_connections_env_vars,
+            traceparent=traceparent,
+        )
+    # exit context to close span, and then flush tracer provider
+    provider = trace.get_tracer_provider()
+    provider.force_flush()
+    yield result
+    if conftest_tracer_dst.exists():
+        with conftest_tracer_dst.open("r+") as f:
+            f.truncate(0)
 
 
 @pytest.fixture(scope="session")
 def response_json_failure(
     run_params: RunParams,
     failure_case: Case,
-    results_dir: Path,
+    results_subdir_failure: Path,
     matchspec_override: str,
-) -> Generator[dict, None, None]:
-    yield from _run_test_case(run_params, failure_case, results_dir, matchspec_override)
+) -> dict:
+    return _run_test_case(
+        run_params, failure_case, results_subdir_failure, matchspec_override
+    )
 
 
 def _iframe_widgets_from_response_json(response_json: dict) -> list[dict]:
@@ -378,3 +456,49 @@ def screenshot_coros(
 ) -> list[Coroutine[Any, Any, tuple[str, bytes]]]:
     iframe_widgets = _iframe_widgets_from_response_json(response_json_success)
     return [_take_screenshot(widget) for widget in iframe_widgets]
+
+
+@dataclass
+class ReconstructedOtelSpan:
+    trace_id: str
+    span_id: str
+    name: str
+    parent_id: str | None
+    start_time: str
+    end_time: str
+    attributes: dict[str, Any]
+    status: dict[str, Any]
+
+    @classmethod
+    def from_json_line(cls, line: str) -> "ReconstructedOtelSpan":
+        json_: dict = json.loads(line)
+        ctx: dict = json_["context"]
+        return cls(
+            trace_id=ctx["trace_id"],
+            span_id=ctx["span_id"],
+            name=json_["name"],
+            parent_id=json_.get("parent_id"),
+            start_time=json_["start_time"],
+            end_time=json_["end_time"],
+            attributes=json_.get("attributes", {}),
+            status=json_.get("status", {}),
+        )
+
+
+@pytest.fixture(scope="session")
+def otel_traces_success(
+    conftest_tracer_dst: Path,
+    results_subdir_success: Path,
+    response_json_success: dict,
+) -> list[ReconstructedOtelSpan]:
+    """Fixture to load OTEL traces from the results directory."""
+    assert isinstance(response_json_success, dict)
+    traces = []
+    cli_tracer_dst = results_subdir_success / "otel_traces.jsonl"
+    for dst in [conftest_tracer_dst, cli_tracer_dst]:
+        if dst.exists():
+            with dst.open("r") as f:
+                for line in f:
+                    rspan = ReconstructedOtelSpan.from_json_line(line)
+                    traces.append(rspan)
+    return traces

@@ -26,7 +26,7 @@ gee_project_name:
 
 configure_grouping_strategy:
   groupers: 
-     - subject_name
+     - subject_name (preferably)
 
 subject_observations:
   subject_group_name: "Elephants"

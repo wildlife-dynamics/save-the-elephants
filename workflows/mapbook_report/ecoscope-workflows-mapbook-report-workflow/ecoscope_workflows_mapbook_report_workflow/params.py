@@ -18,6 +18,14 @@ class InitializeWorkflowMetadata(BaseModel):
     description: Optional[str] = Field("", title="Workflow Description")
 
 
+class TimeRange(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    since: datetime = Field(..., description="The start time", title="Since")
+    until: datetime = Field(..., description="The end time", title="Until")
+
+
 class Url(str, Enum):
     https___tile_openstreetmap_org__z___x___y__png = (
         "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -188,21 +196,18 @@ class DownloadLogoPath(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    url: str = Field(..., title="Url")
+    url: str = Field(..., description="URL to download the file from", title="Url")
 
 
 class SubjectObservations(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    subject_group_name: str = Field(..., title="Subject Group Name")
-
-
-class TimezoneInfo(BaseModel):
-    label: str = Field(..., title="Label")
-    tzCode: str = Field(..., title="Tzcode")
-    name: str = Field(..., title="Name")
-    utc: str = Field(..., title="Utc")
+    subject_group_name: str = Field(
+        ...,
+        description="⚠️ The use of a group with mixed subtypes could lead to unexpected results",
+        title="Subject Group Name",
+    )
 
 
 class TemporalGrouper(RootModel[str]):
@@ -242,16 +247,7 @@ class TrajectorySegmentFilter(BaseModel):
     )
 
 
-class DefineTimeRange(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    since: datetime = Field(..., description="The start time", title="Since")
-    until: datetime = Field(..., description="The end time", title="Until")
-    timezone: Optional[TimezoneInfo] = Field(None, title="Timezone")
-
-
-class ConfigureGroupingStrategy(BaseModel):
+class Groupers(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -307,29 +303,25 @@ class Params(BaseModel):
     initialize_workflow_metadata: Optional[InitializeWorkflowMetadata] = Field(
         None,
         description="Add information that will help to differentiate this workflow from another.",
-        title="Initialize Workflow Metadata",
+        title="Initialize workflow metadata",
     )
-    define_time_range: Optional[DefineTimeRange] = Field(
+    time_range: Optional[TimeRange] = Field(
         None,
         description="Choose the period of time to analyze.",
-        title="Define Time Range",
+        title="Define time range",
     )
-    configure_grouping_strategy: Optional[ConfigureGroupingStrategy] = Field(
-        None, title="Configure Grouping Strategy"
-    )
+    groupers: Optional[Groupers] = Field(None, title="Configure grouping strategy")
     configure_base_maps: Optional[ConfigureBaseMaps] = Field(
-        None, title="Configure Base Map Layers"
+        None, title="Configure base map layers"
     )
     download_logo_path: Optional[DownloadLogoPath] = Field(
-        None, title="Download Logo Path"
+        None, title="Download logo path"
     )
-    er_client_name: Optional[ErClientName] = Field(
-        None, title="Connect to EarthRanger Instance"
-    )
+    er_client_name: Optional[ErClientName] = Field(None, title="Connect to ER instance")
     gee_project_name: Optional[GeeProjectName] = Field(None, title="Connect to EE")
     subject_observations: Optional[SubjectObservations] = Field(
-        None, title="Get subject Group Observations from ER"
+        None, title="Get subject group observations from ER"
     )
     convert_to_trajectories: Optional[ConvertToTrajectories] = Field(
-        None, title="Convert Relocations to Trajectories"
+        None, title="Convert relocations to trajectories"
     )

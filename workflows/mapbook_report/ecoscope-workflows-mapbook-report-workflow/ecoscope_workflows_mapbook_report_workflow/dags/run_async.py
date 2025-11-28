@@ -33,7 +33,7 @@ from ecoscope_workflows_core.tasks.transformation import (
     map_values_with_unit,
     sort_values,
 )
-from ecoscope_workflows_ext_custom.tasks import html_to_png
+from ecoscope_workflows_ext_custom.tasks.io import html_to_png, load_df
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density,
 )
@@ -47,6 +47,7 @@ from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
     relocations_to_trajectory,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.results import (
+    create_polygon_layer,
     create_polyline_layer,
     draw_ecomap,
     set_base_maps,
@@ -62,23 +63,23 @@ from ecoscope_workflows_ext_ste.tasks import (
     assign_quarter_status_colors,
     build_mapbook_report_template,
     calculate_seasonal_home_range,
-    combine_docx_files,
     combine_map_layers,
     create_context_page,
     create_map_layers_from_annotated_dict,
     create_mapbook_context,
     create_seasonal_labels,
     create_view_state_from_gdf,
-    custom_polygon_layer,
     dataframe_column_first_unique_str,
-    download_file_and_persist,
+    fetch_and_persist_file,
+    filter_by_value,
+    find_landdx_gpkg_path,
     flatten_tuple,
     generate_ecograph_raster,
     generate_mcp_gdf,
     get_duration,
     label_quarter_status,
-    load_landdx_aoi,
     make_text_layer,
+    merge_docx_files,
     retrieve_feature_gdf,
     round_off_values,
     split_gdf_by_column,
@@ -93,38 +94,34 @@ def main(params: Params):
 
     dependencies = {
         "initialize_workflow_metadata": [],
-        "define_time_range": [],
-        "configure_grouping_strategy": [],
+        "time_range": [],
+        "groupers": [],
         "configure_base_maps": [],
         "download_mapbook_cover_page": [],
         "download_sect_templates": [],
         "download_logo_path": [],
         "download_ldx_db": [],
-        "load_aoi": ["download_ldx_db"],
-        "custom_text_layer": ["load_aoi"],
-        "split_landdx_by_type": ["load_aoi"],
+        "return_ldx_path": ["download_ldx_db"],
+        "load_landdx": ["return_ldx_path"],
+        "filter_landdx_aoi": ["load_landdx"],
+        "custom_text_layer": ["filter_landdx_aoi"],
+        "split_landdx_by_type": ["filter_landdx_aoi"],
         "annotate_geometry_types": ["split_landdx_by_type"],
         "create_styled_landdx_layers": ["annotate_geometry_types"],
         "er_client_name": [],
         "gee_project_name": [],
-        "subject_observations": ["er_client_name", "define_time_range"],
+        "subject_observations": ["er_client_name", "time_range"],
         "subject_reloc": ["subject_observations"],
         "annotate_day_night": ["subject_reloc"],
         "convert_to_trajectories": ["annotate_day_night"],
-        "add_temporal_index_to_traj": [
-            "convert_to_trajectories",
-            "configure_grouping_strategy",
-        ],
+        "add_temporal_index_to_traj": ["convert_to_trajectories", "groupers"],
         "classify_trajectory_speed_bins": ["add_temporal_index_to_traj"],
         "label_trajectory_quarters": ["classify_trajectory_speed_bins"],
         "assign_quarter_colors_traj": ["label_trajectory_quarters"],
-        "rename_reloc_cols": ["assign_quarter_colors_traj"],
-        "persist_trajectory_df": ["rename_reloc_cols"],
+        "rename_traj_cols": ["assign_quarter_colors_traj"],
+        "persist_trajectory_df": ["rename_traj_cols"],
         "persist_relocs_df": ["annotate_day_night"],
-        "split_trajectories_by_group": [
-            "rename_reloc_cols",
-            "configure_grouping_strategy",
-        ],
+        "split_trajectories_by_group": ["rename_traj_cols", "groupers"],
         "sort_trajectories_by_speed": ["split_trajectories_by_group"],
         "apply_speed_colormap": ["sort_trajectories_by_speed"],
         "format_speed_bin_labels": ["apply_speed_colormap"],
@@ -171,7 +168,7 @@ def main(params: Params):
         "generate_etd": ["split_trajectories_by_group"],
         "determine_seasonal_windows": [
             "gee_project_name",
-            "define_time_range",
+            "time_range",
             "generate_etd",
         ],
         "zip_etd_and_grouped_trajs": [
@@ -241,14 +238,14 @@ def main(params: Params):
         "subject_gender": ["split_trajectories_by_group"],
         "gender_widgets": ["subject_gender"],
         "gender_sv_widget": ["gender_widgets"],
-        "report_duration": ["define_time_range"],
+        "report_duration": ["time_range"],
         "round_report_duration": ["report_duration"],
         "get_subject_name": ["split_trajectories_by_group"],
-        "unique_subjects": ["rename_reloc_cols"],
+        "unique_subjects": ["rename_traj_cols"],
         "create_cover_template_context": [
             "unique_subjects",
             "download_logo_path",
-            "define_time_range",
+            "time_range",
         ],
         "persist_context_cover": [
             "download_mapbook_cover_page",
@@ -281,7 +278,7 @@ def main(params: Params):
         "individual_mapbook_context": [
             "download_sect_templates",
             "get_subject_name",
-            "define_time_range",
+            "time_range",
             "round_report_duration",
             "flatten_mbook_context",
         ],
@@ -300,46 +297,97 @@ def main(params: Params):
             "merge_hr_ecomap_widgets",
             "speedraster_ecomap_widgets",
             "season_grouped_map_widget",
-            "define_time_range",
-            "configure_grouping_strategy",
+            "time_range",
+            "groupers",
         ],
     }
 
     nodes = {
         "initialize_workflow_metadata": Node(
             async_task=set_workflow_details.validate()
-            .handle_errors(task_instance_id="initialize_workflow_metadata")
+            .set_task_instance_id("initialize_workflow_metadata")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial=(params_dict.get("initialize_workflow_metadata") or {}),
             method="call",
         ),
-        "define_time_range": Node(
+        "time_range": Node(
             async_task=set_time_range.validate()
-            .handle_errors(task_instance_id="define_time_range")
+            .set_task_instance_id("time_range")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "time_format": "%d %b %Y %H:%M:%S %Z",
+                "timezone": {
+                    "label": "UTC",
+                    "tzCode": "UTC",
+                    "name": "UTC",
+                    "utc_offset": "+00:00",
+                },
             }
-            | (params_dict.get("define_time_range") or {}),
+            | (params_dict.get("time_range") or {}),
             method="call",
         ),
-        "configure_grouping_strategy": Node(
+        "groupers": Node(
             async_task=set_groupers.validate()
-            .handle_errors(task_instance_id="configure_grouping_strategy")
+            .set_task_instance_id("groupers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
-            partial=(params_dict.get("configure_grouping_strategy") or {}),
+            partial=(params_dict.get("groupers") or {}),
             method="call",
         ),
         "configure_base_maps": Node(
             async_task=set_base_maps.validate()
-            .handle_errors(task_instance_id="configure_base_maps")
+            .set_task_instance_id("configure_base_maps")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial=(params_dict.get("configure_base_maps") or {}),
             method="call",
         ),
         "download_mapbook_cover_page": Node(
-            async_task=download_file_and_persist.validate()
-            .handle_errors(task_instance_id="download_mapbook_cover_page")
+            async_task=fetch_and_persist_file.validate()
+            .set_task_instance_id("download_mapbook_cover_page")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "url": "https://www.dropbox.com/scl/fi/1373gi65ji918rxele5h9/cover_page_v3.docx?rlkey=ur01wtpa98tcyq8f0f6dtksl8&st=eq39sgwz&dl=0",
@@ -352,8 +400,17 @@ def main(params: Params):
             method="call",
         ),
         "download_sect_templates": Node(
-            async_task=download_file_and_persist.validate()
-            .handle_errors(task_instance_id="download_sect_templates")
+            async_task=fetch_and_persist_file.validate()
+            .set_task_instance_id("download_sect_templates")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "url": "https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0",
@@ -366,8 +423,17 @@ def main(params: Params):
             method="call",
         ),
         "download_logo_path": Node(
-            async_task=download_file_and_persist.validate()
-            .handle_errors(task_instance_id="download_logo_path")
+            async_task=fetch_and_persist_file.validate()
+            .set_task_instance_id("download_logo_path")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -379,8 +445,17 @@ def main(params: Params):
             method="call",
         ),
         "download_ldx_db": Node(
-            async_task=download_file_and_persist.validate()
-            .handle_errors(task_instance_id="download_ldx_db")
+            async_task=fetch_and_persist_file.validate()
+            .set_task_instance_id("download_ldx_db")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -392,23 +467,82 @@ def main(params: Params):
             | (params_dict.get("download_ldx_db") or {}),
             method="call",
         ),
-        "load_aoi": Node(
-            async_task=load_landdx_aoi.validate()
-            .handle_errors(task_instance_id="load_aoi")
+        "return_ldx_path": Node(
+            async_task=find_landdx_gpkg_path.validate()
+            .set_task_instance_id("return_ldx_path")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "map_path": DependsOn("download_ldx_db"),
-                "aoi": ["Community Conservancy", "National Reserve", "National Park"],
+                "output_dir": DependsOn("download_ldx_db"),
             }
-            | (params_dict.get("load_aoi") or {}),
+            | (params_dict.get("return_ldx_path") or {}),
+            method="call",
+        ),
+        "load_landdx": Node(
+            async_task=load_df.validate()
+            .set_task_instance_id("load_landdx")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "file_path": DependsOn("return_ldx_path"),
+                "layer": "landDx_polygons",
+                "deserialize_json": False,
+            }
+            | (params_dict.get("load_landdx") or {}),
+            method="call",
+        ),
+        "filter_landdx_aoi": Node(
+            async_task=filter_by_value.validate()
+            .set_task_instance_id("filter_landdx_aoi")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "df": DependsOn("load_landdx"),
+                "column_name": "type",
+                "value": ["Community Conservancy", "National Reserve", "National Park"],
+            }
+            | (params_dict.get("filter_landdx_aoi") or {}),
             method="call",
         ),
         "custom_text_layer": Node(
             async_task=make_text_layer.validate()
-            .handle_errors(task_instance_id="custom_text_layer")
+            .set_task_instance_id("custom_text_layer")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "txt_gdf": DependsOn("load_aoi"),
+                "txt_gdf": DependsOn("filter_landdx_aoi"),
                 "label_column": "label",
                 "name_column": "name",
                 "use_centroid": True,
@@ -428,10 +562,19 @@ def main(params: Params):
         ),
         "split_landdx_by_type": Node(
             async_task=split_gdf_by_column.validate()
-            .handle_errors(task_instance_id="split_landdx_by_type")
+            .set_task_instance_id("split_landdx_by_type")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "gdf": DependsOn("load_aoi"),
+                "gdf": DependsOn("filter_landdx_aoi"),
                 "column": "type",
             }
             | (params_dict.get("split_landdx_by_type") or {}),
@@ -439,7 +582,16 @@ def main(params: Params):
         ),
         "annotate_geometry_types": Node(
             async_task=annotate_gdf_dict_with_geometry_type.validate()
-            .handle_errors(task_instance_id="annotate_geometry_types")
+            .set_task_instance_id("annotate_geometry_types")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "gdf_dict": DependsOn("split_landdx_by_type"),
@@ -449,7 +601,16 @@ def main(params: Params):
         ),
         "create_styled_landdx_layers": Node(
             async_task=create_map_layers_from_annotated_dict.validate()
-            .handle_errors(task_instance_id="create_styled_landdx_layers")
+            .set_task_instance_id("create_styled_landdx_layers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "annotated_dict": DependsOn("annotate_geometry_types"),
@@ -492,25 +653,52 @@ def main(params: Params):
         ),
         "er_client_name": Node(
             async_task=set_er_connection.validate()
-            .handle_errors(task_instance_id="er_client_name")
+            .set_task_instance_id("er_client_name")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial=(params_dict.get("er_client_name") or {}),
             method="call",
         ),
         "gee_project_name": Node(
             async_task=set_gee_connection.validate()
-            .handle_errors(task_instance_id="gee_project_name")
+            .set_task_instance_id("gee_project_name")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial=(params_dict.get("gee_project_name") or {}),
             method="call",
         ),
         "subject_observations": Node(
             async_task=get_subjectgroup_observations.validate()
-            .handle_errors(task_instance_id="subject_observations")
+            .set_task_instance_id("subject_observations")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "client": DependsOn("er_client_name"),
-                "time_range": DependsOn("define_time_range"),
+                "time_range": DependsOn("time_range"),
                 "raise_on_empty": False,
                 "include_details": False,
                 "include_subjectsource_details": False,
@@ -520,7 +708,16 @@ def main(params: Params):
         ),
         "subject_reloc": Node(
             async_task=process_relocations.validate()
-            .handle_errors(task_instance_id="subject_reloc")
+            .set_task_instance_id("subject_reloc")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "observations": DependsOn("subject_observations"),
@@ -546,7 +743,16 @@ def main(params: Params):
         ),
         "annotate_day_night": Node(
             async_task=classify_is_night.validate()
-            .handle_errors(task_instance_id="annotate_day_night")
+            .set_task_instance_id("annotate_day_night")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "relocations": DependsOn("subject_reloc"),
@@ -556,7 +762,16 @@ def main(params: Params):
         ),
         "convert_to_trajectories": Node(
             async_task=relocations_to_trajectory.validate()
-            .handle_errors(task_instance_id="convert_to_trajectories")
+            .set_task_instance_id("convert_to_trajectories")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "relocations": DependsOn("annotate_day_night"),
@@ -566,12 +781,21 @@ def main(params: Params):
         ),
         "add_temporal_index_to_traj": Node(
             async_task=add_temporal_index.validate()
-            .handle_errors(task_instance_id="add_temporal_index_to_traj")
+            .set_task_instance_id("add_temporal_index_to_traj")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "df": DependsOn("convert_to_trajectories"),
                 "time_col": "segment_start",
-                "groupers": DependsOn("configure_grouping_strategy"),
+                "groupers": DependsOn("groupers"),
                 "cast_to_datetime": True,
                 "format": "mixed",
             }
@@ -580,7 +804,16 @@ def main(params: Params):
         ),
         "classify_trajectory_speed_bins": Node(
             async_task=apply_classification.validate()
-            .handle_errors(task_instance_id="classify_trajectory_speed_bins")
+            .set_task_instance_id("classify_trajectory_speed_bins")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "df": DependsOn("add_temporal_index_to_traj"),
@@ -594,7 +827,16 @@ def main(params: Params):
         ),
         "label_trajectory_quarters": Node(
             async_task=label_quarter_status.validate()
-            .handle_errors(task_instance_id="label_trajectory_quarters")
+            .set_task_instance_id("label_trajectory_quarters")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "gdf": DependsOn("classify_trajectory_speed_bins"),
@@ -605,19 +847,39 @@ def main(params: Params):
         ),
         "assign_quarter_colors_traj": Node(
             async_task=assign_quarter_status_colors.validate()
-            .handle_errors(task_instance_id="assign_quarter_colors_traj")
+            .set_task_instance_id("assign_quarter_colors_traj")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "gdf": DependsOn("label_trajectory_quarters"),
                 "hex_column": "extra__hex",
                 "previous_color_hex": "#808080",
+                "use_hex_column_for_current": True,
+                "default_current_hex": None,
             }
             | (params_dict.get("assign_quarter_colors_traj") or {}),
             method="call",
         ),
-        "rename_reloc_cols": Node(
+        "rename_traj_cols": Node(
             async_task=map_columns.validate()
-            .handle_errors(task_instance_id="rename_reloc_cols")
+            .set_task_instance_id("rename_traj_cols")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "drop_columns": [],
@@ -632,49 +894,85 @@ def main(params: Params):
                 },
                 "df": DependsOn("assign_quarter_colors_traj"),
             }
-            | (params_dict.get("rename_reloc_cols") or {}),
+            | (params_dict.get("rename_traj_cols") or {}),
             method="call",
         ),
         "persist_trajectory_df": Node(
             async_task=persist_df.validate()
-            .handle_errors(task_instance_id="persist_trajectory_df")
+            .set_task_instance_id("persist_trajectory_df")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "df": DependsOn("rename_reloc_cols"),
+                "df": DependsOn("rename_traj_cols"),
                 "filetype": "gpkg",
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "filename": "relocations",
+                "filename": "trajectories",
             }
             | (params_dict.get("persist_trajectory_df") or {}),
             method="call",
         ),
         "persist_relocs_df": Node(
             async_task=persist_df.validate()
-            .handle_errors(task_instance_id="persist_relocs_df")
+            .set_task_instance_id("persist_relocs_df")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "df": DependsOn("annotate_day_night"),
                 "filetype": "gpkg",
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "filename": "trajectories",
+                "filename": "relocations",
             }
             | (params_dict.get("persist_relocs_df") or {}),
             method="call",
         ),
         "split_trajectories_by_group": Node(
             async_task=split_groups.validate()
-            .handle_errors(task_instance_id="split_trajectories_by_group")
+            .set_task_instance_id("split_trajectories_by_group")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "df": DependsOn("rename_reloc_cols"),
-                "groupers": DependsOn("configure_grouping_strategy"),
+                "df": DependsOn("rename_traj_cols"),
+                "groupers": DependsOn("groupers"),
             }
             | (params_dict.get("split_trajectories_by_group") or {}),
             method="call",
         ),
         "sort_trajectories_by_speed": Node(
             async_task=sort_values.validate()
-            .handle_errors(task_instance_id="sort_trajectories_by_speed")
+            .set_task_instance_id("sort_trajectories_by_speed")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "column_name": "speed_bins",
@@ -690,7 +988,16 @@ def main(params: Params):
         ),
         "apply_speed_colormap": Node(
             async_task=apply_color_map.validate()
-            .handle_errors(task_instance_id="apply_speed_colormap")
+            .set_task_instance_id("apply_speed_colormap")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "input_column_name": "speed_bins",
@@ -713,7 +1020,16 @@ def main(params: Params):
         ),
         "format_speed_bin_labels": Node(
             async_task=map_values_with_unit.validate()
-            .handle_errors(task_instance_id="format_speed_bin_labels")
+            .set_task_instance_id("format_speed_bin_labels")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "input_column_name": "speed_bins",
@@ -731,7 +1047,16 @@ def main(params: Params):
         ),
         "format_speed_values": Node(
             async_task=map_values_with_unit.validate()
-            .handle_errors(task_instance_id="format_speed_values")
+            .set_task_instance_id("format_speed_values")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "input_column_name": "speed_kmhr",
@@ -749,7 +1074,9 @@ def main(params: Params):
         ),
         "generate_speedmap_layers": Node(
             async_task=create_polyline_layer.validate()
-            .handle_errors(task_instance_id="generate_speedmap_layers")
+            .set_task_instance_id("generate_speedmap_layers")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -782,7 +1109,16 @@ def main(params: Params):
         ),
         "zoom_speed_traj_view": Node(
             async_task=create_view_state_from_gdf.validate()
-            .handle_errors(task_instance_id="zoom_speed_traj_view")
+            .set_task_instance_id("zoom_speed_traj_view")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "pitch": 0,
@@ -797,7 +1133,16 @@ def main(params: Params):
         ),
         "ldx_speed_layers": Node(
             async_task=combine_map_layers.validate()
-            .handle_errors(task_instance_id="ldx_speed_layers")
+            .set_task_instance_id("ldx_speed_layers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "static_layers": DependsOnSequence(
@@ -816,7 +1161,16 @@ def main(params: Params):
         ),
         "zip_speed_zoom_values": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="zip_speed_zoom_values")
+            .set_task_instance_id("zip_speed_zoom_values")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("ldx_speed_layers"),
@@ -827,7 +1181,16 @@ def main(params: Params):
         ),
         "draw_speed_ecomap": Node(
             async_task=draw_ecomap.validate()
-            .handle_errors(task_instance_id="draw_speed_ecomap")
+            .set_task_instance_id("draw_speed_ecomap")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
@@ -838,7 +1201,7 @@ def main(params: Params):
                 },
                 "static": False,
                 "title": None,
-                "max_zoom": 20,
+                "max_zoom": 12,
             }
             | (params_dict.get("draw_speed_ecomap") or {}),
             method="mapvalues",
@@ -849,7 +1212,16 @@ def main(params: Params):
         ),
         "persist_speed_ecomap_urls": Node(
             async_task=persist_text.validate()
-            .handle_errors(task_instance_id="persist_speed_ecomap_urls")
+            .set_task_instance_id("persist_speed_ecomap_urls")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -863,7 +1235,9 @@ def main(params: Params):
         ),
         "create_speedmap_widgets": Node(
             async_task=create_map_widget_single_view.validate()
-            .handle_errors(task_instance_id="create_speedmap_widgets")
+            .set_task_instance_id("create_speedmap_widgets")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     never,
@@ -883,7 +1257,16 @@ def main(params: Params):
         ),
         "merge_speedmap_widgets": Node(
             async_task=merge_widget_views.validate()
-            .handle_errors(task_instance_id="merge_speedmap_widgets")
+            .set_task_instance_id("merge_speedmap_widgets")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "widgets": DependsOn("create_speedmap_widgets"),
@@ -893,7 +1276,16 @@ def main(params: Params):
         ),
         "sort_trajs_by_day_night": Node(
             async_task=sort_values.validate()
-            .handle_errors(task_instance_id="sort_trajs_by_day_night")
+            .set_task_instance_id("sort_trajs_by_day_night")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "column_name": "is_night",
@@ -909,7 +1301,16 @@ def main(params: Params):
         ),
         "apply_day_night_colormap": Node(
             async_task=apply_color_map.validate()
-            .handle_errors(task_instance_id="apply_day_night_colormap")
+            .set_task_instance_id("apply_day_night_colormap")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "colormap": ["#292965", "#e7a553"],
@@ -925,7 +1326,9 @@ def main(params: Params):
         ),
         "generate_day_night_ecomap_layers": Node(
             async_task=create_polyline_layer.validate()
-            .handle_errors(task_instance_id="generate_day_night_ecomap_layers")
+            .set_task_instance_id("generate_day_night_ecomap_layers")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -951,7 +1354,16 @@ def main(params: Params):
         ),
         "zoom_dn_view": Node(
             async_task=create_view_state_from_gdf.validate()
-            .handle_errors(task_instance_id="zoom_dn_view")
+            .set_task_instance_id("zoom_dn_view")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "pitch": 0,
@@ -966,7 +1378,16 @@ def main(params: Params):
         ),
         "ldx_dn_layers": Node(
             async_task=combine_map_layers.validate()
-            .handle_errors(task_instance_id="ldx_dn_layers")
+            .set_task_instance_id("ldx_dn_layers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "static_layers": DependsOnSequence(
@@ -985,7 +1406,16 @@ def main(params: Params):
         ),
         "dn_view_zip": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="dn_view_zip")
+            .set_task_instance_id("dn_view_zip")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("ldx_dn_layers"),
@@ -996,7 +1426,16 @@ def main(params: Params):
         ),
         "draw_day_night_ecomap": Node(
             async_task=draw_ecomap.validate()
-            .handle_errors(task_instance_id="draw_day_night_ecomap")
+            .set_task_instance_id("draw_day_night_ecomap")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
@@ -1007,7 +1446,7 @@ def main(params: Params):
                 },
                 "static": False,
                 "title": None,
-                "max_zoom": 20,
+                "max_zoom": 12,
             }
             | (params_dict.get("draw_day_night_ecomap") or {}),
             method="mapvalues",
@@ -1018,7 +1457,16 @@ def main(params: Params):
         ),
         "persist_day_night_ecomap_urls": Node(
             async_task=persist_text.validate()
-            .handle_errors(task_instance_id="persist_day_night_ecomap_urls")
+            .set_task_instance_id("persist_day_night_ecomap_urls")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -1032,7 +1480,9 @@ def main(params: Params):
         ),
         "create_day_night_ecomap_widgets": Node(
             async_task=create_map_widget_single_view.validate()
-            .handle_errors(task_instance_id="create_day_night_ecomap_widgets")
+            .set_task_instance_id("create_day_night_ecomap_widgets")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     never,
@@ -1052,7 +1502,16 @@ def main(params: Params):
         ),
         "merge_day_night_ecomap_widgets": Node(
             async_task=merge_widget_views.validate()
-            .handle_errors(task_instance_id="merge_day_night_ecomap_widgets")
+            .set_task_instance_id("merge_day_night_ecomap_widgets")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "widgets": DependsOn("create_day_night_ecomap_widgets"),
@@ -1062,7 +1521,16 @@ def main(params: Params):
         ),
         "sort_trajs_by_quarter_status": Node(
             async_task=sort_values.validate()
-            .handle_errors(task_instance_id="sort_trajs_by_quarter_status")
+            .set_task_instance_id("sort_trajs_by_quarter_status")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "column_name": "quarter_status",
@@ -1078,7 +1546,9 @@ def main(params: Params):
         ),
         "generate_quarter_ecomap_layers": Node(
             async_task=create_polyline_layer.validate()
-            .handle_errors(task_instance_id="generate_quarter_ecomap_layers")
+            .set_task_instance_id("generate_quarter_ecomap_layers")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1109,7 +1579,16 @@ def main(params: Params):
         ),
         "zoom_qm_view": Node(
             async_task=create_view_state_from_gdf.validate()
-            .handle_errors(task_instance_id="zoom_qm_view")
+            .set_task_instance_id("zoom_qm_view")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "pitch": 0,
@@ -1124,7 +1603,16 @@ def main(params: Params):
         ),
         "combine_quarter_ecomap_layers": Node(
             async_task=combine_map_layers.validate()
-            .handle_errors(task_instance_id="combine_quarter_ecomap_layers")
+            .set_task_instance_id("combine_quarter_ecomap_layers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "static_layers": DependsOnSequence(
@@ -1143,7 +1631,16 @@ def main(params: Params):
         ),
         "qm_view_zip": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="qm_view_zip")
+            .set_task_instance_id("qm_view_zip")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("combine_quarter_ecomap_layers"),
@@ -1154,7 +1651,16 @@ def main(params: Params):
         ),
         "draw_quarter_status_ecomap": Node(
             async_task=draw_ecomap.validate()
-            .handle_errors(task_instance_id="draw_quarter_status_ecomap")
+            .set_task_instance_id("draw_quarter_status_ecomap")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
@@ -1162,7 +1668,7 @@ def main(params: Params):
                 "legend_style": {"placement": "bottom-right", "title": "Legend"},
                 "static": False,
                 "title": None,
-                "max_zoom": 20,
+                "max_zoom": 12,
             }
             | (params_dict.get("draw_quarter_status_ecomap") or {}),
             method="mapvalues",
@@ -1173,7 +1679,16 @@ def main(params: Params):
         ),
         "persist_quarter_ecomap_urls": Node(
             async_task=persist_text.validate()
-            .handle_errors(task_instance_id="persist_quarter_ecomap_urls")
+            .set_task_instance_id("persist_quarter_ecomap_urls")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -1187,7 +1702,9 @@ def main(params: Params):
         ),
         "create_quarter_ecomap_widgets": Node(
             async_task=create_map_widget_single_view.validate()
-            .handle_errors(task_instance_id="create_quarter_ecomap_widgets")
+            .set_task_instance_id("create_quarter_ecomap_widgets")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     never,
@@ -1207,7 +1724,16 @@ def main(params: Params):
         ),
         "merge_quarter_ecomap_widgets": Node(
             async_task=merge_widget_views.validate()
-            .handle_errors(task_instance_id="merge_quarter_ecomap_widgets")
+            .set_task_instance_id("merge_quarter_ecomap_widgets")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "widgets": DependsOn("create_quarter_ecomap_widgets"),
@@ -1217,7 +1743,16 @@ def main(params: Params):
         ),
         "generate_etd": Node(
             async_task=calculate_elliptical_time_density.validate()
-            .handle_errors(task_instance_id="generate_etd")
+            .set_task_instance_id("generate_etd")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "auto_scale_or_custom_cell_size": {
@@ -1240,7 +1775,9 @@ def main(params: Params):
         ),
         "determine_seasonal_windows": Node(
             async_task=determine_season_windows.validate()
-            .handle_errors(task_instance_id="determine_seasonal_windows")
+            .set_task_instance_id("determine_seasonal_windows")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1251,7 +1788,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "client": DependsOn("gee_project_name"),
-                "time_range": DependsOn("define_time_range"),
+                "time_range": DependsOn("time_range"),
             }
             | (params_dict.get("determine_seasonal_windows") or {}),
             method="mapvalues",
@@ -1262,7 +1799,9 @@ def main(params: Params):
         ),
         "zip_etd_and_grouped_trajs": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="zip_etd_and_grouped_trajs")
+            .set_task_instance_id("zip_etd_and_grouped_trajs")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1280,7 +1819,9 @@ def main(params: Params):
         ),
         "add_season_labels": Node(
             async_task=create_seasonal_labels.validate()
-            .handle_errors(task_instance_id="add_season_labels")
+            .set_task_instance_id("add_season_labels")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1292,13 +1833,22 @@ def main(params: Params):
             partial=(params_dict.get("add_season_labels") or {}),
             method="mapvalues",
             kwargs={
-                "argnames": ["total_percentiles", "traj"],
+                "argnames": ["seasons_df", "trajectories"],
                 "argvalues": DependsOn("zip_etd_and_grouped_trajs"),
             },
         ),
         "calculate_mcp": Node(
             async_task=generate_mcp_gdf.validate()
-            .handle_errors(task_instance_id="calculate_mcp")
+            .set_task_instance_id("calculate_mcp")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "planar_crs": "ESRI:53042",
@@ -1312,7 +1862,9 @@ def main(params: Params):
         ),
         "apply_etd_percentile_colormap": Node(
             async_task=apply_color_map.validate()
-            .handle_errors(task_instance_id="apply_etd_percentile_colormap")
+            .set_task_instance_id("apply_etd_percentile_colormap")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1334,8 +1886,10 @@ def main(params: Params):
             },
         ),
         "generate_etd_ecomap_layers": Node(
-            async_task=custom_polygon_layer.validate()
-            .handle_errors(task_instance_id="generate_etd_ecomap_layers")
+            async_task=create_polygon_layer.validate()
+            .set_task_instance_id("generate_etd_ecomap_layers")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1363,8 +1917,10 @@ def main(params: Params):
             },
         ),
         "generate_mcp_layers": Node(
-            async_task=custom_polygon_layer.validate()
-            .handle_errors(task_instance_id="generate_mcp_layers")
+            async_task=create_polygon_layer.validate()
+            .set_task_instance_id("generate_mcp_layers")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1377,7 +1933,7 @@ def main(params: Params):
                 "layer_style": {
                     "get_fill_color": "#FFFFFF00",
                     "get_line_color": "#ff1493",
-                    "get_line_width": 3,
+                    "get_line_width": 3.55,
                     "opacity": 0.75,
                     "stroked": True,
                 },
@@ -1393,7 +1949,9 @@ def main(params: Params):
         ),
         "zoom_hr_view": Node(
             async_task=create_view_state_from_gdf.validate()
-            .handle_errors(task_instance_id="zoom_hr_view")
+            .set_task_instance_id("zoom_hr_view")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1415,7 +1973,9 @@ def main(params: Params):
         ),
         "zip_mcp_hr": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="zip_mcp_hr")
+            .set_task_instance_id("zip_mcp_hr")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1433,7 +1993,9 @@ def main(params: Params):
         ),
         "combine_landdx_hr_ecomap_layers": Node(
             async_task=combine_map_layers.validate()
-            .handle_errors(task_instance_id="combine_landdx_hr_ecomap_layers")
+            .set_task_instance_id("combine_landdx_hr_ecomap_layers")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1459,7 +2021,9 @@ def main(params: Params):
         ),
         "hr_view_zip": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="hr_view_zip")
+            .set_task_instance_id("hr_view_zip")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1477,7 +2041,9 @@ def main(params: Params):
         ),
         "draw_hr_ecomap": Node(
             async_task=draw_ecomap.validate()
-            .handle_errors(task_instance_id="draw_hr_ecomap")
+            .set_task_instance_id("draw_hr_ecomap")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1492,7 +2058,7 @@ def main(params: Params):
                 "legend_style": {"placement": "bottom-right", "title": "ETD Metrics"},
                 "static": False,
                 "title": None,
-                "max_zoom": 20,
+                "max_zoom": 12,
             }
             | (params_dict.get("draw_hr_ecomap") or {}),
             method="mapvalues",
@@ -1503,7 +2069,9 @@ def main(params: Params):
         ),
         "persist_hr_ecomap_urls": Node(
             async_task=persist_text.validate()
-            .handle_errors(task_instance_id="persist_hr_ecomap_urls")
+            .set_task_instance_id("persist_hr_ecomap_urls")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_dependency_skipped,
@@ -1523,7 +2091,9 @@ def main(params: Params):
         ),
         "create_hr_ecomap_widgets": Node(
             async_task=create_map_widget_single_view.validate()
-            .handle_errors(task_instance_id="create_hr_ecomap_widgets")
+            .set_task_instance_id("create_hr_ecomap_widgets")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     never,
@@ -1543,7 +2113,16 @@ def main(params: Params):
         ),
         "merge_hr_ecomap_widgets": Node(
             async_task=merge_widget_views.validate()
-            .handle_errors(task_instance_id="merge_hr_ecomap_widgets")
+            .set_task_instance_id("merge_hr_ecomap_widgets")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "widgets": DependsOn("create_hr_ecomap_widgets"),
@@ -1553,7 +2132,9 @@ def main(params: Params):
         ),
         "generate_speed_raster": Node(
             async_task=generate_ecograph_raster.validate()
-            .handle_errors(task_instance_id="generate_speed_raster")
+            .set_task_instance_id("generate_speed_raster")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1584,7 +2165,9 @@ def main(params: Params):
         ),
         "extract_speed_rasters": Node(
             async_task=retrieve_feature_gdf.validate()
-            .handle_errors(task_instance_id="extract_speed_rasters")
+            .set_task_instance_id("extract_speed_rasters")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_dependency_skipped,
@@ -1601,7 +2184,9 @@ def main(params: Params):
         ),
         "sort_speed_features_by_value": Node(
             async_task=sort_values.validate()
-            .handle_errors(task_instance_id="sort_speed_features_by_value")
+            .set_task_instance_id("sort_speed_features_by_value")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1624,7 +2209,9 @@ def main(params: Params):
         ),
         "classify_speed_features": Node(
             async_task=apply_classification.validate()
-            .handle_errors(task_instance_id="classify_speed_features")
+            .set_task_instance_id("classify_speed_features")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1648,7 +2235,9 @@ def main(params: Params):
         ),
         "apply_speed_raster_colormap": Node(
             async_task=apply_color_map.validate()
-            .handle_errors(task_instance_id="apply_speed_raster_colormap")
+            .set_task_instance_id("apply_speed_raster_colormap")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1678,7 +2267,9 @@ def main(params: Params):
         ),
         "format_speed_raster_labels": Node(
             async_task=map_values_with_unit.validate()
-            .handle_errors(task_instance_id="format_speed_raster_labels")
+            .set_task_instance_id("format_speed_raster_labels")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1702,8 +2293,10 @@ def main(params: Params):
             },
         ),
         "generate_raster_layers": Node(
-            async_task=custom_polygon_layer.validate()
-            .handle_errors(task_instance_id="generate_raster_layers")
+            async_task=create_polygon_layer.validate()
+            .set_task_instance_id("generate_raster_layers")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1732,7 +2325,9 @@ def main(params: Params):
         ),
         "zoom_speedraster_view": Node(
             async_task=create_view_state_from_gdf.validate()
-            .handle_errors(task_instance_id="zoom_speedraster_view")
+            .set_task_instance_id("zoom_speedraster_view")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1754,7 +2349,9 @@ def main(params: Params):
         ),
         "combine_seasonal_raster_layers": Node(
             async_task=combine_map_layers.validate()
-            .handle_errors(task_instance_id="combine_seasonal_raster_layers")
+            .set_task_instance_id("combine_seasonal_raster_layers")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1780,7 +2377,9 @@ def main(params: Params):
         ),
         "speedraster_view_zip": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="speedraster_view_zip")
+            .set_task_instance_id("speedraster_view_zip")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1798,7 +2397,9 @@ def main(params: Params):
         ),
         "draw_speed_raster_ecomaps": Node(
             async_task=draw_ecomap.validate()
-            .handle_errors(task_instance_id="draw_speed_raster_ecomaps")
+            .set_task_instance_id("draw_speed_raster_ecomaps")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1816,7 +2417,7 @@ def main(params: Params):
                 },
                 "static": False,
                 "title": None,
-                "max_zoom": 20,
+                "max_zoom": 12,
             }
             | (params_dict.get("draw_speed_raster_ecomaps") or {}),
             method="mapvalues",
@@ -1827,7 +2428,9 @@ def main(params: Params):
         ),
         "speed_raster_ecomap_urls": Node(
             async_task=persist_text.validate()
-            .handle_errors(task_instance_id="speed_raster_ecomap_urls")
+            .set_task_instance_id("speed_raster_ecomap_urls")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1848,7 +2451,9 @@ def main(params: Params):
         ),
         "speed_raster_ecomap_widgets": Node(
             async_task=create_map_widget_single_view.validate()
-            .handle_errors(task_instance_id="speed_raster_ecomap_widgets")
+            .set_task_instance_id("speed_raster_ecomap_widgets")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     never,
@@ -1868,7 +2473,16 @@ def main(params: Params):
         ),
         "speedraster_ecomap_widgets": Node(
             async_task=merge_widget_views.validate()
-            .handle_errors(task_instance_id="speedraster_ecomap_widgets")
+            .set_task_instance_id("speedraster_ecomap_widgets")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "widgets": DependsOn("speed_raster_ecomap_widgets"),
@@ -1878,7 +2492,9 @@ def main(params: Params):
         ),
         "seasonal_home_range": Node(
             async_task=calculate_seasonal_home_range.validate()
-            .handle_errors(task_instance_id="seasonal_home_range")
+            .set_task_instance_id("seasonal_home_range")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1889,7 +2505,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "groupby_cols": ["subject_name", "season"],
+                "groupby_cols": ["season"],
                 "percentiles": [99.9],
                 "auto_scale_or_custom_cell_size": {
                     "auto_scale_or_custom": "Customize",
@@ -1905,7 +2521,9 @@ def main(params: Params):
         ),
         "season_colormap": Node(
             async_task=apply_color_map.validate()
-            .handle_errors(task_instance_id="season_colormap")
+            .set_task_instance_id("season_colormap")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1927,8 +2545,10 @@ def main(params: Params):
             },
         ),
         "season_etd_map_layer": Node(
-            async_task=custom_polygon_layer.validate()
-            .handle_errors(task_instance_id="season_etd_map_layer")
+            async_task=create_polygon_layer.validate()
+            .set_task_instance_id("season_etd_map_layer")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1954,7 +2574,9 @@ def main(params: Params):
         ),
         "zoom_season_view": Node(
             async_task=create_view_state_from_gdf.validate()
-            .handle_errors(task_instance_id="zoom_season_view")
+            .set_task_instance_id("zoom_season_view")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     any_is_empty_df,
@@ -1976,7 +2598,16 @@ def main(params: Params):
         ),
         "comb_season_map_layers": Node(
             async_task=combine_map_layers.validate()
-            .handle_errors(task_instance_id="comb_season_map_layers")
+            .set_task_instance_id("comb_season_map_layers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "static_layers": DependsOnSequence(
@@ -1995,7 +2626,16 @@ def main(params: Params):
         ),
         "seasons_view_zip": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="seasons_view_zip")
+            .set_task_instance_id("seasons_view_zip")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("comb_season_map_layers"),
@@ -2006,7 +2646,16 @@ def main(params: Params):
         ),
         "seasonal_ecomap": Node(
             async_task=draw_ecomap.validate()
-            .handle_errors(task_instance_id="seasonal_ecomap")
+            .set_task_instance_id("seasonal_ecomap")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
@@ -2014,7 +2663,7 @@ def main(params: Params):
                 "legend_style": {"placement": "bottom-right", "title": "Seasons"},
                 "static": False,
                 "title": None,
-                "max_zoom": 20,
+                "max_zoom": 12,
             }
             | (params_dict.get("seasonal_ecomap") or {}),
             method="mapvalues",
@@ -2025,7 +2674,16 @@ def main(params: Params):
         ),
         "season_etd_ecomap_html_url": Node(
             async_task=persist_text.validate()
-            .handle_errors(task_instance_id="season_etd_ecomap_html_url")
+            .set_task_instance_id("season_etd_ecomap_html_url")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -2039,7 +2697,9 @@ def main(params: Params):
         ),
         "season_etd_widgets_single_view": Node(
             async_task=create_map_widget_single_view.validate()
-            .handle_errors(task_instance_id="season_etd_widgets_single_view")
+            .set_task_instance_id("season_etd_widgets_single_view")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     never,
@@ -2059,7 +2719,16 @@ def main(params: Params):
         ),
         "season_grouped_map_widget": Node(
             async_task=merge_widget_views.validate()
-            .handle_errors(task_instance_id="season_grouped_map_widget")
+            .set_task_instance_id("season_grouped_map_widget")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "widgets": DependsOn("season_etd_widgets_single_view"),
@@ -2069,7 +2738,16 @@ def main(params: Params):
         ),
         "total_mcp_area": Node(
             async_task=dataframe_column_sum.validate()
-            .handle_errors(task_instance_id="total_mcp_area")
+            .set_task_instance_id("total_mcp_area")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "column_name": "area_km2",
@@ -2083,7 +2761,16 @@ def main(params: Params):
         ),
         "round_mcp_area": Node(
             async_task=round_off_values.validate()
-            .handle_errors(task_instance_id="round_mcp_area")
+            .set_task_instance_id("round_mcp_area")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "dp": 2,
@@ -2097,7 +2784,16 @@ def main(params: Params):
         ),
         "total_grid_area": Node(
             async_task=dataframe_column_sum.validate()
-            .handle_errors(task_instance_id="total_grid_area")
+            .set_task_instance_id("total_grid_area")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "column_name": "area_sqkm",
@@ -2111,7 +2807,16 @@ def main(params: Params):
         ),
         "round_grid_area": Node(
             async_task=round_off_values.validate()
-            .handle_errors(task_instance_id="round_grid_area")
+            .set_task_instance_id("round_grid_area")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "dp": 2,
@@ -2125,7 +2830,9 @@ def main(params: Params):
         ),
         "total_mcp_sv_widgets": Node(
             async_task=create_single_value_widget_single_view.validate()
-            .handle_errors(task_instance_id="total_mcp_sv_widgets")
+            .set_task_instance_id("total_mcp_sv_widgets")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     never,
@@ -2146,7 +2853,16 @@ def main(params: Params):
         ),
         "total_mcp_grouped_sv_widget": Node(
             async_task=merge_widget_views.validate()
-            .handle_errors(task_instance_id="total_mcp_grouped_sv_widget")
+            .set_task_instance_id("total_mcp_grouped_sv_widget")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "widgets": DependsOn("total_mcp_sv_widgets"),
@@ -2156,7 +2872,9 @@ def main(params: Params):
         ),
         "total_grid_sv_widgets": Node(
             async_task=create_single_value_widget_single_view.validate()
-            .handle_errors(task_instance_id="total_grid_sv_widgets")
+            .set_task_instance_id("total_grid_sv_widgets")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     never,
@@ -2177,7 +2895,16 @@ def main(params: Params):
         ),
         "total_grid_grouped_sv_widget": Node(
             async_task=merge_widget_views.validate()
-            .handle_errors(task_instance_id="total_grid_grouped_sv_widget")
+            .set_task_instance_id("total_grid_grouped_sv_widget")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "widgets": DependsOn("total_grid_sv_widgets"),
@@ -2187,7 +2914,16 @@ def main(params: Params):
         ),
         "subject_gender": Node(
             async_task=dataframe_column_first_unique_str.validate()
-            .handle_errors(task_instance_id="subject_gender")
+            .set_task_instance_id("subject_gender")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "column_name": "subject_sex",
@@ -2201,7 +2937,9 @@ def main(params: Params):
         ),
         "gender_widgets": Node(
             async_task=create_text_widget_single_view.validate()
-            .handle_errors(task_instance_id="gender_widgets")
+            .set_task_instance_id("gender_widgets")
+            .handle_errors()
+            .with_tracing()
             .skipif(
                 conditions=[
                     never,
@@ -2221,7 +2959,16 @@ def main(params: Params):
         ),
         "gender_sv_widget": Node(
             async_task=merge_widget_views.validate()
-            .handle_errors(task_instance_id="gender_sv_widget")
+            .set_task_instance_id("gender_sv_widget")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "widgets": DependsOn("gender_widgets"),
@@ -2231,10 +2978,19 @@ def main(params: Params):
         ),
         "report_duration": Node(
             async_task=get_duration.validate()
-            .handle_errors(task_instance_id="report_duration")
+            .set_task_instance_id("report_duration")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "time_range": DependsOn("define_time_range"),
+                "time_range": DependsOn("time_range"),
                 "time_unit": "months",
             }
             | (params_dict.get("report_duration") or {}),
@@ -2242,7 +2998,16 @@ def main(params: Params):
         ),
         "round_report_duration": Node(
             async_task=round_off_values.validate()
-            .handle_errors(task_instance_id="round_report_duration")
+            .set_task_instance_id("round_report_duration")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "dp": 2,
@@ -2253,7 +3018,16 @@ def main(params: Params):
         ),
         "get_subject_name": Node(
             async_task=dataframe_column_first_unique_str.validate()
-            .handle_errors(task_instance_id="get_subject_name")
+            .set_task_instance_id("get_subject_name")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "column_name": "subject_name",
@@ -2267,10 +3041,19 @@ def main(params: Params):
         ),
         "unique_subjects": Node(
             async_task=dataframe_column_nunique.validate()
-            .handle_errors(task_instance_id="unique_subjects")
+            .set_task_instance_id("unique_subjects")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "df": DependsOn("rename_reloc_cols"),
+                "df": DependsOn("rename_traj_cols"),
                 "column_name": "subject_name",
             }
             | (params_dict.get("unique_subjects") or {}),
@@ -2278,12 +3061,21 @@ def main(params: Params):
         ),
         "create_cover_template_context": Node(
             async_task=build_mapbook_report_template.validate()
-            .handle_errors(task_instance_id="create_cover_template_context")
+            .set_task_instance_id("create_cover_template_context")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "count": DependsOn("unique_subjects"),
                 "org_logo_path": DependsOn("download_logo_path"),
-                "report_period": DependsOn("define_time_range"),
+                "report_period": DependsOn("time_range"),
                 "prepared_by": "Ecoscope",
             }
             | (params_dict.get("create_cover_template_context") or {}),
@@ -2291,7 +3083,16 @@ def main(params: Params):
         ),
         "persist_context_cover": Node(
             async_task=create_context_page.validate()
-            .handle_errors(task_instance_id="persist_context_cover")
+            .set_task_instance_id("persist_context_cover")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "logo_width_cm": 4.5,
@@ -2306,7 +3107,16 @@ def main(params: Params):
         ),
         "convert_speedmap_html_to_png": Node(
             async_task=html_to_png.validate()
-            .handle_errors(task_instance_id="convert_speedmap_html_to_png")
+            .set_task_instance_id("convert_speedmap_html_to_png")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -2321,7 +3131,16 @@ def main(params: Params):
         ),
         "convert_day_night_html_to_png": Node(
             async_task=html_to_png.validate()
-            .handle_errors(task_instance_id="convert_day_night_html_to_png")
+            .set_task_instance_id("convert_day_night_html_to_png")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -2336,7 +3155,16 @@ def main(params: Params):
         ),
         "convert_quarter_html_to_png": Node(
             async_task=html_to_png.validate()
-            .handle_errors(task_instance_id="convert_quarter_html_to_png")
+            .set_task_instance_id("convert_quarter_html_to_png")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -2351,7 +3179,16 @@ def main(params: Params):
         ),
         "convert_hr_html_to_png": Node(
             async_task=html_to_png.validate()
-            .handle_errors(task_instance_id="convert_hr_html_to_png")
+            .set_task_instance_id("convert_hr_html_to_png")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -2366,7 +3203,16 @@ def main(params: Params):
         ),
         "convert_speed_raster_html_to_png": Node(
             async_task=html_to_png.validate()
-            .handle_errors(task_instance_id="convert_speed_raster_html_to_png")
+            .set_task_instance_id("convert_speed_raster_html_to_png")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -2381,7 +3227,16 @@ def main(params: Params):
         ),
         "convert_seasonal_hr_html_to_png": Node(
             async_task=html_to_png.validate()
-            .handle_errors(task_instance_id="convert_seasonal_hr_html_to_png")
+            .set_task_instance_id("convert_seasonal_hr_html_to_png")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
@@ -2396,7 +3251,16 @@ def main(params: Params):
         ),
         "zip_grid_mcp": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="zip_grid_mcp")
+            .set_task_instance_id("zip_grid_mcp")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("round_grid_area"),
@@ -2407,7 +3271,16 @@ def main(params: Params):
         ),
         "zip_grid_mcp_quarter": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="zip_grid_mcp_quarter")
+            .set_task_instance_id("zip_grid_mcp_quarter")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("zip_grid_mcp"),
@@ -2418,7 +3291,16 @@ def main(params: Params):
         ),
         "zip_grid_mcp_quarter_hr": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="zip_grid_mcp_quarter_hr")
+            .set_task_instance_id("zip_grid_mcp_quarter_hr")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("zip_grid_mcp_quarter"),
@@ -2429,7 +3311,16 @@ def main(params: Params):
         ),
         "zip_grid_mcp_speedraster": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="zip_grid_mcp_speedraster")
+            .set_task_instance_id("zip_grid_mcp_speedraster")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("zip_grid_mcp_quarter_hr"),
@@ -2440,7 +3331,16 @@ def main(params: Params):
         ),
         "zip_grid_mcp_dn": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="zip_grid_mcp_dn")
+            .set_task_instance_id("zip_grid_mcp_dn")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("zip_grid_mcp_speedraster"),
@@ -2451,7 +3351,16 @@ def main(params: Params):
         ),
         "zip_grid_dn_speedmap": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="zip_grid_dn_speedmap")
+            .set_task_instance_id("zip_grid_dn_speedmap")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("zip_grid_mcp_dn"),
@@ -2462,7 +3371,16 @@ def main(params: Params):
         ),
         "zip_all_mapbook_context_inputs": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="zip_all_mapbook_context_inputs")
+            .set_task_instance_id("zip_all_mapbook_context_inputs")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("zip_grid_dn_speedmap"),
@@ -2473,7 +3391,16 @@ def main(params: Params):
         ),
         "zip_all_with_name": Node(
             async_task=zip_grouped_by_key.validate()
-            .handle_errors(task_instance_id="zip_all_with_name")
+            .set_task_instance_id("zip_all_with_name")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("zip_all_mapbook_context_inputs"),
@@ -2484,7 +3411,16 @@ def main(params: Params):
         ),
         "flatten_mbook_context": Node(
             async_task=flatten_tuple.validate()
-            .handle_errors(task_instance_id="flatten_mbook_context")
+            .set_task_instance_id("flatten_mbook_context")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial=(params_dict.get("flatten_mbook_context") or {}),
             method="mapvalues",
@@ -2495,13 +3431,22 @@ def main(params: Params):
         ),
         "individual_mapbook_context": Node(
             async_task=create_mapbook_context.validate()
-            .handle_errors(task_instance_id="individual_mapbook_context")
+            .set_task_instance_id("individual_mapbook_context")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "template_path": DependsOn("download_sect_templates"),
                 "output_directory": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "subject_name": DependsOn("get_subject_name"),
-                "time_period": DependsOn("define_time_range"),
+                "time_period": DependsOn("time_range"),
                 "period": DependsOn("round_report_duration"),
                 "filename": None,
                 "validate_images": True,
@@ -2526,8 +3471,17 @@ def main(params: Params):
             },
         ),
         "generate_mapbook_report": Node(
-            async_task=combine_docx_files.validate()
-            .handle_errors(task_instance_id="generate_mapbook_report")
+            async_task=merge_docx_files.validate()
+            .set_task_instance_id("generate_mapbook_report")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "cover_page_path": DependsOn("persist_context_cover"),
@@ -2540,7 +3494,16 @@ def main(params: Params):
         ),
         "mapbook_dashboard": Node(
             async_task=gather_dashboard.validate()
-            .handle_errors(task_instance_id="mapbook_dashboard")
+            .set_task_instance_id("mapbook_dashboard")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "details": DependsOn("initialize_workflow_metadata"),
@@ -2557,8 +3520,8 @@ def main(params: Params):
                         DependsOn("season_grouped_map_widget"),
                     ],
                 ),
-                "time_range": DependsOn("define_time_range"),
-                "groupers": DependsOn("configure_grouping_strategy"),
+                "time_range": DependsOn("time_range"),
+                "groupers": DependsOn("groupers"),
             }
             | (params_dict.get("mapbook_dashboard") or {}),
             method="call",

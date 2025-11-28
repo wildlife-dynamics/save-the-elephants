@@ -18,9 +18,9 @@
       ],
       "type": "object",
       "description": "Add information that will help to differentiate this workflow from another.",
-      "title": "Initialize Workflow Metadata"
+      "title": "Initialize workflow metadata"
     },
-    "define_time_range": {
+    "time_range": {
       "additionalProperties": false,
       "properties": {
         "since": {
@@ -34,15 +34,6 @@
           "title": "Until",
           "type": "string",
           "description": "The end time"
-        },
-        "timezone": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/TimezoneInfo"
-            }
-          ],
-          "default": null,
-          "title": "Timezone"
         }
       },
       "required": [
@@ -51,9 +42,9 @@
       ],
       "type": "object",
       "description": "Choose the period of time to analyze.",
-      "title": "Define Time Range"
+      "title": "Define time range"
     },
-    "configure_grouping_strategy": {
+    "groupers": {
       "additionalProperties": false,
       "properties": {
         "groupers": {
@@ -76,7 +67,7 @@
       },
       "type": "object",
       "required": [],
-      "title": "Configure Grouping Strategy"
+      "title": "Configure grouping strategy"
     },
     "configure_base_maps": {
       "additionalProperties": false,
@@ -276,21 +267,22 @@
       },
       "type": "object",
       "required": [],
-      "title": "Configure Base Map Layers"
+      "title": "Configure base map layers"
     },
     "download_logo_path": {
       "additionalProperties": false,
       "properties": {
         "url": {
           "title": "Url",
-          "type": "string"
+          "type": "string",
+          "description": "URL to download the file from"
         }
       },
       "required": [
         "url"
       ],
       "type": "object",
-      "title": "Download Logo Path"
+      "title": "Download logo path"
     },
     "er_client_name": {
       "additionalProperties": false,
@@ -305,7 +297,7 @@
         "data_source"
       ],
       "type": "object",
-      "title": "Connect to EarthRanger Instance"
+      "title": "Connect to ER instance"
     },
     "gee_project_name": {
       "additionalProperties": false,
@@ -327,14 +319,15 @@
       "properties": {
         "subject_group_name": {
           "title": "Subject Group Name",
-          "type": "string"
+          "type": "string",
+          "description": "\u26a0\ufe0f The use of a group with mixed subtypes could lead to unexpected results"
         }
       },
       "required": [
         "subject_group_name"
       ],
       "type": "object",
-      "title": "Get subject Group Observations from ER"
+      "title": "Get subject group observations from ER"
     },
     "convert_to_trajectories": {
       "additionalProperties": false,
@@ -360,38 +353,10 @@
       },
       "required": [],
       "type": "object",
-      "title": "Convert Relocations to Trajectories"
+      "title": "Convert relocations to trajectories"
     }
   },
   "$defs": {
-    "TimezoneInfo": {
-      "properties": {
-        "label": {
-          "title": "Label",
-          "type": "string"
-        },
-        "tzCode": {
-          "title": "Tzcode",
-          "type": "string"
-        },
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
-        "utc": {
-          "title": "Utc",
-          "type": "string"
-        }
-      },
-      "required": [
-        "label",
-        "tzCode",
-        "name",
-        "utc"
-      ],
-      "title": "TimezoneInfo",
-      "type": "object"
-    },
     "TemporalGrouper": {
       "oneOf": [
         {
@@ -517,17 +482,16 @@
         "description"
       ]
     },
-    "define_time_range": {
+    "time_range": {
       "ui:order": [
         "since",
-        "until",
-        "timezone"
+        "until"
       ]
     },
     "ui:order": [
       "initialize_workflow_metadata",
-      "define_time_range",
-      "configure_grouping_strategy",
+      "time_range",
+      "groupers",
       "configure_base_maps",
       "download_logo_path",
       "er_client_name",
