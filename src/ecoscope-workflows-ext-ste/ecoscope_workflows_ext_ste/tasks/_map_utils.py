@@ -167,8 +167,8 @@ def create_layer_from_gdf(
             logger.info("Creating line layer for '%s'", filename)
             return create_polyline_layer(gdf, layer_style=PolylineLayerStyle(**style_params), legend=legend)
 
-    except TypeError as te:
-        logger.error("Invalid style params for '%s': %s", filename, te, exc_info=True)
+    except TypeError:
+        logger.exception("Invalid style params for '%s'", filename)
     return None
 
 
