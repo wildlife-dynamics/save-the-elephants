@@ -1,5 +1,6 @@
 from ecoscope_workflows_ext_ste.tasks import zip_grouped_by_key
 
+
 def test_zip_grouped_by_key_basic():
     left = [("A", 1), ("B", 2), ("C", 3)]
     right = [("B", 20), ("C", 30), ("A", 10)]
@@ -9,6 +10,7 @@ def test_zip_grouped_by_key_basic():
         ("B", (2, 20)),
         ("C", (3, 30)),
     ]
+
 
 def test_zip_grouped_by_key_missing_keys_are_dropped():
     left = [("A", 1), ("B", 2), ("C", 3)]
