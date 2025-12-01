@@ -1,18 +1,20 @@
-import os 
+import os
 import zipfile
-import logging 
+import logging
 import warnings
-import requests,email 
-from pathlib import Path 
+import requests
+import email
+from pathlib import Path
 from pydantic import Field
 from urllib.parse import urlparse
-from typing import Annotated,Optional 
+from typing import Annotated, Optional
 from ecoscope.io import download_file
 from ._path_utils import normalize_file_url
 from ecoscope_workflows_core.decorators import task
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore")
+
 
 # upstream:?
 @task
@@ -84,8 +86,7 @@ def fetch_and_persist_file(
     except Exception as e:
         # include debug info so callers can see what was attempted
         raise RuntimeError(
-            f"download_file failed for url={url!r} path={target_path!r} retries={retries}. "
-            f"Original error: {e}"
+            f"download_file failed for url={url!r} path={target_path!r} retries={retries}. " f"Original error: {e}"
         ) from e
 
     # Determine the final persisted path
@@ -94,7 +95,7 @@ def fetch_and_persist_file(
         new_items = after_extraction - before_extraction
         zip_filename = os.path.basename(target_path)
         new_items.discard(zip_filename)
-        
+
         if len(new_items) == 1:
             new_item = new_items.pop()
             new_item_path = os.path.join(parent_dir, new_item)
@@ -105,7 +106,7 @@ def fetch_and_persist_file(
         elif len(new_items) > 1:
             persisted_path = str(Path(parent_dir).resolve())
         else:
-            extracted_dir = target_path.rsplit('.zip', 1)[0]
+            extracted_dir = target_path.rsplit(".zip", 1)[0]
             if os.path.isdir(extracted_dir):
                 persisted_path = str(Path(extracted_dir).resolve())
             else:
@@ -118,11 +119,8 @@ def fetch_and_persist_file(
         if os.path.exists(parent):
             actual_files = os.listdir(parent)
             raise FileNotFoundError(
-                f"Download failed — {persisted_path} not found after execution. "
-                f"Files in {parent}: {actual_files}"
+                f"Download failed — {persisted_path} not found after execution. " f"Files in {parent}: {actual_files}"
             )
         else:
-            raise FileNotFoundError(
-                f"Download failed — {persisted_path}. Parent dir missing: {parent}"
-            )
+            raise FileNotFoundError(f"Download failed — {persisted_path}. Parent dir missing: {parent}")
     return persisted_path

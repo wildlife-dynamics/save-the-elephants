@@ -4,25 +4,25 @@ import uuid
 import logging
 import warnings
 import hashlib
-import numpy as np 
+import numpy as np
 import pandas as pd
 from pathlib import Path
 from docx.shared import Cm
 from datetime import datetime
 from urllib.parse import urlparse
 from urllib.request import url2pathname
-from dataclasses import asdict,dataclass
+from dataclasses import asdict, dataclass
 from ecoscope.trajectory import Trajectory
 from ._path_utils import normalize_file_url
 from ecoscope.base.utils import hex_to_rgba
-from docxtpl import DocxTemplate,InlineImage 
+from docxtpl import DocxTemplate, InlineImage
 from pydantic.json_schema import SkipJsonSchema
 from pydantic import Field, BaseModel, ConfigDict
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.indexes import CompositeFilter
-from typing import Annotated, Optional, Dict, Literal,Union
+from typing import Annotated, Optional, Dict, Literal, Union
 from ecoscope.analysis.ecograph import Ecograph, get_feature_gdf
-from ecoscope_workflows_core.tasks.filter._filter import TimeRange 
+from ecoscope_workflows_core.tasks.filter._filter import TimeRange
 from ecoscope_workflows_core.skip import SkippedDependencyFallback, SkipSentinel
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import calculate_elliptical_time_density
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, AdvancedField
@@ -30,6 +30,7 @@ from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, A
 logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore")
+
 
 @dataclass
 class MapbookContext:
@@ -45,6 +46,7 @@ class MapbookContext:
     night_day_ecomap: Optional[str] = None
     seasonal_homerange: Optional[str] = None
 
+
 class AutoScaleGridCellSize(BaseModel):
     model_config = ConfigDict(json_schema_extra={"title": "Auto-scale"})
     auto_scale_or_custom: Annotated[
@@ -55,6 +57,7 @@ class AutoScaleGridCellSize(BaseModel):
             description="Define the resolution of the raster grid (in meters per pixel).",
         ),
     ] = "Auto-scale"
+
 
 class CustomGridCellSize(BaseModel):
     model_config = ConfigDict(json_schema_extra={"title": "Customize"})
@@ -77,6 +80,7 @@ class CustomGridCellSize(BaseModel):
         ),
     ] = 5000
 
+
 @task
 def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
     """
@@ -92,7 +96,7 @@ def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
     """
     if gdf is None or gdf.empty:
         raise ValueError("`label_quarter_status`:gdf is empty.")
-    
+
     gdf[timestamp_col] = pd.to_datetime(gdf[timestamp_col])
     latest_date = gdf[timestamp_col].max()
     most_recent_quarter = latest_date.to_period("Q")
@@ -103,12 +107,12 @@ def label_quarter_status(gdf: AnyDataFrame, timestamp_col: str) -> AnyDataFrame:
     )
     return gdf
 
+
 @task
 def generate_ecograph_raster(
     gdf: Annotated[AnyGeoDataFrame, Field(description="GeoDataFrame with trajectory data")],
     dist_col: Annotated[str, Field(description="Column name for step distance")],
-    output_dir: Annotated[
-        Optional[str], Field(description="Directory to save the output raster")]= None,
+    output_dir: Annotated[Optional[str], Field(description="Directory to save the output raster")] = None,
     filename: Annotated[
         Optional[str],
         Field(
@@ -130,7 +134,6 @@ def generate_ecograph_raster(
     ] = None,
     network_metric: Optional[Literal["weight", "betweenness", "degree", "collective_influence"]] = None,
 ) -> str:
-
     if gdf is None or gdf.empty:
         raise ValueError("`generate_ecograph_raster`:Trajectory gdf is empty.")
 
@@ -139,17 +142,18 @@ def generate_ecograph_raster(
 
     dist_series = pd.to_numeric(gdf[dist_col], errors="coerce")
     if dist_series.dropna().empty:
-        raise ValueError(f"`generate_ecograph_raster`:Column '{dist_col}' has no numeric values to compute a mean resolution.")
+        raise ValueError(
+            f"`generate_ecograph_raster`:Column '{dist_col}' has no numeric values to compute a mean resolution."
+        )
 
     if (movement_covariate is None) == (network_metric is None):
         raise ValueError("`generate_ecograph_raster`:Provide exactly one of 'movement_covariate' or 'network_metric'.")
-    
 
     if output_dir is None or str(output_dir).strip() == "":
         output_dir = os.getcwd()
 
     output_dir = normalize_file_url(output_dir)
-    
+
     if not filename:
         df_hash = hashlib.sha256(pd.util.hash_pandas_object(gdf, index=True).values).hexdigest()
         filename = df_hash[:7]
@@ -175,6 +179,7 @@ def generate_ecograph_raster(
     ecograph.to_geotiff(covariate, raster_path, interpolation=interpolation)
     return raster_path
 
+
 @task
 def retrieve_feature_gdf(
     file_path: Annotated[str, Field(description="Path to the saved Ecograph feature file")],
@@ -189,11 +194,9 @@ def retrieve_feature_gdf(
     gdf = get_feature_gdf(file_path)
     return gdf
 
+
 @task
-def create_seasonal_labels(
-    trajectories: AnyGeoDataFrame, 
-    seasons_df: AnyDataFrame
-    ) -> Optional[AnyGeoDataFrame]:
+def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFrame) -> Optional[AnyGeoDataFrame]:
     """
     Annotates trajectory segments with seasonal labels (wet/dry) based on NDVI-derived windows.
     Applies to the entire trajectory without grouping.
@@ -272,16 +275,12 @@ def create_seasonal_labels(
                     f"[{seasonal_wins.loc[i+1, 'start']} - {seasonal_wins.loc[i+1, 'end']}]"
                 )
 
-        season_bins = pd.IntervalIndex(
-            data=seasonal_wins.apply(lambda x: pd.Interval(x["start"], x["end"]), axis=1)
-        )
+        season_bins = pd.IntervalIndex(data=seasonal_wins.apply(lambda x: pd.Interval(x["start"], x["end"]), axis=1))
         labels = seasonal_wins["season"].values
 
-        trajectories["season"] = pd.cut(
-            trajectories["segment_start"], 
-            bins=season_bins, 
-            include_lowest=True
-        ).map(dict(zip(season_bins, labels)))
+        trajectories["season"] = pd.cut(trajectories["segment_start"], bins=season_bins, include_lowest=True).map(
+            dict(zip(season_bins, labels))
+        )
 
         null_count = trajectories["season"].isnull().sum()
         if null_count > 0:
@@ -294,6 +293,7 @@ def create_seasonal_labels(
         logger.error(f"Failed to apply seasonal label to trajectories: {e}")
         return None
 
+
 @task
 def dataframe_column_first_unique_str(
     df: AnyDataFrame,
@@ -302,6 +302,7 @@ def dataframe_column_first_unique_str(
     if df is None or df.empty:
         raise ValueError("`dataframe_column_first_unique_str`:df is empty.")
     return str(df[column_name].unique()[0])
+
 
 @task
 def assign_quarter_status_colors(
@@ -313,12 +314,12 @@ def assign_quarter_status_colors(
 ) -> AnyDataFrame:
     """
     Assign RGBA colors for quarter status.
-    
+
     Args:
         gdf: GeoDataFrame / DataFrame with quarter_status and hex column.
         hex_column: Column containing hex color codes for current quarter.
         previous_color_hex: Fallback hex for previous quarter.
-        use_hex_column_for_current: 
+        use_hex_column_for_current:
             If True  -> use gdf[hex_column] for Present Quarter Movement.
             If False -> use default_current_hex if given, else previous_color_hex.
         default_current_hex:
@@ -359,6 +360,7 @@ def assign_quarter_status_colors(
     df["quarter_status_colors"] = df["quarter_status_hex_colors"].apply(hex_to_rgba)
     return df
 
+
 @task
 def calculate_seasonal_home_range(
     gdf: AnyGeoDataFrame,
@@ -389,18 +391,18 @@ def calculate_seasonal_home_range(
 
     if groupby_cols is None:
         groupby_cols = ["groupby_col", "season"]
-    
-    if 'season' not in gdf.columns:
+
+    if "season" not in gdf.columns:
         raise ValueError("`calculate_seasonal_home_range`: gdf must have a 'season' column.")
-    
+
     if auto_scale_or_custom_cell_size is None:
         auto_scale_or_custom_cell_size = AutoScaleGridCellSize()
 
-    gdf = gdf[gdf['season'].notna()].copy()
+    gdf = gdf[gdf["season"].notna()].copy()
     try:
         season_etd = gdf.groupby(groupby_cols).apply(
             lambda df: calculate_elliptical_time_density(
-                df, 
+                df,
                 auto_scale_or_custom_cell_size=auto_scale_or_custom_cell_size,
                 percentiles=percentiles,
             )
@@ -408,7 +410,7 @@ def calculate_seasonal_home_range(
     except TypeError:
         season_etd = gdf.groupby(groupby_cols).apply(
             lambda df: calculate_elliptical_time_density(
-                df, 
+                df,
                 auto_scale_or_custom_cell_size=auto_scale_or_custom_cell_size,
                 percentiles=percentiles,
             ),
@@ -418,6 +420,7 @@ def calculate_seasonal_home_range(
     if isinstance(season_etd.index, pd.MultiIndex):
         season_etd = season_etd.reset_index()
     return season_etd
+
 
 @task
 def get_duration(
@@ -445,19 +448,20 @@ def get_duration(
 
     elif time_unit == "months":
         from dateutil.relativedelta import relativedelta
+
         rd = relativedelta(until, since)
         months = rd.years * 12 + rd.months + rd.days / 30.44
         return months
 
     else:
         raise ValueError("`get_duration`:time_unit must be either 'days' or 'months'")
-        
+
 
 @task
 def build_mapbook_report_template(
     count: int,
     org_logo_path: Union[str, Path],
-    report_period:TimeRange,
+    report_period: TimeRange,
     prepared_by: str,
 ) -> Dict[str, str]:
     """
@@ -480,9 +484,7 @@ def build_mapbook_report_template(
     formatted_date = datetime.now()
     formatted_date_str = formatted_date.strftime("%Y-%m-%d %H:%M:%S")
     fmt = getattr(report_period, "time_format", "%Y-%m-%d")
-    formatted_time_range = (
-        f"{report_period.since.strftime(fmt)} to {report_period.until.strftime(fmt)}"
-    )
+    formatted_time_range = f"{report_period.since.strftime(fmt)} to {report_period.until.strftime(fmt)}"
 
     logger.info(f"Report period: {formatted_time_range}")
     logger.info(f"Report date generated: {formatted_date_str}")
@@ -500,6 +502,7 @@ def build_mapbook_report_template(
         "report_period": formatted_time_range,
         "prepared_by": prepared_by,
     }
+
 
 @task
 def create_context_page(
@@ -536,7 +539,7 @@ def create_context_page(
     filename: Annotated[
         Optional[str],
         Field(
-            description="Optional filename for the generated file. If not provided, a random UUID-based filename will be generated.",
+            description="Optional filename . If not provided, a random UUID-based filename will be generated.",
             exclude=True,
         ),
     ] = None,
@@ -560,11 +563,11 @@ def create_context_page(
 
     Returns:
         str: Full path to the generated .docx file.
-    """    
+    """
     # Normalize paths
     template_path = normalize_file_url(template_path)
     output_directory = normalize_file_url(output_directory)
-    
+
     # Validate paths
     if not template_path.strip():
         raise ValueError("template_path is empty after normalization")
@@ -575,7 +578,7 @@ def create_context_page(
         raise FileNotFoundError(f"Template file not found: {template_path}")
 
     os.makedirs(output_directory, exist_ok=True)
-    
+
     if not filename:
         filename = f"context_page_{uuid.uuid4().hex}.docx"
     output_path = Path(output_directory) / filename
@@ -592,6 +595,7 @@ def create_context_page(
     doc.render(context)
     doc.save(output_path)
     return str(output_path)
+
 
 @task
 def create_mapbook_context(
@@ -613,10 +617,9 @@ def create_mapbook_context(
     box_h_cm: float = 6.5,
     box_w_cm: float = 11.11,
 ) -> str:
-
     template_path = normalize_file_url(template_path)
     output_directory = normalize_file_url(output_directory)
-    
+
     # Validate paths
     if not template_path.strip():
         raise ValueError("template_path is empty after normalization")
@@ -669,14 +672,17 @@ def create_mapbook_context(
     tpl.save(output_path)
     return str(output_path)
 
+
 def _fallback_to_none_doc(
-    obj: tuple[CompositeFilter | None, str] | SkipSentinel
-    ) -> tuple[CompositeFilter | None, str] | None:
+    obj: tuple[CompositeFilter | None, str] | SkipSentinel,
+) -> tuple[CompositeFilter | None, str] | None:
     return None if isinstance(obj, SkipSentinel) else obj
+
 
 @dataclass
 class GroupedDoc:
     """Analogous to GroupedWidget but for document pages."""
+
     views: dict[CompositeFilter | None, Optional[str]]
 
     @classmethod
@@ -706,6 +712,7 @@ class GroupedDoc:
         self.views.update(other.views)
         return self
 
+
 @task
 def merge_docx_files(
     cover_page_path: Annotated[str, Field(description="Path to the cover page .docx file")],
@@ -726,7 +733,7 @@ def merge_docx_files(
     """
     from docx import Document
     from docxcompose.composer import Composer
-    
+
     valid_items = [it for it in context_page_items if it is not None]
     grouped_docs = [GroupedDoc.from_single_view(it) for it in valid_items]
 
@@ -746,11 +753,11 @@ def merge_docx_files(
 
     if not os.path.exists(cover_page_path):
         raise FileNotFoundError(f"Cover page file not found: {cover_page_path}")
-        
+
     for p in final_paths:
         if not os.path.exists(p):
             raise FileNotFoundError(f"Context page file not found: {p}")
-    
+
     output_directory = normalize_file_url(output_directory)
     if not output_directory.strip():
         raise ValueError("output_directory is empty after normalization")
@@ -764,8 +771,7 @@ def merge_docx_files(
     composer = Composer(master)
     for doc_path in final_paths:
         doc = Document(doc_path)
-        composer.append(doc) 
-        
+        composer.append(doc)
+
     composer.save(output_path)
     return str(output_path)
-

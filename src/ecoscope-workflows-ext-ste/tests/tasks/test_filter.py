@@ -8,11 +8,13 @@ from ecoscope_workflows_ext_ste.tasks import filter_by_value, exclude_by_value
 @pytest.fixture
 def sample_gdf():
     """Create a simple GeoDataFrame for testing."""
-    df = pd.DataFrame({
-        "id": [1, 2, 3, 4, 5],
-        "type": ["lion", "elephant", "lion", "zebra", "elephant"],
-        "value": [10, 20, 30, 40, 50],
-    })
+    df = pd.DataFrame(
+        {
+            "id": [1, 2, 3, 4, 5],
+            "type": ["lion", "elephant", "lion", "zebra", "elephant"],
+            "value": [10, 20, 30, 40, 50],
+        }
+    )
     geometry = [Point(x, x) for x in range(len(df))]
     gdf = gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")
     return gdf
@@ -71,16 +73,12 @@ def test_preserves_geometry_and_returns_copy(sample_gdf):
     assert isinstance(res_exclude.geometry, gpd.GeoSeries)
 
     # Ensure original geometry still intact
-    pd.testing.assert_series_equal(sample_gdf.geometry.reset_index(drop=True),
-                                   original_geom.reset_index(drop=True))
+    pd.testing.assert_series_equal(sample_gdf.geometry.reset_index(drop=True), original_geom.reset_index(drop=True))
 
 
 def test_numeric_value_filtering():
     # Build a plain pandas DataFrame to verify numeric comparisons also work
-    df = pd.DataFrame({
-        "id": [1, 2, 3],
-        "score": [0, 10, 20]
-    })
+    df = pd.DataFrame({"id": [1, 2, 3], "score": [0, 10, 20]})
 
     res = filter_by_value(df, "score", 10)
     assert len(res) == 1
