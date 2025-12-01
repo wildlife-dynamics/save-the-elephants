@@ -1,14 +1,12 @@
-import geopandas as gpd
-from typing import Union,cast,Sequence
+from typing import Union, cast, Sequence
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.annotations import AnyDataFrame
+
 
 # upstream
 @task
 def filter_by_value(
-    df: AnyDataFrame,
-    column_name: str,
-    value: Union[int, str, float, Sequence[Union[int, str, float]]]
+    df: AnyDataFrame, column_name: str, value: Union[int, str, float, Sequence[Union[int, str, float]]]
 ) -> AnyDataFrame:
     """
     Return a DataFrame containing rows where the given column matches the specified value
@@ -22,11 +20,10 @@ def filter_by_value(
 
     return cast(AnyDataFrame, df_filtered)
 
+
 @task
 def exclude_by_value(
-    df: AnyDataFrame,
-    column_name: str,
-    value: Union[int, str, float, Sequence[Union[int, str, float]]]
+    df: AnyDataFrame, column_name: str, value: Union[int, str, float, Sequence[Union[int, str, float]]]
 ) -> AnyDataFrame:
     """
     Return a DataFrame containing rows where the given column excludes the specified value
@@ -39,4 +36,3 @@ def exclude_by_value(
         df_filtered = df[df[column_name] != value].copy()
 
     return cast(AnyDataFrame, df_filtered)
-

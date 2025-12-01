@@ -1,8 +1,9 @@
 import geopandas as gpd
 from pydantic import Field
-from typing import Annotated,Dict
+from typing import Annotated, Dict
 from ecoscope_workflows_core.decorators import task
-from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, AdvancedField
+from ecoscope_workflows_core.annotations import AnyGeoDataFrame
+
 
 # upstream?
 # this is useful when you want to label different parts of a gdf separately
@@ -23,6 +24,7 @@ def split_gdf_by_column(
     grouped = {str(k): v for k, v in gdf.groupby(column)}
     return grouped
 
+
 @task
 def generate_mcp_gdf(
     gdf: AnyGeoDataFrame,
@@ -42,7 +44,7 @@ def generate_mcp_gdf(
     valid_points_gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notnull()].copy()
     if valid_points_gdf.empty:
         raise ValueError("`generate_mcp_gdf`:No valid geometries in gdf.")
-    
+
     projected_gdf = valid_points_gdf.to_crs(planar_crs)
     if not all(projected_gdf.geometry.geom_type.isin(["Point"])):
         projected_gdf.geometry = projected_gdf.geometry.centroid
@@ -54,15 +56,12 @@ def generate_mcp_gdf(
     convex_hull_original_crs = gpd.GeoSeries([convex_hull], crs=planar_crs).to_crs(original_crs).iloc[0]
 
     result_gdf = gpd.GeoDataFrame(
-        {
-            "area_m2": [area_sq_meters], 
-            "area_km2": [area_sq_km], 
-            "mcp": "mcp"
-        },
+        {"area_m2": [area_sq_meters], "area_km2": [area_sq_km], "mcp": "mcp"},
         geometry=[convex_hull_original_crs],
         crs=original_crs,
     )
     return result_gdf
+
 
 @task
 def round_off_values(value: float, dp: int) -> float:
