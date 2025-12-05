@@ -1,6 +1,6 @@
 from ecoscope_workflows_core.decorators import task
-from typing import Sequence, TypeVar, Tuple, Union
-
+from typing import Sequence, TypeVar, Tuple, Union, List
+from ecoscope_workflows_core.skip import SkipSentinel, SKIP_SENTINEL
 
 GroupKey = Tuple  # normalized group key as a tuple
 V = Union[tuple, list, str, int, float, object]
@@ -9,6 +9,9 @@ K = TypeVar("K")  # no Hashable bound
 L = TypeVar("L")
 R = TypeVar("R")
 T = TypeVar("T")
+T = TypeVar("T")
+U = TypeVar("U")
+
 
 JsonPrimitive = Union[str, int, float, bool, None]
 
@@ -17,13 +20,14 @@ JsonPrimitive = Union[str, int, float, bool, None]
 def flatten_tuple(nested: tuple) -> Tuple[JsonPrimitive, ...]:
     """
     Recursively flatten a (possibly deeply nested) tuple into a flat tuple
-    of JSON-safe primitives.
+    of JSON-safe primitives. Filters out SkipSentinel values.
 
     Note:
     - We annotate the input as `tuple` (built-in) to avoid Pydantic trying to
       resolve a recursive type annotation at import time.
     - At runtime we enforce that leaf values are JSON-safe primitives and
       raise TypeError for unsupported leaf types (avoids silently accepting objects).
+    - SkipSentinel values are silently filtered out.
     """
     # If input is not a tuple then it's an invalid call for this function.
     if not isinstance(nested, tuple):
@@ -32,6 +36,10 @@ def flatten_tuple(nested: tuple) -> Tuple[JsonPrimitive, ...]:
     flat_list: list[JsonPrimitive] = []
 
     for item in nested:
+        # Skip SkipSentinel values using identity check
+        if item is SKIP_SENTINEL or isinstance(item, SkipSentinel):
+            continue
+
         if isinstance(item, tuple):
             flat_list.extend(flatten_tuple(item))
             continue
@@ -74,3 +82,25 @@ def zip_grouped_by_key(
             out.append((k, (lv, right_dict[k])))
 
     return out
+
+
+@task
+def zip_lists(left: List[T], right: List[U]) -> List[Tuple[T, U]]:
+    """
+    Zip two lists together into a list of tuples.
+
+    Args:
+        left: First list
+        right: Second list
+
+    Returns:
+        List of tuples combining elements from both lists
+
+    Example:
+        >>> zip_lists(['MNP', 'WDH East'], [data1, data2])
+        [('MNP', data1), ('WDH East', data2)]
+    """
+    if len(left) != len(right):
+        raise ValueError(f"Lists must have the same length. Got {len(left)} and {len(right)}")
+
+    return list(zip(left, right))

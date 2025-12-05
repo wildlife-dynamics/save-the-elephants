@@ -7,6 +7,7 @@ import hashlib
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from docx import Document
 from docx.shared import Cm
 from datetime import datetime
 from urllib.parse import urlparse
@@ -20,10 +21,10 @@ from pydantic.json_schema import SkipJsonSchema
 from pydantic import Field, BaseModel, ConfigDict
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.indexes import CompositeFilter
-from typing import Annotated, Optional, Dict, Literal, Union
+from typing import Annotated, Optional, Dict, Literal, Union, Any
 from ecoscope.analysis.ecograph import Ecograph, get_feature_gdf
 from ecoscope_workflows_core.tasks.filter._filter import TimeRange
-from ecoscope_workflows_core.skip import SkippedDependencyFallback, SkipSentinel
+from ecoscope_workflows_core.skip import SkipSentinel
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import calculate_elliptical_time_density
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, AdvancedField
 
@@ -34,17 +35,19 @@ warnings.filterwarnings("ignore")
 
 @dataclass
 class MapbookContext:
-    subject_name: Optional[str] = None
-    time_period: Optional[str] = None
-    period: Optional[Union[int, float]] = None
+    grouper_type: Optional[str] = None
+    grouper_eq: Optional[str] = None
+    grouper_value: Optional[str] = None
+
     grid_area: Optional[Union[int, float]] = None
     mcp_area: Optional[Union[int, float]] = None
     movement_tracks_ecomap: Optional[str] = None
     home_range_ecomap: Optional[str] = None
-    speedmap: Optional[str] = None
     speed_raster_ecomap: Optional[str] = None
     night_day_ecomap: Optional[str] = None
+    speedmap: Optional[str] = None
     seasonal_homerange: Optional[str] = None
+    subject_name: Optional[str] = None
 
 
 class AutoScaleGridCellSize(BaseModel):
@@ -302,6 +305,26 @@ def dataframe_column_first_unique_str(
     if df is None or df.empty:
         raise ValueError("`dataframe_column_first_unique_str`:df is empty.")
     return str(df[column_name].unique()[0])
+
+
+@task
+def modify_quarter_status_colors(grouper_value: str, gdf: AnyDataFrame) -> AnyDataFrame:
+    if not grouper_value or grouper_value.strip() == "":
+        raise ValueError("`modify_quarter_status_colors`: grouper_value is empty.")
+
+    if grouper_value == "subject_name":
+        gdf = assign_quarter_status_colors(
+            gdf=gdf, hex_column="hex_color", previous_color_hex="#808080", use_hex_column_for_current=True
+        )
+    else:  # Covers "subject_sex", "subject_subtype", and everything else
+        gdf = assign_quarter_status_colors(
+            gdf=gdf,
+            hex_column="hex_color",
+            previous_color_hex="#808080",
+            use_hex_column_for_current=False,
+            default_current_hex="#00008b",  # Strong, visible dark blue
+        )
+    return gdf
 
 
 @task
@@ -580,7 +603,7 @@ def create_context_page(
     os.makedirs(output_directory, exist_ok=True)
 
     if not filename:
-        filename = f"context_page_{uuid.uuid4().hex}.docx"
+        filename = "context_page_.docx"
     output_path = Path(output_directory) / filename
 
     doc = DocxTemplate(template_path)
@@ -597,22 +620,31 @@ def create_context_page(
     return str(output_path)
 
 
+def validate_image_path(field_name: str, path: str) -> None:
+    """Validate that an image file exists and has valid extension."""
+    normalized_path = normalize_file_url(path)
+
+    if not os.path.exists(normalized_path):
+        raise FileNotFoundError(f"Image file for '{field_name}' not found: {normalized_path}")
+
+    valid_extensions = {".png", ".jpg", ".jpeg"}
+    if Path(normalized_path).suffix.lower() not in valid_extensions:
+        raise ValueError(
+            f"Invalid image format for '{field_name}': {Path(normalized_path).suffix}. "
+            f"Expected one of {valid_extensions}"
+        )
+
+    logger.info(f" Validated image for '{field_name}': {normalized_path}")
+
+
 @task
 def create_mapbook_context(
     template_path: str,
     output_directory: str,
+    context: MapbookContext,
     filename: Optional[str] = None,
-    subject_name: Optional[str] = None,
     time_period: Optional[TimeRange] = None,
     period: Optional[Union[int, float]] = None,
-    grid_area: Optional[Union[int, float]] = None,
-    mcp_area: Optional[Union[int, float]] = None,
-    movement_tracks_ecomap: Optional[str] = None,
-    home_range_ecomap: Optional[str] = None,
-    speedmap: Optional[str] = None,
-    speed_raster_ecomap: Optional[str] = None,
-    night_day_ecomap: Optional[str] = None,
-    seasonal_homerange: Optional[str] = None,
     validate_images: bool = True,
     box_h_cm: float = 6.5,
     box_w_cm: float = 11.11,
@@ -631,46 +663,43 @@ def create_mapbook_context(
 
     os.makedirs(output_directory, exist_ok=True)
     if not filename:
-        filename = f"mapbook_context_{uuid.uuid4().hex}.docx"
+        filename = f"context_{uuid.uuid4().hex}.docx"
     output_path = Path(output_directory) / filename
+
     time_period_str = None
     if time_period:
         fmt = getattr(time_period, "time_format", "%Y-%m-%d")
         time_period_str = f"{time_period.since.strftime(fmt)} to {time_period.until.strftime(fmt)}"
 
-    result = {}
-    tpl = DocxTemplate(template_path)
-    ctx = MapbookContext(
-        subject_name=subject_name,
-        time_period=time_period_str,
-        period=period,
-        grid_area=grid_area,
-        mcp_area=mcp_area,
-        movement_tracks_ecomap=movement_tracks_ecomap,
-        home_range_ecomap=home_range_ecomap,
-        speedmap=speedmap,
-        speed_raster_ecomap=speed_raster_ecomap,
-        night_day_ecomap=night_day_ecomap,
-        seasonal_homerange=seasonal_homerange,
-    )
+    # Create a new context dict by combining the dataclass fields with additional fields
+    context_dict = asdict(context)
+    context_dict["time_period"] = time_period_str
+    context_dict["period"] = period
+
+    print(f"context: {context_dict}")
+
     if validate_images:
-        for field_name, value in asdict(ctx).items():
+        for field_name, value in context_dict.items():
             if isinstance(value, str) and Path(value).suffix.lower() in (".png", ".jpg", ".jpeg"):
-                p = Path(value)
-                if not p.exists() or not p.is_file():
-                    warnings.warn(f"Image for '{field_name}' not found or not a file: {value}")
+                validate_image_path(field_name, value)
 
-    base = asdict(ctx)
+    try:
+        tpl = DocxTemplate(template_path)
+    except Exception as e:
+        raise ValueError(f"Failed to load template: {e}")
 
-    for key, value in base.items():
-        if isinstance(value, str) and Path(value).suffix.lower() in (".png", ".jpg", ".jpeg"):
-            result[key] = InlineImage(tpl, value, width=Cm(box_w_cm), height=Cm(box_h_cm))
-        else:
-            result[key] = value
-
-    tpl.render(result)
-    tpl.save(output_path)
-    return str(output_path)
+    rendered_context = prepare_context_for_template(
+        context=context_dict,  # Pass the dict instead of the dataclass
+        template=tpl,
+        box_h_cm=box_h_cm,
+        box_w_cm=box_w_cm,
+    )
+    try:
+        tpl.render(rendered_context)
+        tpl.save(output_path)
+        return str(output_path)
+    except Exception as e:
+        raise ValueError(f"Failed to render or save document: {e}")
 
 
 def _fallback_to_none_doc(
@@ -716,45 +745,45 @@ class GroupedDoc:
 @task
 def merge_docx_files(
     cover_page_path: Annotated[str, Field(description="Path to the cover page .docx file")],
-    context_page_items: Annotated[
-        list[
-            Annotated[
-                tuple[CompositeFilter | None, str],
-                SkippedDependencyFallback(_fallback_to_none_doc),
-            ]
-        ],
-        Field(description="List of context pages. Items can be SkipSentinel and will be filtered out.", exclude=True),
-    ],
+    context_page_items: Annotated[list[Any], Field(description="List of context page document paths to merge.")],
     output_directory: Annotated[str, Field(description="Directory where combined docx will be written")],
     filename: Annotated[Optional[str], Field(description="Optional output filename")] = None,
 ) -> Annotated[str, Field(description="Path to the combined .docx file")]:
     """
-    Combine cover + grouped context pages into a single DOCX.
+    Combine cover + context pages into a single DOCX.
+    Accepts context_page_items entries that are:
+      - a string path, or
+      - a tuple/list containing one or more strings (path is inferred).
     """
-    from docx import Document
     from docxcompose.composer import Composer
 
-    valid_items = [it for it in context_page_items if it is not None]
-    grouped_docs = [GroupedDoc.from_single_view(it) for it in valid_items]
+    def extract_path(item, idx):
+        if isinstance(item, str):
+            return item
+        if isinstance(item, (list, tuple)):
+            for x in item:
+                if isinstance(x, str) and os.path.exists(x):
+                    return x
+            for x in reversed(item):
+                if isinstance(x, str):
+                    return x
+            raise ValueError(f"context_page_items[{idx}] is a list/tuple but contains no string path: {item!r}")
+        raise ValueError(f"context_page_items[{idx}] has unsupported type {type(item)}; expected str or tuple/list")
 
-    merged_map: dict[str, GroupedDoc] = {}
-    for gd in grouped_docs:
-        key = gd.merge_key
-        if key not in merged_map:
-            merged_map[key] = gd
-        else:
-            merged_map[key] = gd
-
-    final_paths: list[str] = []
-    for group in merged_map.values():
-        for view_key, p in group.views.items():
-            if p is not None:
-                final_paths.append(p)
+    normalized_paths = []
+    for idx, item in enumerate(context_page_items):
+        if item is None:
+            continue
+        try:
+            path = extract_path(item, idx)
+        except ValueError as e:
+            raise ValueError(f"Error processing context_page_items at index {idx}: {e}") from e
+        normalized_paths.append(path)
 
     if not os.path.exists(cover_page_path):
         raise FileNotFoundError(f"Cover page file not found: {cover_page_path}")
 
-    for p in final_paths:
+    for p in normalized_paths:
         if not os.path.exists(p):
             raise FileNotFoundError(f"Context page file not found: {p}")
 
@@ -763,15 +792,172 @@ def merge_docx_files(
         raise ValueError("output_directory is empty after normalization")
 
     os.makedirs(output_directory, exist_ok=True)
+
     if not filename:
-        filename = f"overall_mapbook_{uuid.uuid4().hex}.docx"
+        filename = "overall_report.docx"
     output_path = Path(output_directory) / filename
 
     master = Document(cover_page_path)
     composer = Composer(master)
-    for doc_path in final_paths:
+
+    for doc_path in normalized_paths:
         doc = Document(doc_path)
         composer.append(doc)
 
-    composer.save(output_path)
+    composer.save(str(output_path))
     return str(output_path)
+
+
+@task
+def get_split_group_names(
+    split_data: Annotated[
+        list[tuple[CompositeFilter, Any]],
+        Field(description="Output from split_groups: [(CompositeFilter, df), ...]"),
+    ],
+) -> list[str]:
+    """
+    Extract the first grouper value from each split group.
+
+    Example:
+        Input: [
+            ((('region', '=', 'Atlantida'), ('year', '=', '2024')), df1),
+            ((('region', '=', 'Yoro'),), df2),
+        ]
+        Output: ['Atlantida', 'Yoro']
+    """
+    names: list[str] = []
+    for composite_filter, _ in split_data:
+        if composite_filter:
+            # take the first filter tuple: (index_name, '=', value)
+            _, _, value = composite_filter[0]
+            names.append(str(value))
+        else:
+            names.append("Unknown")
+    return names
+
+
+@task
+def get_split_group_column(
+    split_data: Annotated[
+        list[tuple[CompositeFilter, Any]],
+        Field(description="Output from split_groups: [(CompositeFilter, df), ...]"),
+    ],
+) -> str | None:
+    """
+    Extract the column name used for the first split.
+
+    Example:
+        Input: [
+            ((('region', '=', 'Atlantida'), ('year', '=', '2024')), df1),
+            ((('region', '=', 'Yoro'),), df2),
+        ]
+        Output: 'region'
+    """
+    if not split_data:
+        return None
+
+    # Get the first composite filter
+    composite_filter, _ = split_data[0]
+
+    if composite_filter:
+        # Extract column name from the first filter tuple
+        column_name, _, _ = composite_filter[0]
+        return column_name
+    print(f"column name: {column_name}")
+    return None
+
+
+@task
+def get_split_group_values(
+    split_data: Annotated[
+        list[tuple[CompositeFilter, Any]],
+        Field(description="Output from split_groups: [(CompositeFilter, df), ...]"),
+    ],
+) -> list[dict[str, Any]]:
+    """
+    Extract all grouper values from each split group as dictionaries.
+
+    Example:
+        Input: [
+            ((('region', '=', 'Atlantida'), ('year', '=', '2024')), df1),
+            ((('region', '=', 'Yoro'),), df2),
+        ]
+        Output: [{'region': 'Atlantida', 'year': '2024'}, {'region': 'Yoro'}]
+    """
+    values_list: list[dict[str, Any]] = []
+    for composite_filter, _ in split_data:
+        group_values: dict[str, Any] = {}
+        for index_name, _, value in composite_filter:
+            group_values[index_name] = value
+        values_list.append(group_values)
+        print(f"values list: {values_list}")
+    return values_list
+
+
+def prepare_context_for_template(
+    context: Any,
+    template: DocxTemplate,
+    box_h_cm: float = 6.5,
+    box_w_cm: float = 11.11,
+) -> dict:
+    result = {}
+
+    for key, value in context.items():
+        if value is None:
+            result[key] = value
+            continue
+
+        # Handle image fields - check if it's a valid image path
+        if isinstance(value, str):
+            normalized_path = normalize_file_url(value)
+            if os.path.exists(normalized_path):
+                path_obj = Path(normalized_path)
+                # If it's an image file, convert to InlineImage
+                if path_obj.suffix.lower() in {".png", ".jpg", ".jpeg"}:
+                    result[key] = InlineImage(template, normalized_path, width=Cm(box_w_cm), height=Cm(box_h_cm))
+                else:
+                    result[key] = value
+            else:
+                result[key] = value
+        # Handle numeric fields - convert to integers
+        elif isinstance(value, (int, float)):
+            result[key] = int(value)
+        else:
+            result[key] = value
+
+    return result
+
+
+@task
+def create_report_context_from_tuple(
+    grouper_type: str,
+    grouper_eq: str,
+    grouper_value: str,
+    grid_area: float,
+    mcp_area: float,
+    movement_tracks_ecomap: str,
+    home_range_ecomap: str,
+    speed_raster_ecomap: str,
+    night_day_ecomap: str,
+    speedmap: str,
+    seasonal_homerange: str,
+    subject_name: str,
+) -> MapbookContext:
+    """
+    Convert individual parameters into a MapbookContext dataclass.
+    This is used to convert flattened tuples from the workflow into proper context objects.
+    """
+    return MapbookContext(
+        grouper_type=grouper_type,
+        grouper_eq=grouper_eq,
+        grouper_value=grouper_value,
+        grid_area=grid_area,
+        mcp_area=mcp_area,
+        movement_tracks_ecomap=movement_tracks_ecomap,  # Fixed: added missing comma
+        home_range_ecomap=home_range_ecomap,
+        speed_raster_ecomap=speed_raster_ecomap,
+        night_day_ecomap=night_day_ecomap,
+        speedmap=speedmap,
+        seasonal_homerange=seasonal_homerange,
+        subject_name=subject_name,
+    )

@@ -16,6 +16,18 @@ requirements:
     version: "0.0.7.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
+rjsf-overrides:
+  properties:
+    Subject Group.properties.subject_observations.properties.subject_group_name.ecoscope:subject_group_name: properties.er_client_name.properties.data_source.properties.name
+  $defs:
+    ValueGrouper.oneOf:
+      - const: subject_name
+        title: Subject Name
+      - const: subject_sex 
+        title: Subject Sex
+      - const: subject_subtype
+        title: Subject Subtype
+
 task-instance-defaults:
   skipif:
     conditions:
@@ -66,7 +78,7 @@ workflow:
     id: download_sect_templates
     task: fetch_and_persist_file
     partial:
-      url: https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0
+      url: https://www.dropbox.com/scl/fi/0as1u7uuhia7emp5cqxfl/mapbook_subject_template_v6.docx?rlkey=4nzn4qa2hu0v3fqo8bpki4tgu&st=kco28x6g&dl=0
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false
       unzip: false
@@ -77,6 +89,7 @@ workflow:
     id: download_logo_path
     task: fetch_and_persist_file
     partial:
+      url: "https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=jlwbhik9&dl=0"
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false 
       unzip: false
@@ -200,16 +213,19 @@ workflow:
     id: gee_project_name
     task: set_gee_connection
 
-  # Retrieve observations from ER
-  - name: Get subject group observations from ER
-    id: subject_observations
-    task: get_subjectgroup_observations
-    partial:
-      client: ${{ workflow.er_client_name.return }}
-      time_range: ${{ workflow.time_range.return }}
-      raise_on_empty: false
-      include_details: false
-      include_subjectsource_details: false
+  - title: Subject Group
+    type: task-group
+    description: Choose a subject group to analyze
+    tasks:
+      - name: null
+        id: subject_observations
+        task: get_subjectgroup_observations
+        partial:
+          client: ${{ workflow.er_client_name.return }}
+          time_range: ${{ workflow.time_range.return }}
+          raise_on_empty: false
+          include_details: false
+          include_subjectsource_details: false
   
   - name: Transform observations to relocations
     id: subject_reloc
@@ -283,15 +299,7 @@ workflow:
       gdf: ${{ workflow.classify_trajectory_speed_bins.return }}
       timestamp_col: segment_start
 
-  - name: Assign quarter status colors
-    id: assign_quarter_colors_traj
-    task: assign_quarter_status_colors
-    partial:
-      gdf: ${{ workflow.label_trajectory_quarters.return }}
-      hex_column: extra__hex
-      previous_color_hex: "#808080"
-      use_hex_column_for_current: true
-      default_current_hex: null 
+
 
   # rename trajectory columns
   - name: Rename trajectory columnns
@@ -308,7 +316,7 @@ workflow:
         extra__subject_subtype: subject_subtype
         extra__created_at: created_at
 
-      df: ${{ workflow.assign_quarter_colors_traj.return }}
+      df: ${{ workflow.label_trajectory_quarters.return }}
 
   # persist trajectories and relocations
   - name: Persist trajectories as gpkg
@@ -337,6 +345,22 @@ workflow:
       df: ${{ workflow.rename_traj_cols.return }}
       groupers: ${{ workflow.groupers.return }}
 
+  - name: Get subject group names
+    id: split_group_column
+    task: get_split_group_column
+    partial:
+      split_data: 
+        - ${{ workflow.split_trajectories_by_group.return }}
+
+  - name: Assign quarter status colors
+    id: assign_quarter_colors_traj
+    task: modify_quarter_status_colors
+    partial:
+      grouper_value: ${{ workflow.split_group_column.return }}
+    mapvalues: 
+      argnames: gdf
+      argvalues: ${{ workflow.split_trajectories_by_group.return}}
+
   # 1.SPEEDMAP
   # sort grouped trajectories by speed classification
   - name: Sort trajectories by speed bins
@@ -348,7 +372,7 @@ workflow:
       ascending: true
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.split_trajectories_by_group.return }}
+      argvalues: ${{ workflow.assign_quarter_colors_traj.return }}
 
   # apply color mapping to trajectories based on speed bins
   - name: Apply colormap to speed bins
@@ -514,7 +538,7 @@ workflow:
       na_position: last
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.split_trajectories_by_group.return }}
+      argvalues: ${{ workflow.assign_quarter_colors_traj.return }}
 
   # apply color to trajectories based on day/night classification
   - name: Apply color to trajectories by Day/Night
@@ -649,7 +673,7 @@ workflow:
       na_position: last
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.split_trajectories_by_group.return }}
+      argvalues: ${{ workflow.assign_quarter_colors_traj.return }}
 
   # create polyline map layers for trajectories colored by quarter status
   - name: Create quarter status ecomap layers
@@ -781,7 +805,7 @@ workflow:
       expansion_factor : 1.3
     mapvalues:
       argnames: trajectory_gdf
-      argvalues: ${{ workflow.split_trajectories_by_group.return }}
+      argvalues: ${{ workflow.assign_quarter_colors_traj.return }}
 
   - name: Determine seasonal windows 
     id: determine_seasonal_windows
@@ -806,7 +830,7 @@ workflow:
       - any_dependency_skipped
     partial:
       left: ${{ workflow.determine_seasonal_windows.return }}
-      right: ${{ workflow.split_trajectories_by_group.return }}
+      right: ${{ workflow.assign_quarter_colors_traj.return }}
 
   # add seasonal labels to grouped trajectories
   - name: Generate seasonal labels
@@ -829,7 +853,7 @@ workflow:
       planar_crs: ESRI:53042
     mapvalues:
       argnames: gdf
-      argvalues: ${{ workflow.split_trajectories_by_group.return }}
+      argvalues: ${{ workflow.assign_quarter_colors_traj.return }}
 
   # apply colormap to ETD home range percentiles
   - name: Apply colormap to Home Range percentiles
@@ -1032,7 +1056,7 @@ workflow:
       filename: null 
     mapvalues:
       argnames: gdf 
-      argvalues: ${{ workflow.split_trajectories_by_group.return }}
+      argvalues: ${{ workflow.assign_quarter_colors_traj.return }}
 
   # extract feature GeoDataFrame from generated speed raster TIFFs
   - name: Extract features from speed raster TIFFs
@@ -1481,7 +1505,7 @@ workflow:
       column_name: subject_sex
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.split_trajectories_by_group.return }}
+      argvalues: ${{ workflow.assign_quarter_colors_traj.return }}
 
   - name: Create Single Value Widgets for subject gender per group
     id: gender_widgets
@@ -1524,7 +1548,7 @@ workflow:
       column_name: subject_name
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.split_trajectories_by_group.return }}
+      argvalues: ${{ workflow.assign_quarter_colors_traj.return }}
 
   # Retrieve unique subjects extracted from relocs
   - name: Unique subjects on relocs
@@ -1677,6 +1701,7 @@ workflow:
     partial:
       left: ${{ workflow.zip_grid_dn_speedmap.return }}
       right: ${{ workflow.convert_seasonal_hr_html_to_png.return }}
+
   - name: Zip with subject name
     id: zip_all_with_name
     task: zip_grouped_by_key
@@ -1691,13 +1716,52 @@ workflow:
       argnames: nested
       argvalues: ${{ workflow.zip_all_with_name.return }}
 
+  - name: Get split group names 
+    id: get_grouper_names 
+    task: get_split_group_names
+    partial:
+      split_data: 
+        - ${{ workflow.split_trajectories_by_group.return }}
+
+  - name: Zip grouper names with flattened context 
+    id: zip_grouper_with_context
+    task: zip_lists 
+    partial: 
+      left: ${{ workflow.get_grouper_names.return }}
+      right: ${{ workflow.flatten_mbook_context.return }}
+  
+  - name: Flatten final report context 
+    id: flatten_final_report_context 
+    task: flatten_tuple
+    mapvalues:
+      argnames: nested
+      argvalues: ${{ workflow.zip_grouper_with_context.return }}
+
+  - name: Prepare mapbook context 
+    id: prepare_mapbook_context 
+    task: create_report_context_from_tuple
+    mapvalues:
+      argnames:
+        - grouper_type
+        - grouper_eq
+        - grouper_value
+        - grid_area 
+        - mcp_area 
+        - movement_tracks_ecomap
+        - home_range_ecomap
+        - speed_raster_ecomap
+        - night_day_ecomap
+        - speedmap
+        - seasonal_homerange
+        - subject_name
+      argvalues: ${{ workflow.flatten_final_report_context.return }}
+
   - name: Create individual mapbook context
     id: individual_mapbook_context
     task: create_mapbook_context
     partial:
       template_path: ${{ workflow.download_sect_templates.return }}
       output_directory: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      subject_name: ${{ workflow.get_subject_name.return }}
       time_period: ${{ workflow.time_range.return }}
       period: ${{ workflow.round_report_duration.return }} # months
       filename: null
@@ -1706,17 +1770,8 @@ workflow:
       box_w_cm: 11.11
 
     mapvalues:
-      argnames:
-        - grid_area
-        - mcp_area
-        - movement_tracks_ecomap
-        - home_range_ecomap
-        - speed_raster_ecomap
-        - night_day_ecomap
-        - speedmap
-        - seasonal_homerange
-        - subject_name
-      argvalues: ${{ workflow.flatten_mbook_context.return }}
+      argnames: context
+      argvalues: ${{ workflow.prepare_mapbook_context.return }}
 
   # func to merge all individual subject mapbook sections and cover page
   - name: Generate final mapbook report

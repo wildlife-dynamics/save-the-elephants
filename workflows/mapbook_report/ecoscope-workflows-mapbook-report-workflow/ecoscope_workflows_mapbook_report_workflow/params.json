@@ -269,21 +269,6 @@
       "required": [],
       "title": "Configure base map layers"
     },
-    "download_logo_path": {
-      "additionalProperties": false,
-      "properties": {
-        "url": {
-          "title": "Url",
-          "type": "string",
-          "description": "URL to download the file from"
-        }
-      },
-      "required": [
-        "url"
-      ],
-      "type": "object",
-      "title": "Download logo path"
-    },
     "er_client_name": {
       "additionalProperties": false,
       "properties": {
@@ -327,7 +312,7 @@
         "subject_group_name"
       ],
       "type": "object",
-      "title": "Get subject group observations from ER"
+      "title": ""
     },
     "convert_to_trajectories": {
       "additionalProperties": false,
@@ -493,7 +478,6 @@
       "time_range",
       "groupers",
       "configure_base_maps",
-      "download_logo_path",
       "er_client_name",
       "gee_project_name",
       "subject_observations",

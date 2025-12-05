@@ -69,13 +69,13 @@ from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
 )
 from ecoscope_workflows_ext_ste.tasks import (
     annotate_gdf_dict_with_geometry_type,
-    assign_quarter_status_colors,
     build_mapbook_report_template,
     calculate_seasonal_home_range,
     combine_map_layers,
     create_context_page,
     create_map_layers_from_annotated_dict,
     create_mapbook_context,
+    create_report_context_from_tuple,
     create_seasonal_labels,
     create_view_state_from_gdf,
     dataframe_column_first_unique_str,
@@ -86,13 +86,17 @@ from ecoscope_workflows_ext_ste.tasks import (
     generate_ecograph_raster,
     generate_mcp_gdf,
     get_duration,
+    get_split_group_column,
+    get_split_group_names,
     label_quarter_status,
     make_text_layer,
     merge_docx_files,
+    modify_quarter_status_colors,
     retrieve_feature_gdf,
     round_off_values,
     split_gdf_by_column,
     zip_grouped_by_key,
+    zip_lists,
 )
 
 # %% [markdown]
@@ -286,7 +290,7 @@ download_sect_templates = (
         unpack_depth=1,
     )
     .partial(
-        url="https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0",
+        url="https://www.dropbox.com/scl/fi/0as1u7uuhia7emp5cqxfl/mapbook_subject_template_v6.docx?rlkey=4nzn4qa2hu0v3fqo8bpki4tgu&st=kco28x6g&dl=0",
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         unzip=False,
@@ -303,9 +307,7 @@ download_sect_templates = (
 # %%
 # parameters
 
-download_logo_path_params = dict(
-    url=...,
-)
+download_logo_path_params = dict()
 
 # %%
 # call the task
@@ -323,6 +325,7 @@ download_logo_path = (
         unpack_depth=1,
     )
     .partial(
+        url="https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=jlwbhik9&dl=0",
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         unzip=False,
@@ -689,7 +692,7 @@ gee_project_name = (
 
 
 # %% [markdown]
-# ## Get subject group observations from ER
+# ##
 
 # %%
 # parameters
@@ -933,41 +936,6 @@ label_trajectory_quarters = (
 
 
 # %% [markdown]
-# ## Assign quarter status colors
-
-# %%
-# parameters
-
-assign_quarter_colors_traj_params = dict()
-
-# %%
-# call the task
-
-
-assign_quarter_colors_traj = (
-    assign_quarter_status_colors.set_task_instance_id("assign_quarter_colors_traj")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        gdf=label_trajectory_quarters,
-        hex_column="extra__hex",
-        previous_color_hex="#808080",
-        use_hex_column_for_current=True,
-        default_current_hex=None,
-        **assign_quarter_colors_traj_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
 # ## Rename trajectory columnns
 
 # %%
@@ -1001,7 +969,7 @@ rename_traj_cols = (
             "extra__subject_subtype": "subject_subtype",
             "extra__created_at": "created_at",
         },
-        df=assign_quarter_colors_traj,
+        df=label_trajectory_quarters,
         **rename_traj_cols_params,
     )
     .call()
@@ -1107,6 +1075,62 @@ split_trajectories_by_group = (
 
 
 # %% [markdown]
+# ## Get subject group names
+
+# %%
+# parameters
+
+split_group_column_params = dict()
+
+# %%
+# call the task
+
+
+split_group_column = (
+    get_split_group_column.set_task_instance_id("split_group_column")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(split_data=split_trajectories_by_group, **split_group_column_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Assign quarter status colors
+
+# %%
+# parameters
+
+assign_quarter_colors_traj_params = dict()
+
+# %%
+# call the task
+
+
+assign_quarter_colors_traj = (
+    modify_quarter_status_colors.set_task_instance_id("assign_quarter_colors_traj")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(grouper_value=split_group_column, **assign_quarter_colors_traj_params)
+    .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)
+)
+
+
+# %% [markdown]
 # ## Sort trajectories by speed bins
 
 # %%
@@ -1135,7 +1159,7 @@ sort_trajectories_by_speed = (
         ascending=True,
         **sort_trajectories_by_speed_params,
     )
-    .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
+    .mapvalues(argnames=["df"], argvalues=assign_quarter_colors_traj)
 )
 
 
@@ -1534,7 +1558,7 @@ sort_trajs_by_day_night = (
         na_position="last",
         **sort_trajs_by_day_night_params,
     )
-    .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
+    .mapvalues(argnames=["df"], argvalues=assign_quarter_colors_traj)
 )
 
 
@@ -1853,7 +1877,7 @@ sort_trajs_by_quarter_status = (
         na_position="last",
         **sort_trajs_by_quarter_status_params,
     )
-    .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
+    .mapvalues(argnames=["df"], argvalues=assign_quarter_colors_traj)
 )
 
 
@@ -2149,7 +2173,7 @@ generate_etd = (
         expansion_factor=1.3,
         **generate_etd_params,
     )
-    .mapvalues(argnames=["trajectory_gdf"], argvalues=split_trajectories_by_group)
+    .mapvalues(argnames=["trajectory_gdf"], argvalues=assign_quarter_colors_traj)
 )
 
 
@@ -2210,7 +2234,7 @@ zip_etd_and_grouped_trajs = (
     )
     .partial(
         left=determine_seasonal_windows,
-        right=split_trajectories_by_group,
+        right=assign_quarter_colors_traj,
         **zip_etd_and_grouped_trajs_params,
     )
     .call()
@@ -2271,7 +2295,7 @@ calculate_mcp = (
         unpack_depth=1,
     )
     .partial(planar_crs="ESRI:53042", **calculate_mcp_params)
-    .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)
+    .mapvalues(argnames=["gdf"], argvalues=assign_quarter_colors_traj)
 )
 
 
@@ -2666,7 +2690,7 @@ generate_speed_raster = (
         filename=None,
         **generate_speed_raster_params,
     )
-    .mapvalues(argnames=["gdf"], argvalues=split_trajectories_by_group)
+    .mapvalues(argnames=["gdf"], argvalues=assign_quarter_colors_traj)
 )
 
 
@@ -3659,7 +3683,7 @@ subject_gender = (
         unpack_depth=1,
     )
     .partial(column_name="subject_sex", **subject_gender_params)
-    .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
+    .mapvalues(argnames=["df"], argvalues=assign_quarter_colors_traj)
 )
 
 
@@ -3798,7 +3822,7 @@ get_subject_name = (
         unpack_depth=1,
     )
     .partial(column_name="subject_name", **get_subject_name_params)
-    .mapvalues(argnames=["df"], argvalues=split_trajectories_by_group)
+    .mapvalues(argnames=["df"], argvalues=assign_quarter_colors_traj)
 )
 
 
@@ -4373,6 +4397,138 @@ flatten_mbook_context = (
 
 
 # %% [markdown]
+# ## Get split group names
+
+# %%
+# parameters
+
+get_grouper_names_params = dict()
+
+# %%
+# call the task
+
+
+get_grouper_names = (
+    get_split_group_names.set_task_instance_id("get_grouper_names")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(split_data=split_trajectories_by_group, **get_grouper_names_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zip grouper names with flattened context
+
+# %%
+# parameters
+
+zip_grouper_with_context_params = dict()
+
+# %%
+# call the task
+
+
+zip_grouper_with_context = (
+    zip_lists.set_task_instance_id("zip_grouper_with_context")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        left=get_grouper_names,
+        right=flatten_mbook_context,
+        **zip_grouper_with_context_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Flatten final report context
+
+# %%
+# parameters
+
+flatten_final_report_context_params = dict()
+
+# %%
+# call the task
+
+
+flatten_final_report_context = (
+    flatten_tuple.set_task_instance_id("flatten_final_report_context")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(**flatten_final_report_context_params)
+    .mapvalues(argnames=["nested"], argvalues=zip_grouper_with_context)
+)
+
+
+# %% [markdown]
+# ## Prepare mapbook context
+
+# %%
+# parameters
+
+prepare_mapbook_context_params = dict()
+
+# %%
+# call the task
+
+
+prepare_mapbook_context = (
+    create_report_context_from_tuple.set_task_instance_id("prepare_mapbook_context")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(**prepare_mapbook_context_params)
+    .mapvalues(
+        argnames=[
+            "grouper_type",
+            "grouper_eq",
+            "grouper_value",
+            "grid_area",
+            "mcp_area",
+            "movement_tracks_ecomap",
+            "home_range_ecomap",
+            "speed_raster_ecomap",
+            "night_day_ecomap",
+            "speedmap",
+            "seasonal_homerange",
+            "subject_name",
+        ],
+        argvalues=flatten_final_report_context,
+    )
+)
+
+
+# %% [markdown]
 # ## Create individual mapbook context
 
 # %%
@@ -4398,7 +4554,6 @@ individual_mapbook_context = (
     .partial(
         template_path=download_sect_templates,
         output_directory=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        subject_name=get_subject_name,
         time_period=time_range,
         period=round_report_duration,
         filename=None,
@@ -4407,20 +4562,7 @@ individual_mapbook_context = (
         box_w_cm=11.11,
         **individual_mapbook_context_params,
     )
-    .mapvalues(
-        argnames=[
-            "grid_area",
-            "mcp_area",
-            "movement_tracks_ecomap",
-            "home_range_ecomap",
-            "speed_raster_ecomap",
-            "night_day_ecomap",
-            "speedmap",
-            "seasonal_homerange",
-            "subject_name",
-        ],
-        argvalues=flatten_mbook_context,
-    )
+    .mapvalues(argnames=["context"], argvalues=prepare_mapbook_context)
 )
 
 
