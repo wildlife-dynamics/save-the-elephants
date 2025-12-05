@@ -60,13 +60,13 @@ from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
 )
 from ecoscope_workflows_ext_ste.tasks import (
     annotate_gdf_dict_with_geometry_type,
-    assign_quarter_status_colors,
     build_mapbook_report_template,
     calculate_seasonal_home_range,
     combine_map_layers,
     create_context_page,
     create_map_layers_from_annotated_dict,
     create_mapbook_context,
+    create_report_context_from_tuple,
     create_seasonal_labels,
     create_view_state_from_gdf,
     dataframe_column_first_unique_str,
@@ -77,13 +77,17 @@ from ecoscope_workflows_ext_ste.tasks import (
     generate_ecograph_raster,
     generate_mcp_gdf,
     get_duration,
+    get_split_group_column,
+    get_split_group_names,
     label_quarter_status,
     make_text_layer,
     merge_docx_files,
+    modify_quarter_status_colors,
     retrieve_feature_gdf,
     round_off_values,
     split_gdf_by_column,
     zip_grouped_by_key,
+    zip_lists,
 )
 
 from ..params import Params
@@ -117,12 +121,16 @@ def main(params: Params):
         "add_temporal_index_to_traj": ["convert_to_trajectories", "groupers"],
         "classify_trajectory_speed_bins": ["add_temporal_index_to_traj"],
         "label_trajectory_quarters": ["classify_trajectory_speed_bins"],
-        "assign_quarter_colors_traj": ["label_trajectory_quarters"],
-        "rename_traj_cols": ["assign_quarter_colors_traj"],
+        "rename_traj_cols": ["label_trajectory_quarters"],
         "persist_trajectory_df": ["rename_traj_cols"],
         "persist_relocs_df": ["annotate_day_night"],
         "split_trajectories_by_group": ["rename_traj_cols", "groupers"],
-        "sort_trajectories_by_speed": ["split_trajectories_by_group"],
+        "split_group_column": ["split_trajectories_by_group"],
+        "assign_quarter_colors_traj": [
+            "split_group_column",
+            "split_trajectories_by_group",
+        ],
+        "sort_trajectories_by_speed": ["assign_quarter_colors_traj"],
         "apply_speed_colormap": ["sort_trajectories_by_speed"],
         "format_speed_bin_labels": ["apply_speed_colormap"],
         "format_speed_values": ["format_speed_bin_labels"],
@@ -138,7 +146,7 @@ def main(params: Params):
         "persist_speed_ecomap_urls": ["draw_speed_ecomap"],
         "create_speedmap_widgets": ["persist_speed_ecomap_urls"],
         "merge_speedmap_widgets": ["create_speedmap_widgets"],
-        "sort_trajs_by_day_night": ["split_trajectories_by_group"],
+        "sort_trajs_by_day_night": ["assign_quarter_colors_traj"],
         "apply_day_night_colormap": ["sort_trajs_by_day_night"],
         "generate_day_night_ecomap_layers": ["apply_day_night_colormap"],
         "zoom_dn_view": ["apply_day_night_colormap"],
@@ -152,7 +160,7 @@ def main(params: Params):
         "persist_day_night_ecomap_urls": ["draw_day_night_ecomap"],
         "create_day_night_ecomap_widgets": ["persist_day_night_ecomap_urls"],
         "merge_day_night_ecomap_widgets": ["create_day_night_ecomap_widgets"],
-        "sort_trajs_by_quarter_status": ["split_trajectories_by_group"],
+        "sort_trajs_by_quarter_status": ["assign_quarter_colors_traj"],
         "generate_quarter_ecomap_layers": ["sort_trajs_by_quarter_status"],
         "zoom_qm_view": ["format_speed_values"],
         "combine_quarter_ecomap_layers": [
@@ -165,7 +173,7 @@ def main(params: Params):
         "persist_quarter_ecomap_urls": ["draw_quarter_status_ecomap"],
         "create_quarter_ecomap_widgets": ["persist_quarter_ecomap_urls"],
         "merge_quarter_ecomap_widgets": ["create_quarter_ecomap_widgets"],
-        "generate_etd": ["split_trajectories_by_group"],
+        "generate_etd": ["assign_quarter_colors_traj"],
         "determine_seasonal_windows": [
             "gee_project_name",
             "time_range",
@@ -173,10 +181,10 @@ def main(params: Params):
         ],
         "zip_etd_and_grouped_trajs": [
             "determine_seasonal_windows",
-            "split_trajectories_by_group",
+            "assign_quarter_colors_traj",
         ],
         "add_season_labels": ["zip_etd_and_grouped_trajs"],
-        "calculate_mcp": ["split_trajectories_by_group"],
+        "calculate_mcp": ["assign_quarter_colors_traj"],
         "apply_etd_percentile_colormap": ["generate_etd"],
         "generate_etd_ecomap_layers": ["apply_etd_percentile_colormap"],
         "generate_mcp_layers": ["calculate_mcp"],
@@ -192,7 +200,7 @@ def main(params: Params):
         "persist_hr_ecomap_urls": ["draw_hr_ecomap"],
         "create_hr_ecomap_widgets": ["persist_hr_ecomap_urls"],
         "merge_hr_ecomap_widgets": ["create_hr_ecomap_widgets"],
-        "generate_speed_raster": ["split_trajectories_by_group"],
+        "generate_speed_raster": ["assign_quarter_colors_traj"],
         "extract_speed_rasters": ["generate_speed_raster"],
         "sort_speed_features_by_value": ["extract_speed_rasters"],
         "classify_speed_features": ["sort_speed_features_by_value"],
@@ -235,12 +243,12 @@ def main(params: Params):
         "total_mcp_grouped_sv_widget": ["total_mcp_sv_widgets"],
         "total_grid_sv_widgets": ["round_grid_area"],
         "total_grid_grouped_sv_widget": ["total_grid_sv_widgets"],
-        "subject_gender": ["split_trajectories_by_group"],
+        "subject_gender": ["assign_quarter_colors_traj"],
         "gender_widgets": ["subject_gender"],
         "gender_sv_widget": ["gender_widgets"],
         "report_duration": ["time_range"],
         "round_report_duration": ["report_duration"],
-        "get_subject_name": ["split_trajectories_by_group"],
+        "get_subject_name": ["assign_quarter_colors_traj"],
         "unique_subjects": ["rename_traj_cols"],
         "create_cover_template_context": [
             "unique_subjects",
@@ -275,12 +283,15 @@ def main(params: Params):
         ],
         "zip_all_with_name": ["zip_all_mapbook_context_inputs", "get_subject_name"],
         "flatten_mbook_context": ["zip_all_with_name"],
+        "get_grouper_names": ["split_trajectories_by_group"],
+        "zip_grouper_with_context": ["get_grouper_names", "flatten_mbook_context"],
+        "flatten_final_report_context": ["zip_grouper_with_context"],
+        "prepare_mapbook_context": ["flatten_final_report_context"],
         "individual_mapbook_context": [
             "download_sect_templates",
-            "get_subject_name",
             "time_range",
             "round_report_duration",
-            "flatten_mbook_context",
+            "prepare_mapbook_context",
         ],
         "generate_mapbook_report": [
             "persist_context_cover",
@@ -413,7 +424,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "url": "https://www.dropbox.com/scl/fi/gtmpcrik4klsq26p2ewxv/mapbook_subject_template_v3.docx?rlkey=xmbsxz18ryo7snoo6w78s7l25&st=q7cfbysm&dl=0",
+                "url": "https://www.dropbox.com/scl/fi/0as1u7uuhia7emp5cqxfl/mapbook_subject_template_v6.docx?rlkey=4nzn4qa2hu0v3fqo8bpki4tgu&st=kco28x6g&dl=0",
                 "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "overwrite_existing": False,
                 "unzip": False,
@@ -436,6 +447,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
+                "url": "https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=jlwbhik9&dl=0",
                 "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "overwrite_existing": False,
                 "unzip": False,
@@ -845,29 +857,6 @@ def main(params: Params):
             | (params_dict.get("label_trajectory_quarters") or {}),
             method="call",
         ),
-        "assign_quarter_colors_traj": Node(
-            async_task=assign_quarter_status_colors.validate()
-            .set_task_instance_id("assign_quarter_colors_traj")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "gdf": DependsOn("label_trajectory_quarters"),
-                "hex_column": "extra__hex",
-                "previous_color_hex": "#808080",
-                "use_hex_column_for_current": True,
-                "default_current_hex": None,
-            }
-            | (params_dict.get("assign_quarter_colors_traj") or {}),
-            method="call",
-        ),
         "rename_traj_cols": Node(
             async_task=map_columns.validate()
             .set_task_instance_id("rename_traj_cols")
@@ -892,7 +881,7 @@ def main(params: Params):
                     "extra__subject_subtype": "subject_subtype",
                     "extra__created_at": "created_at",
                 },
-                "df": DependsOn("assign_quarter_colors_traj"),
+                "df": DependsOn("label_trajectory_quarters"),
             }
             | (params_dict.get("rename_traj_cols") or {}),
             method="call",
@@ -961,6 +950,48 @@ def main(params: Params):
             | (params_dict.get("split_trajectories_by_group") or {}),
             method="call",
         ),
+        "split_group_column": Node(
+            async_task=get_split_group_column.validate()
+            .set_task_instance_id("split_group_column")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "split_data": DependsOn("split_trajectories_by_group"),
+            }
+            | (params_dict.get("split_group_column") or {}),
+            method="call",
+        ),
+        "assign_quarter_colors_traj": Node(
+            async_task=modify_quarter_status_colors.validate()
+            .set_task_instance_id("assign_quarter_colors_traj")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "grouper_value": DependsOn("split_group_column"),
+            }
+            | (params_dict.get("assign_quarter_colors_traj") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("split_trajectories_by_group"),
+            },
+        ),
         "sort_trajectories_by_speed": Node(
             async_task=sort_values.validate()
             .set_task_instance_id("sort_trajectories_by_speed")
@@ -983,7 +1014,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["df"],
-                "argvalues": DependsOn("split_trajectories_by_group"),
+                "argvalues": DependsOn("assign_quarter_colors_traj"),
             },
         ),
         "apply_speed_colormap": Node(
@@ -1296,7 +1327,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["df"],
-                "argvalues": DependsOn("split_trajectories_by_group"),
+                "argvalues": DependsOn("assign_quarter_colors_traj"),
             },
         ),
         "apply_day_night_colormap": Node(
@@ -1541,7 +1572,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["df"],
-                "argvalues": DependsOn("split_trajectories_by_group"),
+                "argvalues": DependsOn("assign_quarter_colors_traj"),
             },
         ),
         "generate_quarter_ecomap_layers": Node(
@@ -1770,7 +1801,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["trajectory_gdf"],
-                "argvalues": DependsOn("split_trajectories_by_group"),
+                "argvalues": DependsOn("assign_quarter_colors_traj"),
             },
         ),
         "determine_seasonal_windows": Node(
@@ -1812,7 +1843,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "left": DependsOn("determine_seasonal_windows"),
-                "right": DependsOn("split_trajectories_by_group"),
+                "right": DependsOn("assign_quarter_colors_traj"),
             }
             | (params_dict.get("zip_etd_and_grouped_trajs") or {}),
             method="call",
@@ -1857,7 +1888,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["gdf"],
-                "argvalues": DependsOn("split_trajectories_by_group"),
+                "argvalues": DependsOn("assign_quarter_colors_traj"),
             },
         ),
         "apply_etd_percentile_colormap": Node(
@@ -2160,7 +2191,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["gdf"],
-                "argvalues": DependsOn("split_trajectories_by_group"),
+                "argvalues": DependsOn("assign_quarter_colors_traj"),
             },
         ),
         "extract_speed_rasters": Node(
@@ -2932,7 +2963,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["df"],
-                "argvalues": DependsOn("split_trajectories_by_group"),
+                "argvalues": DependsOn("assign_quarter_colors_traj"),
             },
         ),
         "gender_widgets": Node(
@@ -3036,7 +3067,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["df"],
-                "argvalues": DependsOn("split_trajectories_by_group"),
+                "argvalues": DependsOn("assign_quarter_colors_traj"),
             },
         ),
         "unique_subjects": Node(
@@ -3429,6 +3460,98 @@ def main(params: Params):
                 "argvalues": DependsOn("zip_all_with_name"),
             },
         ),
+        "get_grouper_names": Node(
+            async_task=get_split_group_names.validate()
+            .set_task_instance_id("get_grouper_names")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "split_data": DependsOn("split_trajectories_by_group"),
+            }
+            | (params_dict.get("get_grouper_names") or {}),
+            method="call",
+        ),
+        "zip_grouper_with_context": Node(
+            async_task=zip_lists.validate()
+            .set_task_instance_id("zip_grouper_with_context")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("get_grouper_names"),
+                "right": DependsOn("flatten_mbook_context"),
+            }
+            | (params_dict.get("zip_grouper_with_context") or {}),
+            method="call",
+        ),
+        "flatten_final_report_context": Node(
+            async_task=flatten_tuple.validate()
+            .set_task_instance_id("flatten_final_report_context")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial=(params_dict.get("flatten_final_report_context") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["nested"],
+                "argvalues": DependsOn("zip_grouper_with_context"),
+            },
+        ),
+        "prepare_mapbook_context": Node(
+            async_task=create_report_context_from_tuple.validate()
+            .set_task_instance_id("prepare_mapbook_context")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial=(params_dict.get("prepare_mapbook_context") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": [
+                    "grouper_type",
+                    "grouper_eq",
+                    "grouper_value",
+                    "grid_area",
+                    "mcp_area",
+                    "movement_tracks_ecomap",
+                    "home_range_ecomap",
+                    "speed_raster_ecomap",
+                    "night_day_ecomap",
+                    "speedmap",
+                    "seasonal_homerange",
+                    "subject_name",
+                ],
+                "argvalues": DependsOn("flatten_final_report_context"),
+            },
+        ),
         "individual_mapbook_context": Node(
             async_task=create_mapbook_context.validate()
             .set_task_instance_id("individual_mapbook_context")
@@ -3445,7 +3568,6 @@ def main(params: Params):
             partial={
                 "template_path": DependsOn("download_sect_templates"),
                 "output_directory": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "subject_name": DependsOn("get_subject_name"),
                 "time_period": DependsOn("time_range"),
                 "period": DependsOn("round_report_duration"),
                 "filename": None,
@@ -3456,18 +3578,8 @@ def main(params: Params):
             | (params_dict.get("individual_mapbook_context") or {}),
             method="mapvalues",
             kwargs={
-                "argnames": [
-                    "grid_area",
-                    "mcp_area",
-                    "movement_tracks_ecomap",
-                    "home_range_ecomap",
-                    "speed_raster_ecomap",
-                    "night_day_ecomap",
-                    "speedmap",
-                    "seasonal_homerange",
-                    "subject_name",
-                ],
-                "argvalues": DependsOn("flatten_mbook_context"),
+                "argnames": ["context"],
+                "argvalues": DependsOn("prepare_mapbook_context"),
             },
         ),
         "generate_mapbook_report": Node(

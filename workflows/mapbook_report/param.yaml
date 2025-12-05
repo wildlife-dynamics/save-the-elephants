@@ -45,6 +45,4 @@ configure_base_maps:
       opacity: 1.0
       max_zoom: 15
       min_zoom: null
-
-download_logo_path:
-  url: "https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=jlwbhik9&dl=0"
+      

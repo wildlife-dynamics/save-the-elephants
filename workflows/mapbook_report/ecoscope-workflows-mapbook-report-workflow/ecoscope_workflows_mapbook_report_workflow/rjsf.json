@@ -269,21 +269,6 @@
       "required": [],
       "title": "Configure base map layers"
     },
-    "download_logo_path": {
-      "additionalProperties": false,
-      "properties": {
-        "url": {
-          "title": "Url",
-          "type": "string",
-          "description": "URL to download the file from"
-        }
-      },
-      "required": [
-        "url"
-      ],
-      "type": "object",
-      "title": "Download logo path"
-    },
     "er_client_name": {
       "additionalProperties": false,
       "properties": {
@@ -314,20 +299,28 @@
       "type": "object",
       "title": "Connect to EE"
     },
-    "subject_observations": {
-      "additionalProperties": false,
-      "properties": {
-        "subject_group_name": {
-          "title": "Subject Group Name",
-          "type": "string",
-          "description": "\u26a0\ufe0f The use of a group with mixed subtypes could lead to unexpected results"
-        }
-      },
-      "required": [
-        "subject_group_name"
-      ],
+    "Subject Group": {
       "type": "object",
-      "title": "Get subject group observations from ER"
+      "description": "Choose a subject group to analyze",
+      "ecoscope:task_group": true,
+      "properties": {
+        "subject_observations": {
+          "additionalProperties": false,
+          "properties": {
+            "subject_group_name": {
+              "title": "Subject Group Name",
+              "type": "string",
+              "description": "\u26a0\ufe0f The use of a group with mixed subtypes could lead to unexpected results",
+              "ecoscope:subject_group_name": "properties.er_client_name.properties.data_source.properties.name"
+            }
+          },
+          "required": [
+            "subject_group_name"
+          ],
+          "type": "object",
+          "title": ""
+        }
+      }
     },
     "convert_to_trajectories": {
       "additionalProperties": false,
@@ -396,7 +389,20 @@
       "type": "string"
     },
     "ValueGrouper": {
-      "oneOf": [],
+      "oneOf": [
+        {
+          "const": "subject_name",
+          "title": "Subject Name"
+        },
+        {
+          "const": "subject_sex",
+          "title": "Subject Sex"
+        },
+        {
+          "const": "subject_subtype",
+          "title": "Subject Subtype"
+        }
+      ],
       "title": "Category",
       "type": "string"
     },
@@ -493,10 +499,9 @@
       "time_range",
       "groupers",
       "configure_base_maps",
-      "download_logo_path",
       "er_client_name",
       "gee_project_name",
-      "subject_observations",
+      "Subject Group",
       "convert_to_trajectories"
     ]
   },

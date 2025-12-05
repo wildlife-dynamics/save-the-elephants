@@ -192,13 +192,6 @@ class ConfigureBaseMaps(BaseModel):
     )
 
 
-class DownloadLogoPath(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    url: str = Field(..., description="URL to download the file from", title="Url")
-
-
 class SubjectObservations(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -208,6 +201,10 @@ class SubjectObservations(BaseModel):
         description="⚠️ The use of a group with mixed subtypes could lead to unexpected results",
         title="Subject Group Name",
     )
+
+
+class SubjectGroup(BaseModel):
+    subject_observations: Optional[SubjectObservations] = Field(None, title="")
 
 
 class TemporalGrouper(RootModel[str]):
@@ -314,13 +311,10 @@ class FormData(BaseModel):
     configure_base_maps: Optional[ConfigureBaseMaps] = Field(
         None, title="Configure base map layers"
     )
-    download_logo_path: Optional[DownloadLogoPath] = Field(
-        None, title="Download logo path"
-    )
     er_client_name: Optional[ErClientName] = Field(None, title="Connect to ER instance")
     gee_project_name: Optional[GeeProjectName] = Field(None, title="Connect to EE")
-    subject_observations: Optional[SubjectObservations] = Field(
-        None, title="Get subject group observations from ER"
+    Subject_Group: Optional[SubjectGroup] = Field(
+        None, alias="Subject Group", description="Choose a subject group to analyze"
     )
     convert_to_trajectories: Optional[ConvertToTrajectories] = Field(
         None, title="Convert relocations to trajectories"
