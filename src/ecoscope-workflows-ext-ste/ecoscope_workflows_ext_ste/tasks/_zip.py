@@ -1,5 +1,5 @@
 from ecoscope_workflows_core.decorators import task
-from typing import Sequence, TypeVar,Tuple,Union,List
+from typing import Sequence, TypeVar, Tuple, Union, List
 from ecoscope_workflows_core.skip import SkipSentinel, SKIP_SENTINEL
 
 GroupKey = Tuple  # normalized group key as a tuple
@@ -14,6 +14,7 @@ U = TypeVar("U")
 
 
 JsonPrimitive = Union[str, int, float, bool, None]
+
 
 @task
 def flatten_tuple(nested: tuple) -> Tuple[JsonPrimitive, ...]:
@@ -38,7 +39,7 @@ def flatten_tuple(nested: tuple) -> Tuple[JsonPrimitive, ...]:
         # Skip SkipSentinel values using identity check
         if item is SKIP_SENTINEL or isinstance(item, SkipSentinel):
             continue
-            
+
         if isinstance(item, tuple):
             flat_list.extend(flatten_tuple(item))
             continue
@@ -55,6 +56,7 @@ def flatten_tuple(nested: tuple) -> Tuple[JsonPrimitive, ...]:
         )
 
     return tuple(flat_list)
+
 
 @task
 def zip_grouped_by_key(
@@ -81,23 +83,24 @@ def zip_grouped_by_key(
 
     return out
 
+
 @task
 def zip_lists(left: List[T], right: List[U]) -> List[Tuple[T, U]]:
     """
     Zip two lists together into a list of tuples.
-    
+
     Args:
         left: First list
         right: Second list
-        
+
     Returns:
         List of tuples combining elements from both lists
-        
+
     Example:
         >>> zip_lists(['MNP', 'WDH East'], [data1, data2])
         [('MNP', data1), ('WDH East', data2)]
     """
     if len(left) != len(right):
         raise ValueError(f"Lists must have the same length. Got {len(left)} and {len(right)}")
-    
+
     return list(zip(left, right))

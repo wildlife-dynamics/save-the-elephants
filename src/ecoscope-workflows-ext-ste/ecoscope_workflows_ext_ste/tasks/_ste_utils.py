@@ -21,10 +21,10 @@ from pydantic.json_schema import SkipJsonSchema
 from pydantic import Field, BaseModel, ConfigDict
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.indexes import CompositeFilter
-from typing import Annotated, Optional, Dict, Literal, Union,Any
+from typing import Annotated, Optional, Dict, Literal, Union, Any
 from ecoscope.analysis.ecograph import Ecograph, get_feature_gdf
 from ecoscope_workflows_core.tasks.filter._filter import TimeRange
-from ecoscope_workflows_core.skip import SkippedDependencyFallback, SkipSentinel
+from ecoscope_workflows_core.skip import SkipSentinel
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import calculate_elliptical_time_density
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame, AdvancedField
 
@@ -35,10 +35,10 @@ warnings.filterwarnings("ignore")
 
 @dataclass
 class MapbookContext:
-    grouper_type: Optional[str]= None 
-    grouper_eq: Optional[str]= None 
-    grouper_value: Optional[str] = None 
-    
+    grouper_type: Optional[str] = None
+    grouper_eq: Optional[str] = None
+    grouper_value: Optional[str] = None
+
     grid_area: Optional[Union[int, float]] = None
     mcp_area: Optional[Union[int, float]] = None
     movement_tracks_ecomap: Optional[str] = None
@@ -306,20 +306,15 @@ def dataframe_column_first_unique_str(
         raise ValueError("`dataframe_column_first_unique_str`:df is empty.")
     return str(df[column_name].unique()[0])
 
-@task 
-def modify_quarter_status_colors(
-    grouper_value: str,
-    gdf: AnyDataFrame
-) -> AnyDataFrame:
+
+@task
+def modify_quarter_status_colors(grouper_value: str, gdf: AnyDataFrame) -> AnyDataFrame:
     if not grouper_value or grouper_value.strip() == "":
         raise ValueError("`modify_quarter_status_colors`: grouper_value is empty.")
-    
+
     if grouper_value == "subject_name":
         gdf = assign_quarter_status_colors(
-            gdf=gdf,
-            hex_column="hex_color",
-            previous_color_hex="#808080",
-            use_hex_column_for_current=True
+            gdf=gdf, hex_column="hex_color", previous_color_hex="#808080", use_hex_column_for_current=True
         )
     else:  # Covers "subject_sex", "subject_subtype", and everything else
         gdf = assign_quarter_status_colors(
@@ -327,9 +322,10 @@ def modify_quarter_status_colors(
             hex_column="hex_color",
             previous_color_hex="#808080",
             use_hex_column_for_current=False,
-            default_current_hex="#00008b"  # Strong, visible dark blue
+            default_current_hex="#00008b",  # Strong, visible dark blue
         )
     return gdf
+
 
 @task
 def assign_quarter_status_colors(
@@ -607,7 +603,7 @@ def create_context_page(
     os.makedirs(output_directory, exist_ok=True)
 
     if not filename:
-        filename = f"context_page_.docx"
+        filename = "context_page_.docx"
     output_path = Path(output_directory) / filename
 
     doc = DocxTemplate(template_path)
@@ -622,6 +618,7 @@ def create_context_page(
     doc.render(context)
     doc.save(output_path)
     return str(output_path)
+
 
 def validate_image_path(field_name: str, path: str) -> None:
     """Validate that an image file exists and has valid extension."""
@@ -638,6 +635,7 @@ def validate_image_path(field_name: str, path: str) -> None:
         )
 
     logger.info(f" Validated image for '{field_name}': {normalized_path}")
+
 
 @task
 def create_mapbook_context(
@@ -667,7 +665,7 @@ def create_mapbook_context(
     if not filename:
         filename = f"context_{uuid.uuid4().hex}.docx"
     output_path = Path(output_directory) / filename
-    
+
     time_period_str = None
     if time_period:
         fmt = getattr(time_period, "time_format", "%Y-%m-%d")
@@ -677,31 +675,32 @@ def create_mapbook_context(
     context_dict = asdict(context)
     context_dict["time_period"] = time_period_str
     context_dict["period"] = period
-    
+
     print(f"context: {context_dict}")
-    
+
     if validate_images:
         for field_name, value in context_dict.items():
             if isinstance(value, str) and Path(value).suffix.lower() in (".png", ".jpg", ".jpeg"):
                 validate_image_path(field_name, value)
-                
-    try: 
+
+    try:
         tpl = DocxTemplate(template_path)
     except Exception as e:
         raise ValueError(f"Failed to load template: {e}")
-    
+
     rendered_context = prepare_context_for_template(
         context=context_dict,  # Pass the dict instead of the dataclass
         template=tpl,
         box_h_cm=box_h_cm,
         box_w_cm=box_w_cm,
     )
-    try: 
+    try:
         tpl.render(rendered_context)
         tpl.save(output_path)
         return str(output_path)
     except Exception as e:
         raise ValueError(f"Failed to render or save document: {e}")
+
 
 def _fallback_to_none_doc(
     obj: tuple[CompositeFilter | None, str] | SkipSentinel,
@@ -741,6 +740,7 @@ class GroupedDoc:
         # update views (later views override same view key)
         self.views.update(other.views)
         return self
+
 
 @task
 def merge_docx_files(
@@ -807,10 +807,13 @@ def merge_docx_files(
     composer.save(str(output_path))
     return str(output_path)
 
+
 @task
 def get_split_group_names(
-    split_data: Annotated[list[tuple[CompositeFilter, Any]],
-    Field(description="Output from split_groups: [(CompositeFilter, df), ...]"),],
+    split_data: Annotated[
+        list[tuple[CompositeFilter, Any]],
+        Field(description="Output from split_groups: [(CompositeFilter, df), ...]"),
+    ],
 ) -> list[str]:
     """
     Extract the first grouper value from each split group.
@@ -832,10 +835,13 @@ def get_split_group_names(
             names.append("Unknown")
     return names
 
-@task 
+
+@task
 def get_split_group_column(
-    split_data: Annotated[list[tuple[CompositeFilter, Any]],
-    Field(description="Output from split_groups: [(CompositeFilter, df), ...]"),],
+    split_data: Annotated[
+        list[tuple[CompositeFilter, Any]],
+        Field(description="Output from split_groups: [(CompositeFilter, df), ...]"),
+    ],
 ) -> str | None:
     """
     Extract the column name used for the first split.
@@ -849,10 +855,10 @@ def get_split_group_column(
     """
     if not split_data:
         return None
-    
+
     # Get the first composite filter
     composite_filter, _ = split_data[0]
-    
+
     if composite_filter:
         # Extract column name from the first filter tuple
         column_name, _, _ = composite_filter[0]
@@ -860,10 +866,13 @@ def get_split_group_column(
     print(f"column name: {column_name}")
     return None
 
-@task 
+
+@task
 def get_split_group_values(
-    split_data: Annotated[list[tuple[CompositeFilter, Any]],
-    Field(description="Output from split_groups: [(CompositeFilter, df), ...]"),],
+    split_data: Annotated[
+        list[tuple[CompositeFilter, Any]],
+        Field(description="Output from split_groups: [(CompositeFilter, df), ...]"),
+    ],
 ) -> list[dict[str, Any]]:
     """
     Extract all grouper values from each split group as dictionaries.
@@ -884,12 +893,12 @@ def get_split_group_values(
         print(f"values list: {values_list}")
     return values_list
 
+
 def prepare_context_for_template(
     context: Any,
     template: DocxTemplate,
     box_h_cm: float = 6.5,
     box_w_cm: float = 11.11,
-    
 ) -> dict:
     result = {}
 
@@ -918,18 +927,19 @@ def prepare_context_for_template(
 
     return result
 
+
 @task
 def create_report_context_from_tuple(
     grouper_type: str,
     grouper_eq: str,
     grouper_value: str,
     grid_area: float,
-    mcp_area: float, 
+    mcp_area: float,
     movement_tracks_ecomap: str,
     home_range_ecomap: str,
     speed_raster_ecomap: str,
-    night_day_ecomap: str, 
-    speedmap: str, 
+    night_day_ecomap: str,
+    speedmap: str,
     seasonal_homerange: str,
     subject_name: str,
 ) -> MapbookContext:
@@ -949,5 +959,5 @@ def create_report_context_from_tuple(
         night_day_ecomap=night_day_ecomap,
         speedmap=speedmap,
         seasonal_homerange=seasonal_homerange,
-        subject_name=subject_name
+        subject_name=subject_name,
     )

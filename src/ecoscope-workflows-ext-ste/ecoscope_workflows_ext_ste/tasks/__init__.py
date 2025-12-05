@@ -30,7 +30,6 @@ from ._ste_utils import (
     get_split_group_names,
     get_split_group_column,
     create_report_context_from_tuple,
-    
 )
 from ._example import add_one_thousand
 from ._downloader import fetch_and_persist_file
@@ -50,7 +49,6 @@ __all__ = [
     "detect_geometry_type",
     "annotate_gdf_dict_with_geometry_type",
     "create_map_layers_from_annotated_dict",
-    
     # _ste_utils
     "create_report_context_from_tuple",
     "get_split_group_column",
@@ -69,22 +67,17 @@ __all__ = [
     "create_mapbook_context",
     "merge_docx_files",
     "round_off_values",
-    
     # _downloader
     "fetch_and_persist_file",
-    
     # _tabular
     "split_gdf_by_column",
     "generate_mcp_gdf",
-    
     # _zip
     "zip_grouped_by_key",
     "flatten_tuple",
     "zip_lists",
-    
     # _example
     "add_one_thousand",
-    
     # _filter
     "filter_by_value",
     "exclude_by_value",
