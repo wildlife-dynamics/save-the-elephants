@@ -1587,7 +1587,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 20000
+        wait_for_timeout: 40000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.persist_speed_ecomap_urls.return }}
@@ -1599,7 +1599,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 20000
+        wait_for_timeout: 40000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.persist_day_night_ecomap_urls.return }}
@@ -1611,7 +1611,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
-        wait_for_timeout: 20000
+        wait_for_timeout: 40000
     mapvalues:
       argnames: html_path 
       argvalues: ${{ workflow.persist_quarter_ecomap_urls.return }}
@@ -1623,7 +1623,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 20000
+        wait_for_timeout: 40000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.persist_hr_ecomap_urls.return }}
@@ -1635,7 +1635,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 20000
+        wait_for_timeout: 40000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.speed_raster_ecomap_urls.return }}
@@ -1647,7 +1647,7 @@ workflow:
     partial:
       output_dir : ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config:
-        wait_for_timeout: 20000
+        wait_for_timeout: 40000
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}

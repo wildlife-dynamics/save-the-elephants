@@ -3197,7 +3197,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "config": {"wait_for_timeout": 20000},
+                "config": {"wait_for_timeout": 40000},
             }
             | (params_dict.get("convert_speedmap_html_to_png") or {}),
             method="mapvalues",
@@ -3221,7 +3221,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "config": {"wait_for_timeout": 20000},
+                "config": {"wait_for_timeout": 40000},
             }
             | (params_dict.get("convert_day_night_html_to_png") or {}),
             method="mapvalues",
@@ -3245,7 +3245,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "config": {"wait_for_timeout": 20000},
+                "config": {"wait_for_timeout": 40000},
             }
             | (params_dict.get("convert_quarter_html_to_png") or {}),
             method="mapvalues",
@@ -3269,7 +3269,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "config": {"wait_for_timeout": 20000},
+                "config": {"wait_for_timeout": 40000},
             }
             | (params_dict.get("convert_hr_html_to_png") or {}),
             method="mapvalues",
@@ -3293,7 +3293,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "config": {"wait_for_timeout": 20000},
+                "config": {"wait_for_timeout": 40000},
             }
             | (params_dict.get("convert_speed_raster_html_to_png") or {}),
             method="mapvalues",
@@ -3317,7 +3317,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "config": {"wait_for_timeout": 20000},
+                "config": {"wait_for_timeout": 40000},
             }
             | (params_dict.get("convert_seasonal_hr_html_to_png") or {}),
             method="mapvalues",
