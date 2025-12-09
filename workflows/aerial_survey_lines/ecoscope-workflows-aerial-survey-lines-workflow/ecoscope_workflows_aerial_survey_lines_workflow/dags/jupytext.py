@@ -12,32 +12,39 @@
 
 import os
 
-from ecoscope_workflows_core.tasks.config import set_workflow_details
-from ecoscope_workflows_core.tasks.filter import set_time_range
-from ecoscope_workflows_core.tasks.groupby import set_groupers
-from ecoscope_workflows_core.tasks.io import persist_text
+from ecoscope_workflows_core.tasks.config import (
+    set_workflow_details as set_workflow_details,
+)
+from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
+from ecoscope_workflows_core.tasks.groupby import set_groupers as set_groupers
+from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.results import (
-    create_map_widget_single_view,
-    gather_dashboard,
+    create_map_widget_single_view as create_map_widget_single_view,
 )
-from ecoscope_workflows_ext_ecoscope.tasks.io import download_roi, persist_df
+from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
+from ecoscope_workflows_core.tasks.skip import (
+    any_dependency_skipped as any_dependency_skipped,
+)
+from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
+from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
+from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
 from ecoscope_workflows_ext_ecoscope.tasks.results import (
-    create_polyline_layer,
-    draw_ecomap,
-    set_base_maps,
+    create_polyline_layer as create_polyline_layer,
 )
+from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap as draw_ecomap
+from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps as set_base_maps
 from ecoscope_workflows_ext_ste.tasks import (
-    create_view_state_from_gdf,
-    generate_survey_lines,
+    generate_survey_lines as generate_survey_lines,
 )
+from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 
 # %% [markdown]
-# ## Initialize Workflow Metadata
+# ## Set workflow details
 
 # %%
 # parameters
 
-initialize_workflow_metadata_params = dict(
+workflow_details_params = dict(
     name=...,
     description=...,
     image_url=...,
@@ -47,43 +54,69 @@ initialize_workflow_metadata_params = dict(
 # call the task
 
 
-initialize_workflow_metadata = (
-    set_workflow_details.handle_errors(task_instance_id="initialize_workflow_metadata")
-    .partial(**initialize_workflow_metadata_params)
+workflow_details = (
+    set_workflow_details.set_task_instance_id("workflow_details")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(**workflow_details_params)
     .call()
 )
 
 
 # %% [markdown]
-# ## Define Time Range
+# ## Time range
 
 # %%
 # parameters
 
-define_time_range_params = dict(
+time_range_params = dict(
     since=...,
     until=...,
-    timezone=...,
 )
 
 # %%
 # call the task
 
 
-define_time_range = (
-    set_time_range.handle_errors(task_instance_id="define_time_range")
-    .partial(time_format="%d %b %Y %H:%M:%S %Z", **define_time_range_params)
+time_range = (
+    set_time_range.set_task_instance_id("time_range")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        time_format="%d %b %Y %H:%M:%S %Z",
+        timezone={
+            "label": "UTC",
+            "tzCode": "UTC",
+            "name": "UTC",
+            "utc_offset": "+00:00",
+        },
+        **time_range_params,
+    )
     .call()
 )
 
 
 # %% [markdown]
-# ## Configure Grouping Strategy
+# ## Set groupers
 
 # %%
 # parameters
 
-configure_grouping_strategy_params = dict(
+groupers_params = dict(
     groupers=...,
 )
 
@@ -91,15 +124,24 @@ configure_grouping_strategy_params = dict(
 # call the task
 
 
-configure_grouping_strategy = (
-    set_groupers.handle_errors(task_instance_id="configure_grouping_strategy")
-    .partial(**configure_grouping_strategy_params)
+groupers = (
+    set_groupers.set_task_instance_id("groupers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(**groupers_params)
     .call()
 )
 
 
 # %% [markdown]
-# ## Configure Base Map Layers
+# ## Configure base map layers
 
 # %%
 # parameters
@@ -113,29 +155,83 @@ configure_base_maps_params = dict(
 
 
 configure_base_maps = (
-    set_base_maps.handle_errors(task_instance_id="configure_base_maps")
+    set_base_maps.set_task_instance_id("configure_base_maps")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(**configure_base_maps_params)
     .call()
 )
 
 
 # %% [markdown]
-# ## Download Region of Interest (ROI)
+# ## Retrieve input from get shapefile
 
 # %%
 # parameters
 
-fetch_roi_layer_params = dict(
-    url=...,
+retrieve_file_params_params = dict(
+    input_method=...,
 )
 
 # %%
 # call the task
 
 
-fetch_roi_layer = (
-    download_roi.handle_errors(task_instance_id="fetch_roi_layer")
-    .partial(roi_column=None, roi_name=None, layer_name=None, **fetch_roi_layer_params)
+retrieve_file_params = (
+    get_file_path.set_task_instance_id("retrieve_file_params")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        **retrieve_file_params_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## load gdf
+
+# %%
+# parameters
+
+load_gdf_params = dict()
+
+# %%
+# call the task
+
+
+load_gdf = (
+    load_df.set_task_instance_id("load_gdf")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        file_path=retrieve_file_params,
+        layer=None,
+        deserialize_json=False,
+        **load_gdf_params,
+    )
     .call()
 )
 
@@ -156,31 +252,48 @@ draw_survey_lines_params = dict(
 
 
 draw_survey_lines = (
-    generate_survey_lines.handle_errors(task_instance_id="draw_survey_lines")
-    .partial(gdf=fetch_roi_layer, **draw_survey_lines_params)
+    generate_survey_lines.set_task_instance_id("draw_survey_lines")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(gdf=load_gdf, **draw_survey_lines_params)
     .call()
 )
 
 
 # %% [markdown]
-# ## Persist Aerial Survey as Geopackage
+# ## Persist aerial survey as geopackage
 
 # %%
 # parameters
 
-persist_aerial_gdf_params = dict(
-    filename=...,
-)
+persist_aerial_gdf_params = dict()
 
 # %%
 # call the task
 
 
 persist_aerial_gdf = (
-    persist_df.handle_errors(task_instance_id="persist_aerial_gdf")
+    persist_df.set_task_instance_id("persist_aerial_gdf")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
-        df=draw_survey_lines,
         filetype="gpkg",
+        filename="aerial_survey",
+        df=draw_survey_lines,
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         **persist_aerial_gdf_params,
     )
@@ -189,26 +302,34 @@ persist_aerial_gdf = (
 
 
 # %% [markdown]
-# ## Persist Aerial Survey as Geoparquet
+# ## Persist aerial survey as geoparquet
 
 # %%
 # parameters
 
-persist_aerial_geoparquet_params = dict(
-    filename=...,
-)
+persist_aerial_gpq_params = dict()
 
 # %%
 # call the task
 
 
-persist_aerial_geoparquet = (
-    persist_df.handle_errors(task_instance_id="persist_aerial_geoparquet")
+persist_aerial_gpq = (
+    persist_df.set_task_instance_id("persist_aerial_gpq")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
-        df=draw_survey_lines,
         filetype="geoparquet",
+        filename="aerial_survey",
+        df=draw_survey_lines,
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        **persist_aerial_geoparquet_params,
+        **persist_aerial_gpq_params,
     )
     .call()
 )
@@ -229,7 +350,16 @@ aerial_survey_polylines_params = dict(
 
 
 aerial_survey_polylines = (
-    create_polyline_layer.handle_errors(task_instance_id="aerial_survey_polylines")
+    create_polyline_layer.set_task_instance_id("aerial_survey_polylines")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         layer_style={
             "get_width": 1.5,
@@ -242,25 +372,6 @@ aerial_survey_polylines = (
         geodataframe=draw_survey_lines,
         **aerial_survey_polylines_params,
     )
-    .call()
-)
-
-
-# %% [markdown]
-# ## zoom by view state
-
-# %%
-# parameters
-
-zoom_view_state_params = dict()
-
-# %%
-# call the task
-
-
-zoom_view_state = (
-    create_view_state_from_gdf.handle_errors(task_instance_id="zoom_view_state")
-    .partial(pitch=0, bearing=0, gdf=draw_survey_lines, **zoom_view_state_params)
     .call()
 )
 
@@ -280,7 +391,16 @@ draw_aerial_survey_lines_ecomap_params = dict(
 
 
 draw_aerial_survey_lines_ecomap = (
-    draw_ecomap.handle_errors(task_instance_id="draw_aerial_survey_lines_ecomap")
+    draw_ecomap.set_task_instance_id("draw_aerial_survey_lines_ecomap")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         tile_layers=configure_base_maps,
         static=False,
@@ -289,7 +409,7 @@ draw_aerial_survey_lines_ecomap = (
         legend_style={"placement": "bottom-right", "title": "Aerial survey lines"},
         title=None,
         geo_layers=aerial_survey_polylines,
-        view_state=zoom_view_state,
+        view_state=None,
         **draw_aerial_survey_lines_ecomap_params,
     )
     .call()
@@ -303,7 +423,6 @@ draw_aerial_survey_lines_ecomap = (
 # parameters
 
 persist_ecomaps_params = dict(
-    filename=...,
     filename_suffix=...,
 )
 
@@ -312,10 +431,20 @@ persist_ecomaps_params = dict(
 
 
 persist_ecomaps = (
-    persist_text.handle_errors(task_instance_id="persist_ecomaps")
+    persist_text.set_task_instance_id("persist_ecomaps")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         text=draw_aerial_survey_lines_ecomap,
+        filename="aerial_survey.html",
         **persist_ecomaps_params,
     )
     .call()
@@ -337,8 +466,15 @@ create_aerial_widgets_params = dict(
 
 
 create_aerial_widgets = (
-    create_map_widget_single_view.handle_errors(
-        task_instance_id="create_aerial_widgets"
+    create_map_widget_single_view.set_task_instance_id("create_aerial_widgets")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
     )
     .partial(
         title="Aerial Survey Lines",
@@ -355,19 +491,30 @@ create_aerial_widgets = (
 # %%
 # parameters
 
-patrol_dashboard_params = dict()
+patrol_dashboard_params = dict(
+    warning=...,
+)
 
 # %%
 # call the task
 
 
 patrol_dashboard = (
-    gather_dashboard.handle_errors(task_instance_id="patrol_dashboard")
+    gather_dashboard.set_task_instance_id("patrol_dashboard")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
     .partial(
-        details=initialize_workflow_metadata,
+        details=workflow_details,
         widgets=create_aerial_widgets,
-        time_range=define_time_range,
-        groupers=configure_grouping_strategy,
+        time_range=time_range,
+        groupers=groupers,
         **patrol_dashboard_params,
     )
     .call()

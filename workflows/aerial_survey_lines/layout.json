@@ -5,9 +5,9 @@
         "y": 3,
         "widget_id": 0,
         "w": 10,
-        "h": 10,
-        "minW": 2,
-        "minH": 3,
+        "h": 15,
+        "minW": 5,
+        "minH": 5,
         "static": false
     }
 ]

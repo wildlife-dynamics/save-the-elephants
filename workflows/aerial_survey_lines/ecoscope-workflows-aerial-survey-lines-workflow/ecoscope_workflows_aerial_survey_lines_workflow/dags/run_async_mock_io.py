@@ -12,30 +12,32 @@ import os
 import warnings  # 🧪
 
 from ecoscope_workflows_core.graph import DependsOn, DependsOnSequence, Graph, Node
-from ecoscope_workflows_core.tasks.config import set_workflow_details
-from ecoscope_workflows_core.tasks.filter import set_time_range
-from ecoscope_workflows_core.tasks.groupby import set_groupers
-from ecoscope_workflows_core.testing import create_task_magicmock  # 🧪
-from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps
-
-download_roi = create_task_magicmock(  # 🧪
-    anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
-    func_name="download_roi",  # 🧪
-)  # 🧪
-from ecoscope_workflows_core.tasks.io import persist_text
+from ecoscope_workflows_core.tasks.config import (
+    set_workflow_details as set_workflow_details,
+)
+from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
+from ecoscope_workflows_core.tasks.groupby import set_groupers as set_groupers
+from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.results import (
-    create_map_widget_single_view,
-    gather_dashboard,
+    create_map_widget_single_view as create_map_widget_single_view,
 )
-from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
+from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
+from ecoscope_workflows_core.tasks.skip import (
+    any_dependency_skipped as any_dependency_skipped,
+)
+from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
+from ecoscope_workflows_core.testing import create_task_magicmock  # 🧪
+from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
+from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
 from ecoscope_workflows_ext_ecoscope.tasks.results import (
-    create_polyline_layer,
-    draw_ecomap,
+    create_polyline_layer as create_polyline_layer,
 )
+from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap as draw_ecomap
+from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps as set_base_maps
 from ecoscope_workflows_ext_ste.tasks import (
-    create_view_state_from_gdf,
-    generate_survey_lines,
+    generate_survey_lines as generate_survey_lines,
 )
+from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 
 from ..params import Params
 
@@ -46,112 +48,219 @@ def main(params: Params):
     params_dict = json.loads(params.model_dump_json(exclude_unset=True))
 
     dependencies = {
-        "initialize_workflow_metadata": [],
-        "define_time_range": [],
-        "configure_grouping_strategy": [],
+        "workflow_details": [],
+        "time_range": [],
+        "groupers": [],
         "configure_base_maps": [],
-        "fetch_roi_layer": [],
-        "draw_survey_lines": ["fetch_roi_layer"],
+        "retrieve_file_params": [],
+        "load_gdf": ["retrieve_file_params"],
+        "draw_survey_lines": ["load_gdf"],
         "persist_aerial_gdf": ["draw_survey_lines"],
-        "persist_aerial_geoparquet": ["draw_survey_lines"],
+        "persist_aerial_gpq": ["draw_survey_lines"],
         "aerial_survey_polylines": ["draw_survey_lines"],
-        "zoom_view_state": ["draw_survey_lines"],
         "draw_aerial_survey_lines_ecomap": [
             "configure_base_maps",
             "aerial_survey_polylines",
-            "zoom_view_state",
         ],
         "persist_ecomaps": ["draw_aerial_survey_lines_ecomap"],
         "create_aerial_widgets": ["persist_ecomaps"],
         "patrol_dashboard": [
-            "initialize_workflow_metadata",
+            "workflow_details",
             "create_aerial_widgets",
-            "define_time_range",
-            "configure_grouping_strategy",
+            "time_range",
+            "groupers",
         ],
     }
 
     nodes = {
-        "initialize_workflow_metadata": Node(
+        "workflow_details": Node(
             async_task=set_workflow_details.validate()
-            .handle_errors(task_instance_id="initialize_workflow_metadata")
+            .set_task_instance_id("workflow_details")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
-            partial=(params_dict.get("initialize_workflow_metadata") or {}),
+            partial=(params_dict.get("workflow_details") or {}),
             method="call",
         ),
-        "define_time_range": Node(
+        "time_range": Node(
             async_task=set_time_range.validate()
-            .handle_errors(task_instance_id="define_time_range")
+            .set_task_instance_id("time_range")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "time_format": "%d %b %Y %H:%M:%S %Z",
+                "timezone": {
+                    "label": "UTC",
+                    "tzCode": "UTC",
+                    "name": "UTC",
+                    "utc_offset": "+00:00",
+                },
             }
-            | (params_dict.get("define_time_range") or {}),
+            | (params_dict.get("time_range") or {}),
             method="call",
         ),
-        "configure_grouping_strategy": Node(
+        "groupers": Node(
             async_task=set_groupers.validate()
-            .handle_errors(task_instance_id="configure_grouping_strategy")
+            .set_task_instance_id("groupers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
-            partial=(params_dict.get("configure_grouping_strategy") or {}),
+            partial=(params_dict.get("groupers") or {}),
             method="call",
         ),
         "configure_base_maps": Node(
             async_task=set_base_maps.validate()
-            .handle_errors(task_instance_id="configure_base_maps")
+            .set_task_instance_id("configure_base_maps")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial=(params_dict.get("configure_base_maps") or {}),
             method="call",
         ),
-        "fetch_roi_layer": Node(
-            async_task=download_roi.validate()
-            .handle_errors(task_instance_id="fetch_roi_layer")
+        "retrieve_file_params": Node(
+            async_task=get_file_path.validate()
+            .set_task_instance_id("retrieve_file_params")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "roi_column": None,
-                "roi_name": None,
-                "layer_name": None,
+                "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             }
-            | (params_dict.get("fetch_roi_layer") or {}),
+            | (params_dict.get("retrieve_file_params") or {}),
+            method="call",
+        ),
+        "load_gdf": Node(
+            async_task=load_df.validate()
+            .set_task_instance_id("load_gdf")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "file_path": DependsOn("retrieve_file_params"),
+                "layer": None,
+                "deserialize_json": False,
+            }
+            | (params_dict.get("load_gdf") or {}),
             method="call",
         ),
         "draw_survey_lines": Node(
             async_task=generate_survey_lines.validate()
-            .handle_errors(task_instance_id="draw_survey_lines")
+            .set_task_instance_id("draw_survey_lines")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "gdf": DependsOn("fetch_roi_layer"),
+                "gdf": DependsOn("load_gdf"),
             }
             | (params_dict.get("draw_survey_lines") or {}),
             method="call",
         ),
         "persist_aerial_gdf": Node(
             async_task=persist_df.validate()
-            .handle_errors(task_instance_id="persist_aerial_gdf")
+            .set_task_instance_id("persist_aerial_gdf")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "df": DependsOn("draw_survey_lines"),
                 "filetype": "gpkg",
+                "filename": "aerial_survey",
+                "df": DependsOn("draw_survey_lines"),
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             }
             | (params_dict.get("persist_aerial_gdf") or {}),
             method="call",
         ),
-        "persist_aerial_geoparquet": Node(
+        "persist_aerial_gpq": Node(
             async_task=persist_df.validate()
-            .handle_errors(task_instance_id="persist_aerial_geoparquet")
+            .set_task_instance_id("persist_aerial_gpq")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "df": DependsOn("draw_survey_lines"),
                 "filetype": "geoparquet",
+                "filename": "aerial_survey",
+                "df": DependsOn("draw_survey_lines"),
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             }
-            | (params_dict.get("persist_aerial_geoparquet") or {}),
+            | (params_dict.get("persist_aerial_gpq") or {}),
             method="call",
         ),
         "aerial_survey_polylines": Node(
             async_task=create_polyline_layer.validate()
-            .handle_errors(task_instance_id="aerial_survey_polylines")
+            .set_task_instance_id("aerial_survey_polylines")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "layer_style": {
@@ -167,21 +276,18 @@ def main(params: Params):
             | (params_dict.get("aerial_survey_polylines") or {}),
             method="call",
         ),
-        "zoom_view_state": Node(
-            async_task=create_view_state_from_gdf.validate()
-            .handle_errors(task_instance_id="zoom_view_state")
-            .set_executor("lithops"),
-            partial={
-                "pitch": 0,
-                "bearing": 0,
-                "gdf": DependsOn("draw_survey_lines"),
-            }
-            | (params_dict.get("zoom_view_state") or {}),
-            method="call",
-        ),
         "draw_aerial_survey_lines_ecomap": Node(
             async_task=draw_ecomap.validate()
-            .handle_errors(task_instance_id="draw_aerial_survey_lines_ecomap")
+            .set_task_instance_id("draw_aerial_survey_lines_ecomap")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "tile_layers": DependsOn("configure_base_maps"),
@@ -194,25 +300,44 @@ def main(params: Params):
                 },
                 "title": None,
                 "geo_layers": DependsOn("aerial_survey_polylines"),
-                "view_state": DependsOn("zoom_view_state"),
+                "view_state": None,
             }
             | (params_dict.get("draw_aerial_survey_lines_ecomap") or {}),
             method="call",
         ),
         "persist_ecomaps": Node(
             async_task=persist_text.validate()
-            .handle_errors(task_instance_id="persist_ecomaps")
+            .set_task_instance_id("persist_ecomaps")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "text": DependsOn("draw_aerial_survey_lines_ecomap"),
+                "filename": "aerial_survey.html",
             }
             | (params_dict.get("persist_ecomaps") or {}),
             method="call",
         ),
         "create_aerial_widgets": Node(
             async_task=create_map_widget_single_view.validate()
-            .handle_errors(task_instance_id="create_aerial_widgets")
+            .set_task_instance_id("create_aerial_widgets")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
                 "title": "Aerial Survey Lines",
@@ -223,13 +348,22 @@ def main(params: Params):
         ),
         "patrol_dashboard": Node(
             async_task=gather_dashboard.validate()
-            .handle_errors(task_instance_id="patrol_dashboard")
+            .set_task_instance_id("patrol_dashboard")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
             .set_executor("lithops"),
             partial={
-                "details": DependsOn("initialize_workflow_metadata"),
+                "details": DependsOn("workflow_details"),
                 "widgets": DependsOn("create_aerial_widgets"),
-                "time_range": DependsOn("define_time_range"),
-                "groupers": DependsOn("configure_grouping_strategy"),
+                "time_range": DependsOn("time_range"),
+                "groupers": DependsOn("groupers"),
             }
             | (params_dict.get("patrol_dashboard") or {}),
             method="call",

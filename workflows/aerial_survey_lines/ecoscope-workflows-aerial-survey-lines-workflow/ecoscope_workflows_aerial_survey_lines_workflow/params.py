@@ -10,12 +10,20 @@ from typing import List, Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, RootModel, confloat, constr
 
 
-class InitializeWorkflowMetadata(BaseModel):
+class WorkflowDetails(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     name: str = Field(..., title="Workflow Name")
     description: Optional[str] = Field("", title="Workflow Description")
+
+
+class TimeRange(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    since: datetime = Field(..., description="The start time", title="Since")
+    until: datetime = Field(..., description="The end time", title="Until")
 
 
 class Url(str, Enum):
@@ -184,51 +192,51 @@ class ConfigureBaseMaps(BaseModel):
     )
 
 
-class FetchRoiLayer(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    url: str = Field(..., description="The path to ROI gpkg file", title="Url")
-
-
 class Direction(str, Enum):
-    N_S = "N-S"
-    E_W = "E-W"
+    North_South = "North South"
+    East_West = "East West"
 
 
 class DrawSurveyLines(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    direction: Optional[Direction] = Field("N-S", title="Direction")
+    direction: Optional[Direction] = Field("NorthSouth", title="Direction")
     spacing: Optional[int] = Field(500, title="Spacing")
 
 
-class TimezoneInfo(BaseModel):
-    label: str = Field(..., title="Label")
-    tzCode: str = Field(..., title="Tzcode")
-    name: str = Field(..., title="Name")
-    utc: str = Field(..., title="Utc")
-
-
-class TemporalGrouper(RootModel[str]):
-    root: str = Field(..., title="Time")
+class TemporalGrouper(str, Enum):
+    field_Y = "%Y"
+    field_B = "%B"
+    field_Y__m = "%Y-%m"
+    field_j = "%j"
+    field_d = "%d"
+    field_A = "%A"
+    field_H = "%H"
+    field_Y__m__d = "%Y-%m-%d"
 
 
 class ValueGrouper(RootModel[str]):
     root: str = Field(..., title="Category")
 
 
-class DefineTimeRange(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
+class DownloadFile(BaseModel):
+    url: str = Field(
+        ...,
+        description="URL to download the shapefile from (supports .gpkg, .shp and .geoparquet)",
+        title="URL",
     )
-    since: datetime = Field(..., description="The start time", title="Since")
-    until: datetime = Field(..., description="The end time", title="Until")
-    timezone: Optional[TimezoneInfo] = Field(None, title="Timezone")
 
 
-class ConfigureGroupingStrategy(BaseModel):
+class LocalFile(BaseModel):
+    file_path: str = Field(
+        ...,
+        description="Path to the local shapefile or archive on the filesystem",
+        title="Local file path",
+    )
+
+
+class Groupers(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -239,28 +247,31 @@ class ConfigureGroupingStrategy(BaseModel):
     )
 
 
+class RetrieveFileParams(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    input_method: Union[DownloadFile, LocalFile] = Field(..., title="Input Method")
+
+
 class Params(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    initialize_workflow_metadata: Optional[InitializeWorkflowMetadata] = Field(
+    workflow_details: Optional[WorkflowDetails] = Field(
         None,
         description="Add information that will help to differentiate this workflow from another.",
-        title="Initialize Workflow Metadata",
+        title="Set workflow details",
     )
-    define_time_range: Optional[DefineTimeRange] = Field(
-        None,
-        description="Choose the period of time to analyze.",
-        title="Define Time Range",
+    time_range: Optional[TimeRange] = Field(
+        None, description="Choose the period of time to analyze.", title="Time range"
     )
-    configure_grouping_strategy: Optional[ConfigureGroupingStrategy] = Field(
-        None, title="Configure Grouping Strategy"
-    )
+    groupers: Optional[Groupers] = Field(None, title="Set groupers")
     configure_base_maps: Optional[ConfigureBaseMaps] = Field(
-        None, title="Configure Base Map Layers"
+        None, title="Configure base map layers"
     )
-    fetch_roi_layer: Optional[FetchRoiLayer] = Field(
-        None, title="Download Region of Interest (ROI)"
+    retrieve_file_params: Optional[RetrieveFileParams] = Field(
+        None, title="Retrieve input from get shapefile"
     )
     draw_survey_lines: Optional[DrawSurveyLines] = Field(
         None, title="Draw Aerial Survey Lines"

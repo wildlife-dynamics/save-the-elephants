@@ -11,30 +11,32 @@ import json
 import os
 import warnings  # 🧪
 
-from ecoscope_workflows_core.tasks.config import set_workflow_details
-from ecoscope_workflows_core.tasks.filter import set_time_range
-from ecoscope_workflows_core.tasks.groupby import set_groupers
-from ecoscope_workflows_core.testing import create_task_magicmock  # 🧪
-from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps
-
-download_roi = create_task_magicmock(  # 🧪
-    anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
-    func_name="download_roi",  # 🧪
-)  # 🧪
-from ecoscope_workflows_core.tasks.io import persist_text
+from ecoscope_workflows_core.tasks.config import (
+    set_workflow_details as set_workflow_details,
+)
+from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
+from ecoscope_workflows_core.tasks.groupby import set_groupers as set_groupers
+from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.results import (
-    create_map_widget_single_view,
-    gather_dashboard,
+    create_map_widget_single_view as create_map_widget_single_view,
 )
-from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df
+from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
+from ecoscope_workflows_core.tasks.skip import (
+    any_dependency_skipped as any_dependency_skipped,
+)
+from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
+from ecoscope_workflows_core.testing import create_task_magicmock  # 🧪
+from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
+from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
 from ecoscope_workflows_ext_ecoscope.tasks.results import (
-    create_polyline_layer,
-    draw_ecomap,
+    create_polyline_layer as create_polyline_layer,
 )
+from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap as draw_ecomap
+from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps as set_base_maps
 from ecoscope_workflows_ext_ste.tasks import (
-    create_view_state_from_gdf,
-    generate_survey_lines,
+    generate_survey_lines as generate_survey_lines,
 )
+from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 
 from ..params import Params
 
@@ -44,83 +46,191 @@ def main(params: Params):
 
     params_dict = json.loads(params.model_dump_json(exclude_unset=True))
 
-    initialize_workflow_metadata = (
+    workflow_details = (
         set_workflow_details.validate()
-        .handle_errors(task_instance_id="initialize_workflow_metadata")
-        .partial(**(params_dict.get("initialize_workflow_metadata") or {}))
+        .set_task_instance_id("workflow_details")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params_dict.get("workflow_details") or {}))
         .call()
     )
 
-    define_time_range = (
+    time_range = (
         set_time_range.validate()
-        .handle_errors(task_instance_id="define_time_range")
+        .set_task_instance_id("time_range")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
         .partial(
             time_format="%d %b %Y %H:%M:%S %Z",
-            **(params_dict.get("define_time_range") or {}),
+            timezone={
+                "label": "UTC",
+                "tzCode": "UTC",
+                "name": "UTC",
+                "utc_offset": "+00:00",
+            },
+            **(params_dict.get("time_range") or {}),
         )
         .call()
     )
 
-    configure_grouping_strategy = (
+    groupers = (
         set_groupers.validate()
-        .handle_errors(task_instance_id="configure_grouping_strategy")
-        .partial(**(params_dict.get("configure_grouping_strategy") or {}))
+        .set_task_instance_id("groupers")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params_dict.get("groupers") or {}))
         .call()
     )
 
     configure_base_maps = (
         set_base_maps.validate()
-        .handle_errors(task_instance_id="configure_base_maps")
+        .set_task_instance_id("configure_base_maps")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
         .partial(**(params_dict.get("configure_base_maps") or {}))
         .call()
     )
 
-    fetch_roi_layer = (
-        download_roi.validate()
-        .handle_errors(task_instance_id="fetch_roi_layer")
+    retrieve_file_params = (
+        get_file_path.validate()
+        .set_task_instance_id("retrieve_file_params")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
         .partial(
-            roi_column=None,
-            roi_name=None,
-            layer_name=None,
-            **(params_dict.get("fetch_roi_layer") or {}),
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            **(params_dict.get("retrieve_file_params") or {}),
+        )
+        .call()
+    )
+
+    load_gdf = (
+        load_df.validate()
+        .set_task_instance_id("load_gdf")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            file_path=retrieve_file_params,
+            layer=None,
+            deserialize_json=False,
+            **(params_dict.get("load_gdf") or {}),
         )
         .call()
     )
 
     draw_survey_lines = (
         generate_survey_lines.validate()
-        .handle_errors(task_instance_id="draw_survey_lines")
-        .partial(gdf=fetch_roi_layer, **(params_dict.get("draw_survey_lines") or {}))
+        .set_task_instance_id("draw_survey_lines")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(gdf=load_gdf, **(params_dict.get("draw_survey_lines") or {}))
         .call()
     )
 
     persist_aerial_gdf = (
         persist_df.validate()
-        .handle_errors(task_instance_id="persist_aerial_gdf")
+        .set_task_instance_id("persist_aerial_gdf")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
         .partial(
-            df=draw_survey_lines,
             filetype="gpkg",
+            filename="aerial_survey",
+            df=draw_survey_lines,
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             **(params_dict.get("persist_aerial_gdf") or {}),
         )
         .call()
     )
 
-    persist_aerial_geoparquet = (
+    persist_aerial_gpq = (
         persist_df.validate()
-        .handle_errors(task_instance_id="persist_aerial_geoparquet")
+        .set_task_instance_id("persist_aerial_gpq")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
         .partial(
-            df=draw_survey_lines,
             filetype="geoparquet",
+            filename="aerial_survey",
+            df=draw_survey_lines,
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            **(params_dict.get("persist_aerial_geoparquet") or {}),
+            **(params_dict.get("persist_aerial_gpq") or {}),
         )
         .call()
     )
 
     aerial_survey_polylines = (
         create_polyline_layer.validate()
-        .handle_errors(task_instance_id="aerial_survey_polylines")
+        .set_task_instance_id("aerial_survey_polylines")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
         .partial(
             layer_style={
                 "get_width": 1.5,
@@ -136,21 +246,18 @@ def main(params: Params):
         .call()
     )
 
-    zoom_view_state = (
-        create_view_state_from_gdf.validate()
-        .handle_errors(task_instance_id="zoom_view_state")
-        .partial(
-            pitch=0,
-            bearing=0,
-            gdf=draw_survey_lines,
-            **(params_dict.get("zoom_view_state") or {}),
-        )
-        .call()
-    )
-
     draw_aerial_survey_lines_ecomap = (
         draw_ecomap.validate()
-        .handle_errors(task_instance_id="draw_aerial_survey_lines_ecomap")
+        .set_task_instance_id("draw_aerial_survey_lines_ecomap")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
         .partial(
             tile_layers=configure_base_maps,
             static=False,
@@ -159,7 +266,7 @@ def main(params: Params):
             legend_style={"placement": "bottom-right", "title": "Aerial survey lines"},
             title=None,
             geo_layers=aerial_survey_polylines,
-            view_state=zoom_view_state,
+            view_state=None,
             **(params_dict.get("draw_aerial_survey_lines_ecomap") or {}),
         )
         .call()
@@ -167,10 +274,20 @@ def main(params: Params):
 
     persist_ecomaps = (
         persist_text.validate()
-        .handle_errors(task_instance_id="persist_ecomaps")
+        .set_task_instance_id("persist_ecomaps")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             text=draw_aerial_survey_lines_ecomap,
+            filename="aerial_survey.html",
             **(params_dict.get("persist_ecomaps") or {}),
         )
         .call()
@@ -178,7 +295,16 @@ def main(params: Params):
 
     create_aerial_widgets = (
         create_map_widget_single_view.validate()
-        .handle_errors(task_instance_id="create_aerial_widgets")
+        .set_task_instance_id("create_aerial_widgets")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
         .partial(
             title="Aerial Survey Lines",
             data=persist_ecomaps,
@@ -189,12 +315,21 @@ def main(params: Params):
 
     patrol_dashboard = (
         gather_dashboard.validate()
-        .handle_errors(task_instance_id="patrol_dashboard")
+        .set_task_instance_id("patrol_dashboard")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
         .partial(
-            details=initialize_workflow_metadata,
+            details=workflow_details,
             widgets=create_aerial_widgets,
-            time_range=define_time_range,
-            groupers=configure_grouping_strategy,
+            time_range=time_range,
+            groupers=groupers,
             **(params_dict.get("patrol_dashboard") or {}),
         )
         .call()

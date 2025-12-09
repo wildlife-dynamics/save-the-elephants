@@ -2,63 +2,90 @@ id: aerial_survey_lines
 
 requirements:
   - name: ecoscope-workflows-core
-    version: "0.14.0.*"
+    version: "0.19.0.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
+
+  - name: ecoscope-workflows-ext-ecoscope
+    version: "0.19.0.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows/
+
+  - name: ecoscope-workflows-ext-custom
+    version: "0.0.7.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
   - name: ecoscope-workflows-ext-ste
     version: "*"
     channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
 
+task-instance-defaults:
+  skipif:
+    conditions:
+      - any_is_empty_df
+      - any_dependency_skipped
+
 workflow:
-  - name: Initialize Workflow Metadata
-    id: initialize_workflow_metadata
+  - name: Set workflow details
+    id: workflow_details
     task: set_workflow_details
 
   # define workflow time range
-  - name: Define Time Range
-    id: define_time_range
+  - name: Time range
+    id: time_range
     task: set_time_range
     partial:
       time_format: "%d %b %Y %H:%M:%S %Z"
+      timezone: 
+        label: UTC 
+        tzCode: UTC 
+        name: UTC 
+        utc_offset: "+00:00"
 
-  # configure dynamic grouping strategy --> [], column value, or temporal
-  - name: Configure Grouping Strategy
-    id: configure_grouping_strategy
+  - name: Set groupers
+    id: groupers
     task: set_groupers
 
-  # define base map layers
-  - name: Configure Base Map Layers
+  - name: Configure base map layers
     id: configure_base_maps
     task: set_base_maps
 
-  - name: Download Region of Interest (ROI)
-    id: fetch_roi_layer
-    task: download_roi
+  - name: Retrieve input from get shapefile 
+    id: retrieve_file_params
+    task: get_file_path
+    partial: 
+      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      
+  - name: load gdf 
+    id: load_gdf 
+    task: load_df 
     partial:
-      roi_column: null
-      roi_name: null
-      layer_name: null
+      file_path: ${{ workflow.retrieve_file_params.return }}
+      layer: null
+      deserialize_json: false
 
   - name: Draw Aerial Survey Lines
     id: draw_survey_lines
     task: generate_survey_lines
     partial:
-      gdf: ${{ workflow.fetch_roi_layer.return }}
+      gdf: ${{ workflow.load_gdf.return }}
 
-  - name: Persist Aerial Survey as Geopackage
+  - name: Persist aerial survey as geopackage
     id: persist_aerial_gdf
     task: persist_df
     partial:
-      df: ${{ workflow.draw_survey_lines.return }}
       filetype: "gpkg"
+      filename: aerial_survey
+      df: ${{ workflow.draw_survey_lines.return }}
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
-  - name: Persist Aerial Survey as Geoparquet
-    id: persist_aerial_geoparquet
+  - name: Persist aerial survey as geoparquet
+    id: persist_aerial_gpq
     task: persist_df
     partial:
-      df: ${{ workflow.draw_survey_lines.return }}
       filetype: "geoparquet"
+      filename: aerial_survey
+      df: ${{ workflow.draw_survey_lines.return }}
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
 
   - name: Create Aerial Survey Lines
     id: aerial_survey_polylines
@@ -77,14 +104,6 @@ workflow:
       tooltip_columns: []
       geodataframe: ${{ workflow.draw_survey_lines.return }}
 
-  # Dynamically zoom map to layer of interest
-  - name: zoom by view state
-    id: zoom_view_state
-    task: create_view_state_from_gdf
-    partial:
-      pitch: 0
-      bearing: 0
-      gdf: ${{ workflow.draw_survey_lines.return }}
 
   - name: Draw Aerial Survey Lines Ecomap
     id: draw_aerial_survey_lines_ecomap
@@ -100,7 +119,7 @@ workflow:
         title: Aerial survey lines
       title: null
       geo_layers: ${{ workflow.aerial_survey_polylines.return }}
-      view_state: ${{ workflow.zoom_view_state.return }}
+      view_state: null
 
   - name: Persist Ecomaps
     id: persist_ecomaps
@@ -108,6 +127,7 @@ workflow:
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       text: ${{ workflow.draw_aerial_survey_lines_ecomap.return }}
+      filename: aerial_survey.html
   
   - name: Create Ecomap Widgets
     id: create_aerial_widgets
@@ -120,7 +140,7 @@ workflow:
     id: patrol_dashboard
     task: gather_dashboard
     partial:
-      details: ${{ workflow.initialize_workflow_metadata.return }}
+      details: ${{ workflow.workflow_details.return }}
       widgets: ${{ workflow.create_aerial_widgets.return }}
-      time_range: ${{ workflow.define_time_range.return }}
-      groupers: ${{ workflow.configure_grouping_strategy.return }}
+      time_range: ${{ workflow.time_range.return }}
+      groupers: ${{ workflow.groupers.return }}

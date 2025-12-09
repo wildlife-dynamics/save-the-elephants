@@ -1,6 +1,6 @@
 {
   "properties": {
-    "initialize_workflow_metadata": {
+    "workflow_details": {
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -18,9 +18,9 @@
       ],
       "type": "object",
       "description": "Add information that will help to differentiate this workflow from another.",
-      "title": "Initialize Workflow Metadata"
+      "title": "Set workflow details"
     },
-    "define_time_range": {
+    "time_range": {
       "additionalProperties": false,
       "properties": {
         "since": {
@@ -34,15 +34,6 @@
           "title": "Until",
           "type": "string",
           "description": "The end time"
-        },
-        "timezone": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/TimezoneInfo"
-            }
-          ],
-          "default": null,
-          "title": "Timezone"
         }
       },
       "required": [
@@ -51,9 +42,9 @@
       ],
       "type": "object",
       "description": "Choose the period of time to analyze.",
-      "title": "Define Time Range"
+      "title": "Time range"
     },
-    "configure_grouping_strategy": {
+    "groupers": {
       "additionalProperties": false,
       "properties": {
         "groupers": {
@@ -76,7 +67,7 @@
       },
       "type": "object",
       "required": [],
-      "title": "Configure Grouping Strategy"
+      "title": "Set groupers"
     },
     "configure_base_maps": {
       "additionalProperties": false,
@@ -276,31 +267,37 @@
       },
       "type": "object",
       "required": [],
-      "title": "Configure Base Map Layers"
+      "title": "Configure base map layers"
     },
-    "fetch_roi_layer": {
+    "retrieve_file_params": {
       "additionalProperties": false,
       "properties": {
-        "url": {
-          "title": "Url",
-          "type": "string",
-          "description": "The path to ROI gpkg file"
+        "input_method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DownloadFile"
+            },
+            {
+              "$ref": "#/$defs/LocalFile"
+            }
+          ],
+          "title": "Input Method"
         }
       },
       "required": [
-        "url"
+        "input_method"
       ],
       "type": "object",
-      "title": "Download Region of Interest (ROI)"
+      "title": "Retrieve input from get shapefile"
     },
     "draw_survey_lines": {
       "additionalProperties": false,
       "properties": {
         "direction": {
-          "default": "N-S",
+          "default": "NorthSouth",
           "enum": [
-            "N-S",
-            "E-W"
+            "North South",
+            "East West"
           ],
           "title": "Direction",
           "type": "string"
@@ -317,34 +314,6 @@
     }
   },
   "$defs": {
-    "TimezoneInfo": {
-      "properties": {
-        "label": {
-          "title": "Label",
-          "type": "string"
-        },
-        "tzCode": {
-          "title": "Tzcode",
-          "type": "string"
-        },
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
-        "utc": {
-          "title": "Utc",
-          "type": "string"
-        }
-      },
-      "required": [
-        "label",
-        "tzCode",
-        "name",
-        "utc"
-      ],
-      "title": "TimezoneInfo",
-      "type": "object"
-    },
     "TemporalGrouper": {
       "oneOf": [
         {
@@ -387,20 +356,47 @@
       "oneOf": [],
       "title": "Category",
       "type": "string"
+    },
+    "DownloadFile": {
+      "properties": {
+        "url": {
+          "description": "URL to download the shapefile from (supports .gpkg, .shp and .geoparquet)",
+          "title": "URL",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "Download from URL",
+      "type": "object"
+    },
+    "LocalFile": {
+      "properties": {
+        "file_path": {
+          "description": "Path to the local shapefile or archive on the filesystem",
+          "title": "Local file path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "title": "Use local file",
+      "type": "object"
     }
   },
   "uiSchema": {
-    "initialize_workflow_metadata": {
+    "workflow_details": {
       "ui:order": [
         "name",
         "description"
       ]
     },
-    "define_time_range": {
+    "time_range": {
       "ui:order": [
         "since",
-        "until",
-        "timezone"
+        "until"
       ]
     },
     "draw_survey_lines": {
@@ -410,11 +406,11 @@
       ]
     },
     "ui:order": [
-      "initialize_workflow_metadata",
-      "define_time_range",
-      "configure_grouping_strategy",
+      "workflow_details",
+      "time_range",
+      "groupers",
       "configure_base_maps",
-      "fetch_roi_layer",
+      "retrieve_file_params",
       "draw_survey_lines"
     ]
   },

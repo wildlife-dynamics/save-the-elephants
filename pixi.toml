@@ -16,12 +16,15 @@ rattler-build = "*"
 yq = "*"
 hatch = "*"
 pip="*"
+hatch-vcs="*"
 
 [feature.compile.dependencies]
 # Include this if you add new tasks and the package has been built
 ecoscope-workflows-ext-ste = "*"
 
-ecoscope-workflows-core = "0.14.0.*"
+ecoscope-workflows-ext-custom = "0.0.7.*"
+ecoscope-workflows-core = "0.19.0.*"
+
 # Here we don't specify the channel on purpose, as we want to use the local channel if it exists,
 # otherwise we fall back to the remote channel.
 # If you want to ensure a specific channel to incorporate your local changes, you can uncomment the line below.
@@ -60,5 +63,5 @@ cmd = './dev/recompile.sh aerial_survey_lines --install'
 depends-on = ["build-release"]
 
 [feature.compile.tasks.recompile-aerial_survey_lines]
-cmd = './dev/recompile.sh aerial_survey_lines --update'
+cmd = './dev/recompile.sh aerial_survey_lines --no-install'
 depends-on = ["build-release"]
