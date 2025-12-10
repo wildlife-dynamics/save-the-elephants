@@ -1,4 +1,8 @@
 import os
+from pathlib import Path
+from typing import Annotated
+from ecoscope_workflows_core.decorators import task
+from pydantic import Field, FilePath, AfterValidator
 
 
 def normalize_file_url(path: str) -> str:
@@ -20,3 +24,24 @@ def normalize_file_url(path: str) -> str:
             path = "/" + path
 
     return path
+
+
+def validate_geo_file(path: Path) -> Path:
+    valid_formats = [".shp", ".gpkg", ".geoparquet"]
+    if path.suffix.lower() not in valid_formats:
+        raise ValueError(f"Invalid file format '{path.suffix}'. Allowed formats are: {', '.join(valid_formats)}")
+    return path
+
+
+@task
+def get_local_geo_path(
+    file_path: Annotated[
+        FilePath,
+        AfterValidator(validate_geo_file),
+        Field(description="Path to the geospatial file (shapefile, geopackage, or geoparquet)."),
+    ],
+) -> str:
+    # FilePath already validates the file exists, so we can normalize it
+    file_path_str = str(file_path)
+    normalized_path = normalize_file_url(file_path_str)
+    return normalized_path

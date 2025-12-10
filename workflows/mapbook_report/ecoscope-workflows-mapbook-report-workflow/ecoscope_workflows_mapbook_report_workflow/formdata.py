@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, confloat, constr
+from pydantic import BaseModel, ConfigDict, Field, confloat, constr
 
 
 class InitializeWorkflowMetadata(BaseModel):
@@ -207,12 +207,37 @@ class SubjectGroup(BaseModel):
     subject_observations: Optional[SubjectObservations] = Field(None, title="")
 
 
-class TemporalGrouper(RootModel[str]):
-    root: str = Field(..., title="Time")
+class TemporalGrouper(str, Enum):
+    field_Y = "%Y"
+    field_B = "%B"
+    field_Y__m = "%Y-%m"
+    field_j = "%j"
+    field_d = "%d"
+    field_A = "%A"
+    field_H = "%H"
+    field_Y__m__d = "%Y-%m-%d"
 
 
-class ValueGrouper(RootModel[str]):
-    root: str = Field(..., title="Category")
+class ValueGrouper(str, Enum):
+    subject_name = "subject_name"
+    subject_sex = "subject_sex"
+    subject_subtype = "subject_subtype"
+
+
+class DownloadFile(BaseModel):
+    url: str = Field(
+        ...,
+        description="URL to download the shapefile from (supports .gpkg, .shp and .geoparquet)",
+        title="URL",
+    )
+
+
+class LocalFile(BaseModel):
+    file_path: str = Field(
+        ...,
+        description="Path to the local shapefile or archive on the filesystem",
+        title="Local file path",
+    )
 
 
 class EarthRangerConnection(BaseModel):
@@ -253,6 +278,13 @@ class Groupers(BaseModel):
         description="            Specify how the data should be grouped to create the views for your dashboard.\n            This field is optional; if left blank, all the data will appear in a single view.\n            ",
         title=" ",
     )
+
+
+class RetrieveLdxDb(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    input_method: Union[DownloadFile, LocalFile] = Field(..., title="Input Method")
 
 
 class ErClientName(BaseModel):
@@ -310,6 +342,9 @@ class FormData(BaseModel):
     groupers: Optional[Groupers] = Field(None, title="Configure grouping strategy")
     configure_base_maps: Optional[ConfigureBaseMaps] = Field(
         None, title="Configure base map layers"
+    )
+    retrieve_ldx_db: Optional[RetrieveLdxDb] = Field(
+        None, title="Download /Load LandDx db"
     )
     er_client_name: Optional[ErClientName] = Field(None, title="Connect to ER instance")
     gee_project_name: Optional[GeeProjectName] = Field(None, title="Connect to EE")

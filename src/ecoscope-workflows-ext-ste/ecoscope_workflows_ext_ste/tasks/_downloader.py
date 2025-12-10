@@ -7,16 +7,44 @@ import email
 from pathlib import Path
 from pydantic import Field
 from urllib.parse import urlparse
-from typing import Annotated, Optional
 from ecoscope.io import download_file
-from ._path_utils import normalize_file_url
+from typing_extensions import TypeAlias
+from typing import Annotated, Union, Optional
+from pydantic import BaseModel, ConfigDict
 from ecoscope_workflows_core.decorators import task
+from ._path_utils import normalize_file_url, get_local_geo_path
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore")
 
 
-# upstream:?
+class DownloadFile(BaseModel):
+    model_config = ConfigDict(title="Download from URL")
+
+    url: Annotated[
+        str,
+        Field(
+            title="URL",
+            description="URL to download the shapefile from (supports .gpkg, .shp and .geoparquet)",
+        ),
+    ]
+
+
+class LocalFile(BaseModel):
+    model_config = ConfigDict(title="Use local file")
+
+    file_path: Annotated[
+        str,
+        Field(
+            title="Local file path",
+            description="Path to the local shapefile or archive on the filesystem",
+        ),
+    ]
+
+
+SelectPath: TypeAlias = Union[DownloadFile, LocalFile]
+
+
 @task
 def fetch_and_persist_file(
     url: Annotated[str, Field(description="URL to download the file from")],
@@ -124,3 +152,24 @@ def fetch_and_persist_file(
         else:
             raise FileNotFoundError(f"Download failed — {persisted_path}. Parent dir missing: {parent}")
     return persisted_path
+
+
+@task
+def get_file_path(
+    input_method: SelectPath,
+    output_path: str,
+) -> str:
+    """
+    Get file path based on selected input method.
+    Returns the path to the (possibly extracted) file/directory ready for use.
+    """
+    if isinstance(input_method, DownloadFile):
+        return fetch_and_persist_file(
+            url=input_method.url,
+            output_path=output_path,
+            unzip=False,
+        )
+    elif isinstance(input_method, LocalFile):
+        return get_local_geo_path(file_path=input_method.file_path)
+    else:
+        raise ValueError(f"Unsupported input method: {type(input_method)}")

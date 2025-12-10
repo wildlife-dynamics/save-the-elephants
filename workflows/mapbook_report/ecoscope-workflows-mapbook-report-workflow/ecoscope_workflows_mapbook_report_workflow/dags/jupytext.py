@@ -13,91 +13,147 @@
 import os
 
 from ecoscope_workflows_core.tasks.analysis import (
-    dataframe_column_nunique,
-    dataframe_column_sum,
+    dataframe_column_nunique as dataframe_column_nunique,
 )
-from ecoscope_workflows_core.tasks.config import set_workflow_details
-from ecoscope_workflows_core.tasks.filter import set_time_range
-from ecoscope_workflows_core.tasks.groupby import set_groupers, split_groups
-from ecoscope_workflows_core.tasks.io import (
-    persist_text,
-    set_er_connection,
-    set_gee_connection,
+from ecoscope_workflows_core.tasks.analysis import (
+    dataframe_column_sum as dataframe_column_sum,
+)
+from ecoscope_workflows_core.tasks.config import (
+    set_workflow_details as set_workflow_details,
+)
+from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
+from ecoscope_workflows_core.tasks.groupby import groupbykey as groupbykey
+from ecoscope_workflows_core.tasks.groupby import set_groupers as set_groupers
+from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
+from ecoscope_workflows_core.tasks.io import persist_text as persist_text
+from ecoscope_workflows_core.tasks.io import set_er_connection as set_er_connection
+from ecoscope_workflows_core.tasks.io import set_gee_connection as set_gee_connection
+from ecoscope_workflows_core.tasks.results import (
+    create_map_widget_single_view as create_map_widget_single_view,
 )
 from ecoscope_workflows_core.tasks.results import (
-    create_map_widget_single_view,
-    create_single_value_widget_single_view,
-    create_text_widget_single_view,
-    gather_dashboard,
-    merge_widget_views,
+    create_single_value_widget_single_view as create_single_value_widget_single_view,
+)
+from ecoscope_workflows_core.tasks.results import (
+    create_text_widget_single_view as create_text_widget_single_view,
+)
+from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
+from ecoscope_workflows_core.tasks.results import (
+    merge_widget_views as merge_widget_views,
 )
 from ecoscope_workflows_core.tasks.skip import (
-    any_dependency_skipped,
-    any_is_empty_df,
-    never,
+    any_dependency_skipped as any_dependency_skipped,
 )
+from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
+from ecoscope_workflows_core.tasks.skip import never as never
 from ecoscope_workflows_core.tasks.transformation import (
-    add_temporal_index,
-    map_columns,
-    map_values_with_unit,
-    sort_values,
+    add_temporal_index as add_temporal_index,
 )
-from ecoscope_workflows_ext_custom.tasks.io import html_to_png, load_df
+from ecoscope_workflows_core.tasks.transformation import map_columns as map_columns
+from ecoscope_workflows_core.tasks.transformation import (
+    map_values_with_unit as map_values_with_unit,
+)
+from ecoscope_workflows_core.tasks.transformation import sort_values as sort_values
+from ecoscope_workflows_ext_custom.tasks.io import html_to_png as html_to_png
+from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
+from ecoscope_workflows_ext_custom.tasks.transformation import (
+    filter_row_values as filter_row_values,
+)
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
-    calculate_elliptical_time_density,
+    calculate_elliptical_time_density as calculate_elliptical_time_density,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.io import (
-    determine_season_windows,
-    get_subjectgroup_observations,
-    persist_df,
+    determine_season_windows as determine_season_windows,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.io import (
+    get_subjectgroup_observations as get_subjectgroup_observations,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
+from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
+    process_relocations as process_relocations,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
-    process_relocations,
-    relocations_to_trajectory,
+    relocations_to_trajectory as relocations_to_trajectory,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.results import (
-    create_polygon_layer,
-    create_polyline_layer,
-    draw_ecomap,
-    set_base_maps,
+    create_polygon_layer as create_polygon_layer,
 )
-from ecoscope_workflows_ext_ecoscope.tasks.skip import all_geometry_are_none
+from ecoscope_workflows_ext_ecoscope.tasks.results import (
+    create_polyline_layer as create_polyline_layer,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap as draw_ecomap
+from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps as set_base_maps
+from ecoscope_workflows_ext_ecoscope.tasks.skip import (
+    all_geometry_are_none as all_geometry_are_none,
+)
 from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
-    apply_classification,
-    apply_color_map,
-    classify_is_night,
+    apply_classification as apply_classification,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
+    apply_color_map as apply_color_map,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
+    classify_is_night as classify_is_night,
 )
 from ecoscope_workflows_ext_ste.tasks import (
-    annotate_gdf_dict_with_geometry_type,
-    build_mapbook_report_template,
-    calculate_seasonal_home_range,
-    combine_map_layers,
-    create_context_page,
-    create_map_layers_from_annotated_dict,
-    create_mapbook_context,
-    create_report_context_from_tuple,
-    create_seasonal_labels,
-    create_view_state_from_gdf,
-    dataframe_column_first_unique_str,
-    fetch_and_persist_file,
-    filter_by_value,
-    find_landdx_gpkg_path,
-    flatten_tuple,
-    generate_ecograph_raster,
-    generate_mcp_gdf,
-    get_duration,
-    get_split_group_column,
-    get_split_group_names,
-    label_quarter_status,
-    make_text_layer,
-    merge_docx_files,
-    modify_quarter_status_colors,
-    retrieve_feature_gdf,
-    round_off_values,
-    split_gdf_by_column,
-    zip_grouped_by_key,
-    zip_lists,
+    annotate_gdf_dict_with_geometry_type as annotate_gdf_dict_with_geometry_type,
 )
+from ecoscope_workflows_ext_ste.tasks import (
+    build_mapbook_report_template as build_mapbook_report_template,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    calculate_seasonal_home_range as calculate_seasonal_home_range,
+)
+from ecoscope_workflows_ext_ste.tasks import combine_map_layers as combine_map_layers
+from ecoscope_workflows_ext_ste.tasks import create_context_page as create_context_page
+from ecoscope_workflows_ext_ste.tasks import (
+    create_map_layers_from_annotated_dict as create_map_layers_from_annotated_dict,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    create_mapbook_context as create_mapbook_context,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    create_report_context_from_tuple as create_report_context_from_tuple,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    create_seasonal_labels as create_seasonal_labels,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    create_view_state_from_gdf as create_view_state_from_gdf,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    dataframe_column_first_unique_str as dataframe_column_first_unique_str,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    fetch_and_persist_file as fetch_and_persist_file,
+)
+from ecoscope_workflows_ext_ste.tasks import flatten_tuple as flatten_tuple
+from ecoscope_workflows_ext_ste.tasks import (
+    generate_ecograph_raster as generate_ecograph_raster,
+)
+from ecoscope_workflows_ext_ste.tasks import generate_mcp_gdf as generate_mcp_gdf
+from ecoscope_workflows_ext_ste.tasks import get_duration as get_duration
+from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
+from ecoscope_workflows_ext_ste.tasks import (
+    get_split_group_column as get_split_group_column,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    get_split_group_names as get_split_group_names,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    label_quarter_status as label_quarter_status,
+)
+from ecoscope_workflows_ext_ste.tasks import make_text_layer as make_text_layer
+from ecoscope_workflows_ext_ste.tasks import merge_docx_files as merge_docx_files
+from ecoscope_workflows_ext_ste.tasks import (
+    modify_quarter_status_colors as modify_quarter_status_colors,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    retrieve_feature_gdf as retrieve_feature_gdf,
+)
+from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
+from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
+from ecoscope_workflows_ext_ste.tasks import zip_lists as zip_lists
 
 # %% [markdown]
 # ## Initialize workflow metadata
@@ -337,19 +393,21 @@ download_logo_path = (
 
 
 # %% [markdown]
-# ## Download landDx db and extract
+# ## Download /Load LandDx db
 
 # %%
 # parameters
 
-download_ldx_db_params = dict()
+retrieve_ldx_db_params = dict(
+    input_method=...,
+)
 
 # %%
 # call the task
 
 
-download_ldx_db = (
-    fetch_and_persist_file.set_task_instance_id("download_ldx_db")
+retrieve_ldx_db = (
+    get_file_path.set_task_instance_id("retrieve_ldx_db")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -360,41 +418,8 @@ download_ldx_db = (
         unpack_depth=1,
     )
     .partial(
-        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        url="https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data",
-        overwrite_existing=False,
-        unzip=True,
-        retries=3,
-        **download_ldx_db_params,
+        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"], **retrieve_ldx_db_params
     )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Find landDx gpkg path
-
-# %%
-# parameters
-
-return_ldx_path_params = dict()
-
-# %%
-# call the task
-
-
-return_ldx_path = (
-    find_landdx_gpkg_path.set_task_instance_id("return_ldx_path")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(output_dir=download_ldx_db, **return_ldx_path_params)
     .call()
 )
 
@@ -423,7 +448,7 @@ load_landdx = (
         unpack_depth=1,
     )
     .partial(
-        file_path=return_ldx_path,
+        file_path=retrieve_ldx_db,
         layer="landDx_polygons",
         deserialize_json=False,
         **load_landdx_params,
@@ -445,7 +470,7 @@ filter_landdx_aoi_params = dict()
 
 
 filter_landdx_aoi = (
-    filter_by_value.set_task_instance_id("filter_landdx_aoi")
+    filter_row_values.set_task_instance_id("filter_landdx_aoi")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -457,8 +482,8 @@ filter_landdx_aoi = (
     )
     .partial(
         df=load_landdx,
-        column_name="type",
-        value=["Community Conservancy", "National Reserve", "National Park"],
+        column="type",
+        values=["Community Conservancy", "National Reserve", "National Park"],
         **filter_landdx_aoi_params,
     )
     .call()
@@ -1317,14 +1342,14 @@ generate_speedmap_layers = (
 # %%
 # parameters
 
-zoom_speed_traj_view_params = dict()
+zoom_global_view_params = dict()
 
 # %%
 # call the task
 
 
-zoom_speed_traj_view = (
-    create_view_state_from_gdf.set_task_instance_id("zoom_speed_traj_view")
+zoom_global_view = (
+    create_view_state_from_gdf.set_task_instance_id("zoom_global_view")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -1334,7 +1359,7 @@ zoom_speed_traj_view = (
         ],
         unpack_depth=1,
     )
-    .partial(pitch=0, bearing=0, **zoom_speed_traj_view_params)
+    .partial(pitch=0, bearing=0, **zoom_global_view_params)
     .mapvalues(argnames=["gdf"], argvalues=format_speed_values)
 )
 
@@ -1383,20 +1408,17 @@ zip_speed_zoom_values_params = dict()
 
 
 zip_speed_zoom_values = (
-    zip_grouped_by_key.set_task_instance_id("zip_speed_zoom_values")
+    groupbykey.set_task_instance_id("zip_speed_zoom_values")
     .handle_errors()
     .with_tracing()
     .skipif(
         conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
+            never,
         ],
         unpack_depth=1,
     )
     .partial(
-        left=ldx_speed_layers,
-        right=zoom_speed_traj_view,
-        **zip_speed_zoom_values_params,
+        iterables=[ldx_speed_layers, zoom_global_view], **zip_speed_zoom_values_params
     )
     .call()
 )
@@ -1631,34 +1653,6 @@ generate_day_night_ecomap_layers = (
 
 
 # %% [markdown]
-# ## Zoom day/night trajs by view state
-
-# %%
-# parameters
-
-zoom_dn_view_params = dict()
-
-# %%
-# call the task
-
-
-zoom_dn_view = (
-    create_view_state_from_gdf.set_task_instance_id("zoom_dn_view")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(pitch=0, bearing=0, **zoom_dn_view_params)
-    .mapvalues(argnames=["gdf"], argvalues=apply_day_night_colormap)
-)
-
-
-# %% [markdown]
 # ## Combine landDx and Day/Night ecomap layers
 
 # %%
@@ -1695,24 +1689,23 @@ ldx_dn_layers = (
 # %%
 # parameters
 
-dn_view_zip_params = dict()
+zoom_day_night_params = dict()
 
 # %%
 # call the task
 
 
-dn_view_zip = (
-    zip_grouped_by_key.set_task_instance_id("dn_view_zip")
+zoom_day_night = (
+    groupbykey.set_task_instance_id("zoom_day_night")
     .handle_errors()
     .with_tracing()
     .skipif(
         conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
+            never,
         ],
         unpack_depth=1,
     )
-    .partial(left=ldx_dn_layers, right=zoom_dn_view, **dn_view_zip_params)
+    .partial(iterables=[ldx_dn_layers, zoom_global_view], **zoom_day_night_params)
     .call()
 )
 
@@ -1751,7 +1744,7 @@ draw_day_night_ecomap = (
         max_zoom=12,
         **draw_day_night_ecomap_params,
     )
-    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=dn_view_zip)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=zoom_day_night)
 )
 
 
@@ -1920,34 +1913,6 @@ generate_quarter_ecomap_layers = (
 
 
 # %% [markdown]
-# ## Zoom quarter movement trajectories by view state
-
-# %%
-# parameters
-
-zoom_qm_view_params = dict()
-
-# %%
-# call the task
-
-
-zoom_qm_view = (
-    create_view_state_from_gdf.set_task_instance_id("zoom_qm_view")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(pitch=0, bearing=0, **zoom_qm_view_params)
-    .mapvalues(argnames=["gdf"], argvalues=format_speed_values)
-)
-
-
-# %% [markdown]
 # ## Combine landDx and quarter status ecomap layers
 
 # %%
@@ -1984,25 +1949,25 @@ combine_quarter_ecomap_layers = (
 # %%
 # parameters
 
-qm_view_zip_params = dict()
+zoom_quarter_movements_params = dict()
 
 # %%
 # call the task
 
 
-qm_view_zip = (
-    zip_grouped_by_key.set_task_instance_id("qm_view_zip")
+zoom_quarter_movements = (
+    groupbykey.set_task_instance_id("zoom_quarter_movements")
     .handle_errors()
     .with_tracing()
     .skipif(
         conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
+            never,
         ],
         unpack_depth=1,
     )
     .partial(
-        left=combine_quarter_ecomap_layers, right=zoom_qm_view, **qm_view_zip_params
+        iterables=[combine_quarter_ecomap_layers, zoom_global_view],
+        **zoom_quarter_movements_params,
     )
     .call()
 )
@@ -2042,7 +2007,7 @@ draw_quarter_status_ecomap = (
         max_zoom=12,
         **draw_quarter_status_ecomap_params,
     )
-    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=qm_view_zip)
+    .mapvalues(argnames=["geo_layers", "view_state"], argvalues=zoom_quarter_movements)
 )
 
 
@@ -2210,7 +2175,7 @@ determine_seasonal_windows = (
 
 
 # %% [markdown]
-# ## Zip etd and grouped trajectories
+# ## Zip etd values and grouped trajectories
 
 # %%
 # parameters
@@ -2222,19 +2187,17 @@ zip_etd_and_grouped_trajs_params = dict()
 
 
 zip_etd_and_grouped_trajs = (
-    zip_grouped_by_key.set_task_instance_id("zip_etd_and_grouped_trajs")
+    groupbykey.set_task_instance_id("zip_etd_and_grouped_trajs")
     .handle_errors()
     .with_tracing()
     .skipif(
         conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
+            never,
         ],
         unpack_depth=1,
     )
     .partial(
-        left=determine_seasonal_windows,
-        right=assign_quarter_colors_traj,
+        iterables=[determine_seasonal_windows, assign_quarter_colors_traj],
         **zip_etd_and_grouped_trajs_params,
     )
     .call()
@@ -2409,35 +2372,7 @@ generate_mcp_layers = (
 
 
 # %% [markdown]
-# ## Zoom hr movement by view state
-
-# %%
-# parameters
-
-zoom_hr_view_params = dict()
-
-# %%
-# call the task
-
-
-zoom_hr_view = (
-    create_view_state_from_gdf.set_task_instance_id("zoom_hr_view")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(pitch=0, bearing=0, **zoom_hr_view_params)
-    .mapvalues(argnames=["gdf"], argvalues=apply_etd_percentile_colormap)
-)
-
-
-# %% [markdown]
-# ## zip mcp and hr
+# ## Combine minimum convex polygon and home range
 
 # %%
 # parameters
@@ -2449,18 +2384,17 @@ zip_mcp_hr_params = dict()
 
 
 zip_mcp_hr = (
-    zip_grouped_by_key.set_task_instance_id("zip_mcp_hr")
+    groupbykey.set_task_instance_id("zip_mcp_hr")
     .handle_errors()
     .with_tracing()
     .skipif(
         conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
+            never,
         ],
         unpack_depth=1,
     )
     .partial(
-        left=generate_mcp_layers, right=generate_etd_ecomap_layers, **zip_mcp_hr_params
+        iterables=[generate_mcp_layers, generate_etd_ecomap_layers], **zip_mcp_hr_params
     )
     .call()
 )
@@ -2510,18 +2444,18 @@ hr_view_zip_params = dict()
 
 
 hr_view_zip = (
-    zip_grouped_by_key.set_task_instance_id("hr_view_zip")
+    groupbykey.set_task_instance_id("hr_view_zip")
     .handle_errors()
     .with_tracing()
     .skipif(
         conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
+            never,
         ],
         unpack_depth=1,
     )
     .partial(
-        left=combine_landdx_hr_ecomap_layers, right=zoom_hr_view, **hr_view_zip_params
+        iterables=[combine_landdx_hr_ecomap_layers, zoom_global_view],
+        **hr_view_zip_params,
     )
     .call()
 )
@@ -2895,34 +2829,6 @@ generate_raster_layers = (
 
 
 # %% [markdown]
-# ## Zoom speed rasters by view state
-
-# %%
-# parameters
-
-zoom_speedraster_view_params = dict()
-
-# %%
-# call the task
-
-
-zoom_speedraster_view = (
-    create_view_state_from_gdf.set_task_instance_id("zoom_speedraster_view")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(pitch=0, bearing=0, **zoom_speedraster_view_params)
-    .mapvalues(argnames=["gdf"], argvalues=format_speed_raster_labels)
-)
-
-
-# %% [markdown]
 # ## Combine landDx and speedraster map layers
 
 # %%
@@ -2966,19 +2872,17 @@ speedraster_view_zip_params = dict()
 
 
 speedraster_view_zip = (
-    zip_grouped_by_key.set_task_instance_id("speedraster_view_zip")
+    groupbykey.set_task_instance_id("speedraster_view_zip")
     .handle_errors()
     .with_tracing()
     .skipif(
         conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
+            never,
         ],
         unpack_depth=1,
     )
     .partial(
-        left=combine_seasonal_raster_layers,
-        right=zoom_speedraster_view,
+        iterables=[combine_seasonal_raster_layers, zoom_global_view],
         **speedraster_view_zip_params,
     )
     .call()
@@ -3218,34 +3122,6 @@ season_etd_map_layer = (
 
 
 # %% [markdown]
-# ## Zoom seasons by view state
-
-# %%
-# parameters
-
-zoom_season_view_params = dict()
-
-# %%
-# call the task
-
-
-zoom_season_view = (
-    create_view_state_from_gdf.set_task_instance_id("zoom_season_view")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(pitch=0, bearing=0, **zoom_season_view_params)
-    .mapvalues(argnames=["gdf"], argvalues=season_colormap)
-)
-
-
-# %% [markdown]
 # ## Combine map layers
 
 # %%
@@ -3289,18 +3165,17 @@ seasons_view_zip_params = dict()
 
 
 seasons_view_zip = (
-    zip_grouped_by_key.set_task_instance_id("seasons_view_zip")
+    groupbykey.set_task_instance_id("seasons_view_zip")
     .handle_errors()
     .with_tracing()
     .skipif(
         conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
+            never,
         ],
         unpack_depth=1,
     )
     .partial(
-        left=comb_season_map_layers, right=zoom_season_view, **seasons_view_zip_params
+        iterables=[comb_season_map_layers, zoom_global_view], **seasons_view_zip_params
     )
     .call()
 )
@@ -4117,252 +3992,40 @@ convert_seasonal_hr_html_to_png = (
 
 
 # %% [markdown]
-# ## Zip grid and mcp
+# ## Mapbook context iterables
 
 # %%
 # parameters
 
-zip_grid_mcp_params = dict()
+zip_mapbook_context_params = dict()
 
 # %%
 # call the task
 
 
-zip_grid_mcp = (
-    zip_grouped_by_key.set_task_instance_id("zip_grid_mcp")
+zip_mapbook_context = (
+    groupbykey.set_task_instance_id("zip_mapbook_context")
     .handle_errors()
     .with_tracing()
     .skipif(
         conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(left=round_grid_area, right=round_mcp_area, **zip_grid_mcp_params)
-    .call()
-)
-
-
-# %% [markdown]
-# ## Zip with quarter png
-
-# %%
-# parameters
-
-zip_grid_mcp_quarter_params = dict()
-
-# %%
-# call the task
-
-
-zip_grid_mcp_quarter = (
-    zip_grouped_by_key.set_task_instance_id("zip_grid_mcp_quarter")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
+            never,
         ],
         unpack_depth=1,
     )
     .partial(
-        left=zip_grid_mcp,
-        right=convert_quarter_html_to_png,
-        **zip_grid_mcp_quarter_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Zip with hr png
-
-# %%
-# parameters
-
-zip_grid_mcp_quarter_hr_params = dict()
-
-# %%
-# call the task
-
-
-zip_grid_mcp_quarter_hr = (
-    zip_grouped_by_key.set_task_instance_id("zip_grid_mcp_quarter_hr")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
+        iterables=[
+            round_grid_area,
+            round_mcp_area,
+            convert_quarter_html_to_png,
+            convert_hr_html_to_png,
+            convert_speed_raster_html_to_png,
+            convert_day_night_html_to_png,
+            convert_speedmap_html_to_png,
+            convert_seasonal_hr_html_to_png,
+            get_subject_name,
         ],
-        unpack_depth=1,
-    )
-    .partial(
-        left=zip_grid_mcp_quarter,
-        right=convert_hr_html_to_png,
-        **zip_grid_mcp_quarter_hr_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Zip with speed raster png
-
-# %%
-# parameters
-
-zip_grid_mcp_speedraster_params = dict()
-
-# %%
-# call the task
-
-
-zip_grid_mcp_speedraster = (
-    zip_grouped_by_key.set_task_instance_id("zip_grid_mcp_speedraster")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        left=zip_grid_mcp_quarter_hr,
-        right=convert_speed_raster_html_to_png,
-        **zip_grid_mcp_speedraster_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Zip with day/night png
-
-# %%
-# parameters
-
-zip_grid_mcp_dn_params = dict()
-
-# %%
-# call the task
-
-
-zip_grid_mcp_dn = (
-    zip_grouped_by_key.set_task_instance_id("zip_grid_mcp_dn")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        left=zip_grid_mcp_speedraster,
-        right=convert_day_night_html_to_png,
-        **zip_grid_mcp_dn_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Zip with speedmap png
-
-# %%
-# parameters
-
-zip_grid_dn_speedmap_params = dict()
-
-# %%
-# call the task
-
-
-zip_grid_dn_speedmap = (
-    zip_grouped_by_key.set_task_instance_id("zip_grid_dn_speedmap")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        left=zip_grid_mcp_dn,
-        right=convert_speedmap_html_to_png,
-        **zip_grid_dn_speedmap_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Zip with seasonal hr png (final)
-
-# %%
-# parameters
-
-zip_all_mapbook_context_inputs_params = dict()
-
-# %%
-# call the task
-
-
-zip_all_mapbook_context_inputs = (
-    zip_grouped_by_key.set_task_instance_id("zip_all_mapbook_context_inputs")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        left=zip_grid_dn_speedmap,
-        right=convert_seasonal_hr_html_to_png,
-        **zip_all_mapbook_context_inputs_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Zip with subject name
-
-# %%
-# parameters
-
-zip_all_with_name_params = dict()
-
-# %%
-# call the task
-
-
-zip_all_with_name = (
-    zip_grouped_by_key.set_task_instance_id("zip_all_with_name")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        left=zip_all_mapbook_context_inputs,
-        right=get_subject_name,
-        **zip_all_with_name_params,
+        **zip_mapbook_context_params,
     )
     .call()
 )
@@ -4392,7 +4055,7 @@ flatten_mbook_context = (
         unpack_depth=1,
     )
     .partial(**flatten_mbook_context_params)
-    .mapvalues(argnames=["nested"], argvalues=zip_all_with_name)
+    .mapvalues(argnames=["nested"], argvalues=zip_mapbook_context)
 )
 
 
@@ -4631,11 +4294,11 @@ mapbook_dashboard = (
             gender_sv_widget,
             total_mcp_grouped_sv_widget,
             total_grid_grouped_sv_widget,
-            merge_speedmap_widgets,
-            merge_day_night_ecomap_widgets,
             merge_quarter_ecomap_widgets,
             merge_hr_ecomap_widgets,
+            merge_speedmap_widgets,
             speedraster_ecomap_widgets,
+            merge_day_night_ecomap_widgets,
             season_grouped_map_widget,
         ],
         time_range=time_range,
