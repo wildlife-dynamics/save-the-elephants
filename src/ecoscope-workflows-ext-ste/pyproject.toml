@@ -64,8 +64,8 @@ tomli-w = "*"
 igraph ="*"
 geopandas="*"
 shapely = "*"
-ecoscope-workflows-core =">=0.18.0"
-ecoscope-workflows-ext-ecoscope=">=0.18.0"
+ecoscope-workflows-core =">=0.19.0"
+ecoscope-workflows-ext-ecoscope=">=0.19.0"
 
 #ecoscope = { extras = ["analysis"], version = "*" }
 earthengine-api ="*"

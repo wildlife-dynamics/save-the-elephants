@@ -32,8 +32,7 @@ from ._ste_utils import (
     create_report_context_from_tuple,
 )
 from ._example import add_one_thousand
-from ._downloader import fetch_and_persist_file
-from ._filter import filter_by_value, exclude_by_value
+from ._downloader import get_file_path, fetch_and_persist_file
 from ._zip import zip_grouped_by_key, flatten_tuple, zip_lists
 from ._tabular import split_gdf_by_column, generate_mcp_gdf, round_off_values
 
@@ -69,6 +68,7 @@ __all__ = [
     "round_off_values",
     # _downloader
     "fetch_and_persist_file",
+    "get_file_path",
     # _tabular
     "split_gdf_by_column",
     "generate_mcp_gdf",
@@ -78,7 +78,4 @@ __all__ = [
     "zip_lists",
     # _example
     "add_one_thousand",
-    # _filter
-    "filter_by_value",
-    "exclude_by_value",
 ]
