@@ -26,6 +26,7 @@ requirements:
     - python
     - ecoscope-workflows-core
     - ecoscope-workflows-ext-ecoscope
+    - ecoscope-workflows-ext-custom
     - geopandas
     - shapely
 
