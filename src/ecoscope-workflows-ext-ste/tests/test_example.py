@@ -1,4 +1,4 @@
-from ecoscope_workflows_ext_mnc.tasks import (
+from ecoscope_workflows_ext_ste.tasks import (
     add_one_thousand,
 )
 

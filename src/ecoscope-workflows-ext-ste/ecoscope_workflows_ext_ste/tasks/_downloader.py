@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore")
 
 
-# upstream:?
 @task
 def fetch_and_persist_file(
     url: Annotated[str, Field(description="URL to download the file from")],

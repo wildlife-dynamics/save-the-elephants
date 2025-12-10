@@ -5,11 +5,13 @@ from ._aerial_survey import (
     validate_polygon_geometry,
     generate_survey_lines,
 )
+from ._example import add_one_thousand
 
 __all__ = [
-    "fetch_and_persist_file",
-    "get_local_geo_path",
     "get_file_path",
-    "validate_polygon_geometry",
+    "add_one_thousand",
+    "get_local_geo_path",
     "generate_survey_lines",
+    "fetch_and_persist_file",
+    "validate_polygon_geometry",
 ]
