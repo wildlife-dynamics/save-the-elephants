@@ -23,8 +23,10 @@ rjsf-overrides:
     ValueGrouper.oneOf:
       - const: subject_name
         title: Subject Name
+
       - const: subject_sex 
         title: Subject Sex
+
       - const: subject_subtype
         title: Subject Subtype
 
@@ -35,6 +37,7 @@ task-instance-defaults:
       - any_dependency_skipped
 
 workflow:
+
 # set workflow metadata
   - name: Initialize workflow metadata
     id: initialize_workflow_metadata
@@ -52,7 +55,7 @@ workflow:
         name: UTC 
         utc_offset: "+00:00"
 
-  # configure dynamic grouping strategy --> for this workflow, by subject name
+  # grouping strategy
   - name: Configure grouping strategy
     id: groupers
     task: set_groupers
@@ -71,7 +74,7 @@ workflow:
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false
       unzip: false
-      retries: 3
+      retries: 2
 
   # Download section templates
   - name: Download mapbook section templates
@@ -82,7 +85,7 @@ workflow:
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false
       unzip: false
-      retries: 3
+      retries: 2
 
   # Download Logo
   - name: Download logo path 
@@ -93,10 +96,10 @@ workflow:
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       overwrite_existing: false 
       unzip: false
-      retries: 3
+      retries: 2
 
   # 1. Download landdx database,split by type, create styled layers
-  # download LandDx database, unzip, and save to output directory
+  # allow user to either download ldxdb or enter ldx file path on local machine
   - name: Download /Load LandDx db 
     id: retrieve_ldx_db 
     task: get_file_path
@@ -115,7 +118,7 @@ workflow:
   # Filter LandDx AOI by type
   - name: Filter loaded landDX by AOI 
     id: filter_landdx_aoi 
-    task: filter_row_values #filter_by_value
+    task: filter_row_values 
     partial: 
       df: ${{ workflow.load_landdx.return }}
       column: type 
@@ -125,6 +128,21 @@ workflow:
         - National Park
 
   # create text layer from filtered aoi
+  # - name: Create ldx text layers 
+  #   id: custom_text_layer 
+  #   task: ecoscope_workflows_ext_ecoscope.tasks.results.create_text_layer
+  #   partial: 
+  #     geodataframe: ${{ workflow.filter_landdx_aoi.return }}
+  #     layer_style:
+  #       get_text: name 
+  #       get_color: [0,0,0,255]
+  #       font_family: Arial 
+  #       font_weight: normal 
+  #       get_size: 16
+  #       get_text_anchor: middle
+  #       get_alignment_baseline: center 
+  #       get_background_color: null 
+
   - name : Create text layer from filtered aoi 
     id: custom_text_layer 
     task: make_text_layer 
@@ -144,7 +162,7 @@ workflow:
       zoom: false
       target_crs: epsg:4326
 
-  # split LandDx AOI features by 'type' column
+  # split LandDx AOI features by 'type' column which will return a dict of the existing types as keys and gdfs as values
   - name: Split landDx layers by type
     id: split_landdx_by_type
     task: split_gdf_by_column
@@ -155,42 +173,52 @@ workflow:
   # annotate each LandDx AOI layer with its geometry type
   - name: Annotate geometry types to landdx dicts
     id: annotate_geometry_types
-    task: annotate_gdf_dict_with_geometry_type
+    task: annotate_gdf_dict_with_geom_type
     partial:
       gdf_dict: ${{ workflow.split_landdx_by_type.return }}
 
   # create styled map layers for LandDx features
   - name: Style landDx map layers
     id: create_styled_landdx_layers
-    task: create_map_layers_from_annotated_dict
+    task: create_layers_from_gdf_dict
     partial:
-      annotated_dict: ${{ workflow.annotate_geometry_types.return }}
-      style_config:
-        styles:
-          Community Conservancy:
-            get_fill_color: [85, 107, 47]
-            get_line_color: [85, 107, 47]
-            opacity: 0.15
-            stroked: true
-            get_line_width: 1.55
+      gdf_dict: ${{ workflow.annotate_geometry_types.return }}
+      styles: 
+        Community Conservancy:
+          get_fill_color: [85, 107, 47]
+          get_line_color: [85, 107, 47]
+          opacity: 0.15
+          stroked: true
+          get_line_width: 1.55
           
-          National Reserve:
-            get_fill_color: [143, 188, 139]
-            get_line_color: [143, 188, 139]
-            opacity: 0.15
-            stroked: true
-            get_line_width: 1.55
+        National Reserve:
+          get_fill_color: [143, 188, 139]
+          get_line_color: [143, 188, 139]
+          opacity: 0.15
+          stroked: true
+          get_line_width: 1.55
 
-          National Park: 
-            get_fill_color: [255, 250, 205]
-            get_line_color: [255, 250, 205]
-            opacity: 0.15
-            stroked: true
-            get_line_width: 1.55
+        National Park: 
+          get_fill_color: [255, 250, 205]
+          get_line_color: [255, 250, 205]
+          opacity: 0.15
+          stroked: true
+          get_line_width: 1.55
+      legends: 
+        Community Conservancy:
+          labels: 
+            - "Community Conservancy"
+          colors: ["#556b2f"]
 
-        legend:
-          labels: ["Community Conservancy","National Reserve", "National Park"]
-          colors: ["#556b2f","#8fbc8b","#fffacd"]
+        National Reserve: 
+          labels:
+            - "National Reserve"
+          colors: ["#8fbc8b"]
+
+        National Park: 
+          labels: 
+            - "National Park"
+          colors: ["#fffacd"]
 
   # 2. Connect to earthranger , engine  and retrieve subject observations 
   # Connect to ER
@@ -289,8 +317,6 @@ workflow:
       gdf: ${{ workflow.classify_trajectory_speed_bins.return }}
       timestamp_col: segment_start
 
-
-
   # rename trajectory columns
   - name: Rename trajectory columnns
     id: rename_traj_cols
@@ -308,7 +334,7 @@ workflow:
 
       df: ${{ workflow.label_trajectory_quarters.return }}
 
-  # persist trajectories and relocations
+  # persist trajectories and relocations as gpkg and geoparquet 
   - name: Persist trajectories as gpkg
     id: persist_trajectory_df
     task: persist_df 
@@ -318,12 +344,30 @@ workflow:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       filename: trajectories
 
+  - name: Persist trajectories as geoparquet
+    id: persist_trajectory_gpq
+    task: persist_df 
+    partial:
+      df: ${{ workflow.rename_traj_cols.return }}
+      filetype: "geoparquet"
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename: trajectories
+
   - name: Persist relocations as gpkg
     id: persist_relocs_df
     task: persist_df
     partial:
       df: ${{ workflow.annotate_day_night.return }}
       filetype: "gpkg"
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename: relocations
+
+  - name: Persist relocations as geoparquet
+    id: persist_relocs_gpq
+    task: persist_df
+    partial:
+      df: ${{ workflow.annotate_day_night.return }}
+      filetype: "geoparquet"
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       filename: relocations
 
@@ -435,6 +479,7 @@ workflow:
       argnames: geodataframe
       argvalues: ${{ workflow.format_speed_values.return }}
 
+  # global zoom view -- used for all maps generated
   - name: Zoom speed trajs by view state
     id: zoom_global_view
     task: create_view_state_from_gdf
@@ -482,7 +527,7 @@ workflow:
         title: Speed Values(Km/h)
       static: false
       title: null
-      max_zoom: 12
+      max_zoom: 9
     mapvalues:
       argnames: 
         - geo_layers
@@ -495,6 +540,7 @@ workflow:
     task: persist_text
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename_suffix: speedmap
     mapvalues:
       argnames: text
       argvalues: ${{ workflow.draw_speed_ecomap.return }}
@@ -507,7 +553,7 @@ workflow:
       conditions: 
         - never
     partial:
-      title: Speedmap
+      title: Speed Map
     map:
       argnames:
         - view 
@@ -598,7 +644,6 @@ workflow:
         -  ${{ workflow.ldx_dn_layers.return }} # geo_layers
         -  ${{ workflow.zoom_global_view.return }} # view_state
 
-
   # draw day/night ecomaps for each trajectory group
   - name: Draw Day/Night ecomaps by group
     id: draw_day_night_ecomap
@@ -612,7 +657,7 @@ workflow:
         title: Night Day Tracks
       static: false
       title: null
-      max_zoom: 12
+      max_zoom: 9
     mapvalues:
       argnames: 
         - geo_layers
@@ -625,6 +670,7 @@ workflow:
     task: persist_text
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename_suffix: day_night
     mapvalues:
       argnames: text
       argvalues: ${{ workflow.draw_day_night_ecomap.return }}
@@ -723,7 +769,7 @@ workflow:
         title: Legend
       static: false
       title: null
-      max_zoom: 12
+      max_zoom: 9
     mapvalues:
       argnames: 
         - geo_layers
@@ -736,6 +782,7 @@ workflow:
     task: persist_text
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename_suffix: movement_tracks
     mapvalues:
       argnames: text
       argvalues: ${{ workflow.draw_quarter_status_ecomap.return }}
@@ -957,7 +1004,7 @@ workflow:
         title: ETD Metrics
       static: false
       title: null
-      max_zoom: 12
+      max_zoom: 9
     mapvalues:
       argnames: 
         - geo_layers
@@ -973,6 +1020,7 @@ workflow:
         - any_dependency_skipped
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename_suffix: home_range
     mapvalues:
       argnames: text 
       argvalues: ${{ workflow.draw_hr_ecomap.return }}
@@ -1152,7 +1200,6 @@ workflow:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_raster_layers.return }}
 
-
   - name: Zip speedraster layers and zoom values
     id: speedraster_view_zip
     skipif:
@@ -1181,7 +1228,7 @@ workflow:
         title: Mean Speed Value (km/h)
       static: false
       title: null
-      max_zoom: 12
+      max_zoom: 9
     mapvalues:
       argnames: 
         - geo_layers
@@ -1198,6 +1245,7 @@ workflow:
         - any_dependency_skipped
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename_suffix: speed_raster
     mapvalues:
       argnames: text
       argvalues: ${{ workflow.draw_speed_raster_ecomaps.return }}
@@ -1210,7 +1258,7 @@ workflow:
       conditions:
         - never
     partial: 
-      title: Speed Raster Ecomap 
+      title: Mean Speed Map
     map:
       argnames:
         - view
@@ -1319,7 +1367,7 @@ workflow:
         title: Seasons
       static: false
       title: null
-      max_zoom: 12
+      max_zoom: 9
     
     mapvalues:
       argnames: 
@@ -1332,6 +1380,7 @@ workflow:
     task: persist_text
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filename_suffix: seasons
 
     mapvalues:
       argnames: text 
@@ -1392,7 +1441,7 @@ workflow:
     id: round_grid_area
     task: round_off_values
     partial:
-      dp: 2
+      dp: 1
     mapvalues:
       argnames: value
       argvalues: ${{ workflow.total_grid_area.return }}
@@ -1612,6 +1661,7 @@ workflow:
         -  ${{ workflow.convert_seasonal_hr_html_to_png.return }}
         -  ${{ workflow.get_subject_name.return }}
 
+  # this section can equally be improved
   - name: Flatten zipped mapbook context inputs
     id: flatten_mbook_context
     task: flatten_tuple

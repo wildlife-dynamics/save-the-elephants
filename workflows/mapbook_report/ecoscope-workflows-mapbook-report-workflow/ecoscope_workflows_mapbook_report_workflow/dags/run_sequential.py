@@ -86,7 +86,7 @@ from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
     classify_is_night as classify_is_night,
 )
 from ecoscope_workflows_ext_ste.tasks import (
-    annotate_gdf_dict_with_geometry_type as annotate_gdf_dict_with_geometry_type,
+    annotate_gdf_dict_with_geom_type as annotate_gdf_dict_with_geom_type,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     build_mapbook_report_template as build_mapbook_report_template,
@@ -97,7 +97,7 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import combine_map_layers as combine_map_layers
 from ecoscope_workflows_ext_ste.tasks import create_context_page as create_context_page
 from ecoscope_workflows_ext_ste.tasks import (
-    create_map_layers_from_annotated_dict as create_map_layers_from_annotated_dict,
+    create_layers_from_gdf_dict as create_layers_from_gdf_dict,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     create_mapbook_context as create_mapbook_context,
@@ -241,7 +241,7 @@ def main(params: Params):
             output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             overwrite_existing=False,
             unzip=False,
-            retries=3,
+            retries=2,
             **(params_dict.get("download_mapbook_cover_page") or {}),
         )
         .call()
@@ -264,7 +264,7 @@ def main(params: Params):
             output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             overwrite_existing=False,
             unzip=False,
-            retries=3,
+            retries=2,
             **(params_dict.get("download_sect_templates") or {}),
         )
         .call()
@@ -287,7 +287,7 @@ def main(params: Params):
             output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             overwrite_existing=False,
             unzip=False,
-            retries=3,
+            retries=2,
             **(params_dict.get("download_logo_path") or {}),
         )
         .call()
@@ -407,7 +407,7 @@ def main(params: Params):
     )
 
     annotate_geometry_types = (
-        annotate_gdf_dict_with_geometry_type.validate()
+        annotate_gdf_dict_with_geom_type.validate()
         .set_task_instance_id("annotate_geometry_types")
         .handle_errors()
         .with_tracing()
@@ -426,7 +426,7 @@ def main(params: Params):
     )
 
     create_styled_landdx_layers = (
-        create_map_layers_from_annotated_dict.validate()
+        create_layers_from_gdf_dict.validate()
         .set_task_instance_id("create_styled_landdx_layers")
         .handle_errors()
         .with_tracing()
@@ -438,39 +438,40 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            annotated_dict=annotate_geometry_types,
-            style_config={
-                "styles": {
-                    "Community Conservancy": {
-                        "get_fill_color": [85, 107, 47],
-                        "get_line_color": [85, 107, 47],
-                        "opacity": 0.15,
-                        "stroked": True,
-                        "get_line_width": 1.55,
-                    },
-                    "National Reserve": {
-                        "get_fill_color": [143, 188, 139],
-                        "get_line_color": [143, 188, 139],
-                        "opacity": 0.15,
-                        "stroked": True,
-                        "get_line_width": 1.55,
-                    },
-                    "National Park": {
-                        "get_fill_color": [255, 250, 205],
-                        "get_line_color": [255, 250, 205],
-                        "opacity": 0.15,
-                        "stroked": True,
-                        "get_line_width": 1.55,
-                    },
+            gdf_dict=annotate_geometry_types,
+            styles={
+                "Community Conservancy": {
+                    "get_fill_color": [85, 107, 47],
+                    "get_line_color": [85, 107, 47],
+                    "opacity": 0.15,
+                    "stroked": True,
+                    "get_line_width": 1.55,
                 },
-                "legend": {
-                    "labels": [
-                        "Community Conservancy",
-                        "National Reserve",
-                        "National Park",
-                    ],
-                    "colors": ["#556b2f", "#8fbc8b", "#fffacd"],
+                "National Reserve": {
+                    "get_fill_color": [143, 188, 139],
+                    "get_line_color": [143, 188, 139],
+                    "opacity": 0.15,
+                    "stroked": True,
+                    "get_line_width": 1.55,
                 },
+                "National Park": {
+                    "get_fill_color": [255, 250, 205],
+                    "get_line_color": [255, 250, 205],
+                    "opacity": 0.15,
+                    "stroked": True,
+                    "get_line_width": 1.55,
+                },
+            },
+            legends={
+                "Community Conservancy": {
+                    "labels": ["Community Conservancy"],
+                    "colors": ["#556b2f"],
+                },
+                "National Reserve": {
+                    "labels": ["National Reserve"],
+                    "colors": ["#8fbc8b"],
+                },
+                "National Park": {"labels": ["National Park"], "colors": ["#fffacd"]},
             },
             **(params_dict.get("create_styled_landdx_layers") or {}),
         )
@@ -721,6 +722,28 @@ def main(params: Params):
         .call()
     )
 
+    persist_trajectory_gpq = (
+        persist_df.validate()
+        .set_task_instance_id("persist_trajectory_gpq")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=rename_traj_cols,
+            filetype="geoparquet",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename="trajectories",
+            **(params_dict.get("persist_trajectory_gpq") or {}),
+        )
+        .call()
+    )
+
     persist_relocs_df = (
         persist_df.validate()
         .set_task_instance_id("persist_relocs_df")
@@ -739,6 +762,28 @@ def main(params: Params):
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filename="relocations",
             **(params_dict.get("persist_relocs_df") or {}),
+        )
+        .call()
+    )
+
+    persist_relocs_gpq = (
+        persist_df.validate()
+        .set_task_instance_id("persist_relocs_gpq")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=annotate_day_night,
+            filetype="geoparquet",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename="relocations",
+            **(params_dict.get("persist_relocs_gpq") or {}),
         )
         .call()
     )
@@ -991,7 +1036,7 @@ def main(params: Params):
             legend_style={"placement": "bottom-right", "title": "Speed Values(Km/h)"},
             static=False,
             title=None,
-            max_zoom=12,
+            max_zoom=9,
             **(params_dict.get("draw_speed_ecomap") or {}),
         )
         .mapvalues(
@@ -1013,6 +1058,7 @@ def main(params: Params):
         )
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="speedmap",
             **(params_dict.get("persist_speed_ecomap_urls") or {}),
         )
         .mapvalues(argnames=["text"], argvalues=draw_speed_ecomap)
@@ -1029,7 +1075,9 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(title="Speedmap", **(params_dict.get("create_speedmap_widgets") or {}))
+        .partial(
+            title="Speed Map", **(params_dict.get("create_speedmap_widgets") or {})
+        )
         .map(argnames=["view", "data"], argvalues=persist_speed_ecomap_urls)
     )
 
@@ -1172,7 +1220,7 @@ def main(params: Params):
             legend_style={"placement": "bottom-right", "title": "Night Day Tracks"},
             static=False,
             title=None,
-            max_zoom=12,
+            max_zoom=9,
             **(params_dict.get("draw_day_night_ecomap") or {}),
         )
         .mapvalues(argnames=["geo_layers", "view_state"], argvalues=zoom_day_night)
@@ -1192,6 +1240,7 @@ def main(params: Params):
         )
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="day_night",
             **(params_dict.get("persist_day_night_ecomap_urls") or {}),
         )
         .mapvalues(argnames=["text"], argvalues=draw_day_night_ecomap)
@@ -1341,7 +1390,7 @@ def main(params: Params):
             legend_style={"placement": "bottom-right", "title": "Legend"},
             static=False,
             title=None,
-            max_zoom=12,
+            max_zoom=9,
             **(params_dict.get("draw_quarter_status_ecomap") or {}),
         )
         .mapvalues(
@@ -1363,6 +1412,7 @@ def main(params: Params):
         )
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="movement_tracks",
             **(params_dict.get("persist_quarter_ecomap_urls") or {}),
         )
         .mapvalues(argnames=["text"], argvalues=draw_quarter_status_ecomap)
@@ -1650,7 +1700,7 @@ def main(params: Params):
             legend_style={"placement": "bottom-right", "title": "ETD Metrics"},
             static=False,
             title=None,
-            max_zoom=12,
+            max_zoom=9,
             **(params_dict.get("draw_hr_ecomap") or {}),
         )
         .mapvalues(argnames=["geo_layers", "view_state"], argvalues=hr_view_zip)
@@ -1669,6 +1719,7 @@ def main(params: Params):
         )
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="home_range",
             **(params_dict.get("persist_hr_ecomap_urls") or {}),
         )
         .mapvalues(argnames=["text"], argvalues=draw_hr_ecomap)
@@ -1926,7 +1977,7 @@ def main(params: Params):
             },
             static=False,
             title=None,
-            max_zoom=12,
+            max_zoom=9,
             **(params_dict.get("draw_speed_raster_ecomaps") or {}),
         )
         .mapvalues(
@@ -1948,6 +1999,7 @@ def main(params: Params):
         )
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="speed_raster",
             **(params_dict.get("speed_raster_ecomap_urls") or {}),
         )
         .mapvalues(argnames=["text"], argvalues=draw_speed_raster_ecomaps)
@@ -1965,7 +2017,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Speed Raster Ecomap",
+            title="Mean Speed Map",
             **(params_dict.get("speed_raster_ecomap_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=speed_raster_ecomap_urls)
@@ -2112,7 +2164,7 @@ def main(params: Params):
             legend_style={"placement": "bottom-right", "title": "Seasons"},
             static=False,
             title=None,
-            max_zoom=12,
+            max_zoom=9,
             **(params_dict.get("seasonal_ecomap") or {}),
         )
         .mapvalues(argnames=["geo_layers", "view_state"], argvalues=seasons_view_zip)
@@ -2132,6 +2184,7 @@ def main(params: Params):
         )
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filename_suffix="seasons",
             **(params_dict.get("season_etd_ecomap_html_url") or {}),
         )
         .mapvalues(argnames=["text"], argvalues=seasonal_ecomap)
@@ -2234,7 +2287,7 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(dp=2, **(params_dict.get("round_grid_area") or {}))
+        .partial(dp=1, **(params_dict.get("round_grid_area") or {}))
         .mapvalues(argnames=["value"], argvalues=total_grid_area)
     )
 

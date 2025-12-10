@@ -30,10 +30,10 @@ from ecoscope_workflows_ext_custom.tasks.transformation import (
 )
 from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps as set_base_maps
 from ecoscope_workflows_ext_ste.tasks import (
-    annotate_gdf_dict_with_geometry_type as annotate_gdf_dict_with_geometry_type,
+    annotate_gdf_dict_with_geom_type as annotate_gdf_dict_with_geom_type,
 )
 from ecoscope_workflows_ext_ste.tasks import (
-    create_map_layers_from_annotated_dict as create_map_layers_from_annotated_dict,
+    create_layers_from_gdf_dict as create_layers_from_gdf_dict,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     fetch_and_persist_file as fetch_and_persist_file,
@@ -223,7 +223,9 @@ def main(params: Params):
         "label_trajectory_quarters": ["classify_trajectory_speed_bins"],
         "rename_traj_cols": ["label_trajectory_quarters"],
         "persist_trajectory_df": ["rename_traj_cols"],
+        "persist_trajectory_gpq": ["rename_traj_cols"],
         "persist_relocs_df": ["annotate_day_night"],
+        "persist_relocs_gpq": ["annotate_day_night"],
         "split_trajectories_by_group": ["rename_traj_cols", "groupers"],
         "split_group_column": ["split_trajectories_by_group"],
         "assign_quarter_colors_traj": [
@@ -491,7 +493,7 @@ def main(params: Params):
                 "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "overwrite_existing": False,
                 "unzip": False,
-                "retries": 3,
+                "retries": 2,
             }
             | (params_dict.get("download_mapbook_cover_page") or {}),
             method="call",
@@ -514,7 +516,7 @@ def main(params: Params):
                 "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "overwrite_existing": False,
                 "unzip": False,
-                "retries": 3,
+                "retries": 2,
             }
             | (params_dict.get("download_sect_templates") or {}),
             method="call",
@@ -537,7 +539,7 @@ def main(params: Params):
                 "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "overwrite_existing": False,
                 "unzip": False,
-                "retries": 3,
+                "retries": 2,
             }
             | (params_dict.get("download_logo_path") or {}),
             method="call",
@@ -660,7 +662,7 @@ def main(params: Params):
             method="call",
         ),
         "annotate_geometry_types": Node(
-            async_task=annotate_gdf_dict_with_geometry_type.validate()
+            async_task=annotate_gdf_dict_with_geom_type.validate()
             .set_task_instance_id("annotate_geometry_types")
             .handle_errors()
             .with_tracing()
@@ -679,7 +681,7 @@ def main(params: Params):
             method="call",
         ),
         "create_styled_landdx_layers": Node(
-            async_task=create_map_layers_from_annotated_dict.validate()
+            async_task=create_layers_from_gdf_dict.validate()
             .set_task_instance_id("create_styled_landdx_layers")
             .handle_errors()
             .with_tracing()
@@ -692,38 +694,42 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "annotated_dict": DependsOn("annotate_geometry_types"),
-                "style_config": {
-                    "styles": {
-                        "Community Conservancy": {
-                            "get_fill_color": [85, 107, 47],
-                            "get_line_color": [85, 107, 47],
-                            "opacity": 0.15,
-                            "stroked": True,
-                            "get_line_width": 1.55,
-                        },
-                        "National Reserve": {
-                            "get_fill_color": [143, 188, 139],
-                            "get_line_color": [143, 188, 139],
-                            "opacity": 0.15,
-                            "stroked": True,
-                            "get_line_width": 1.55,
-                        },
-                        "National Park": {
-                            "get_fill_color": [255, 250, 205],
-                            "get_line_color": [255, 250, 205],
-                            "opacity": 0.15,
-                            "stroked": True,
-                            "get_line_width": 1.55,
-                        },
+                "gdf_dict": DependsOn("annotate_geometry_types"),
+                "styles": {
+                    "Community Conservancy": {
+                        "get_fill_color": [85, 107, 47],
+                        "get_line_color": [85, 107, 47],
+                        "opacity": 0.15,
+                        "stroked": True,
+                        "get_line_width": 1.55,
                     },
-                    "legend": {
-                        "labels": [
-                            "Community Conservancy",
-                            "National Reserve",
-                            "National Park",
-                        ],
-                        "colors": ["#556b2f", "#8fbc8b", "#fffacd"],
+                    "National Reserve": {
+                        "get_fill_color": [143, 188, 139],
+                        "get_line_color": [143, 188, 139],
+                        "opacity": 0.15,
+                        "stroked": True,
+                        "get_line_width": 1.55,
+                    },
+                    "National Park": {
+                        "get_fill_color": [255, 250, 205],
+                        "get_line_color": [255, 250, 205],
+                        "opacity": 0.15,
+                        "stroked": True,
+                        "get_line_width": 1.55,
+                    },
+                },
+                "legends": {
+                    "Community Conservancy": {
+                        "labels": ["Community Conservancy"],
+                        "colors": ["#556b2f"],
+                    },
+                    "National Reserve": {
+                        "labels": ["National Reserve"],
+                        "colors": ["#8fbc8b"],
+                    },
+                    "National Park": {
+                        "labels": ["National Park"],
+                        "colors": ["#fffacd"],
                     },
                 },
             }
@@ -975,6 +981,28 @@ def main(params: Params):
             | (params_dict.get("persist_trajectory_df") or {}),
             method="call",
         ),
+        "persist_trajectory_gpq": Node(
+            async_task=persist_df.validate()
+            .set_task_instance_id("persist_trajectory_gpq")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "df": DependsOn("rename_traj_cols"),
+                "filetype": "geoparquet",
+                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filename": "trajectories",
+            }
+            | (params_dict.get("persist_trajectory_gpq") or {}),
+            method="call",
+        ),
         "persist_relocs_df": Node(
             async_task=persist_df.validate()
             .set_task_instance_id("persist_relocs_df")
@@ -995,6 +1023,28 @@ def main(params: Params):
                 "filename": "relocations",
             }
             | (params_dict.get("persist_relocs_df") or {}),
+            method="call",
+        ),
+        "persist_relocs_gpq": Node(
+            async_task=persist_df.validate()
+            .set_task_instance_id("persist_relocs_gpq")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "df": DependsOn("annotate_day_night"),
+                "filetype": "geoparquet",
+                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filename": "relocations",
+            }
+            | (params_dict.get("persist_relocs_gpq") or {}),
             method="call",
         ),
         "split_trajectories_by_group": Node(
@@ -1302,7 +1352,7 @@ def main(params: Params):
                 },
                 "static": False,
                 "title": None,
-                "max_zoom": 12,
+                "max_zoom": 9,
             }
             | (params_dict.get("draw_speed_ecomap") or {}),
             method="mapvalues",
@@ -1326,6 +1376,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filename_suffix": "speedmap",
             }
             | (params_dict.get("persist_speed_ecomap_urls") or {}),
             method="mapvalues",
@@ -1347,7 +1398,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Speedmap",
+                "title": "Speed Map",
             }
             | (params_dict.get("create_speedmap_widgets") or {}),
             method="map",
@@ -1526,7 +1577,7 @@ def main(params: Params):
                 },
                 "static": False,
                 "title": None,
-                "max_zoom": 12,
+                "max_zoom": 9,
             }
             | (params_dict.get("draw_day_night_ecomap") or {}),
             method="mapvalues",
@@ -1550,6 +1601,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filename_suffix": "day_night",
             }
             | (params_dict.get("persist_day_night_ecomap_urls") or {}),
             method="mapvalues",
@@ -1727,7 +1779,7 @@ def main(params: Params):
                 "legend_style": {"placement": "bottom-right", "title": "Legend"},
                 "static": False,
                 "title": None,
-                "max_zoom": 12,
+                "max_zoom": 9,
             }
             | (params_dict.get("draw_quarter_status_ecomap") or {}),
             method="mapvalues",
@@ -1751,6 +1803,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filename_suffix": "movement_tracks",
             }
             | (params_dict.get("persist_quarter_ecomap_urls") or {}),
             method="mapvalues",
@@ -2102,7 +2155,7 @@ def main(params: Params):
                 "legend_style": {"placement": "bottom-right", "title": "ETD Metrics"},
                 "static": False,
                 "title": None,
-                "max_zoom": 12,
+                "max_zoom": 9,
             }
             | (params_dict.get("draw_hr_ecomap") or {}),
             method="mapvalues",
@@ -2125,6 +2178,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filename_suffix": "home_range",
             }
             | (params_dict.get("persist_hr_ecomap_urls") or {}),
             method="mapvalues",
@@ -2440,7 +2494,7 @@ def main(params: Params):
                 },
                 "static": False,
                 "title": None,
-                "max_zoom": 12,
+                "max_zoom": 9,
             }
             | (params_dict.get("draw_speed_raster_ecomaps") or {}),
             method="mapvalues",
@@ -2464,6 +2518,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filename_suffix": "speed_raster",
             }
             | (params_dict.get("speed_raster_ecomap_urls") or {}),
             method="mapvalues",
@@ -2485,7 +2540,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "title": "Speed Raster Ecomap",
+                "title": "Mean Speed Map",
             }
             | (params_dict.get("speed_raster_ecomap_widgets") or {}),
             method="map",
@@ -2665,7 +2720,7 @@ def main(params: Params):
                 "legend_style": {"placement": "bottom-right", "title": "Seasons"},
                 "static": False,
                 "title": None,
-                "max_zoom": 12,
+                "max_zoom": 9,
             }
             | (params_dict.get("seasonal_ecomap") or {}),
             method="mapvalues",
@@ -2689,6 +2744,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filename_suffix": "seasons",
             }
             | (params_dict.get("season_etd_ecomap_html_url") or {}),
             method="mapvalues",
@@ -2821,7 +2877,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "dp": 2,
+                "dp": 1,
             }
             | (params_dict.get("round_grid_area") or {}),
             method="mapvalues",

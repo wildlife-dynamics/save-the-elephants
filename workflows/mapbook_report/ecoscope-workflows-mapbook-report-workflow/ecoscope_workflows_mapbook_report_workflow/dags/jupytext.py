@@ -96,7 +96,7 @@ from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
     classify_is_night as classify_is_night,
 )
 from ecoscope_workflows_ext_ste.tasks import (
-    annotate_gdf_dict_with_geometry_type as annotate_gdf_dict_with_geometry_type,
+    annotate_gdf_dict_with_geom_type as annotate_gdf_dict_with_geom_type,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     build_mapbook_report_template as build_mapbook_report_template,
@@ -107,7 +107,7 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import combine_map_layers as combine_map_layers
 from ecoscope_workflows_ext_ste.tasks import create_context_page as create_context_page
 from ecoscope_workflows_ext_ste.tasks import (
-    create_map_layers_from_annotated_dict as create_map_layers_from_annotated_dict,
+    create_layers_from_gdf_dict as create_layers_from_gdf_dict,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     create_mapbook_context as create_mapbook_context,
@@ -315,7 +315,7 @@ download_mapbook_cover_page = (
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         unzip=False,
-        retries=3,
+        retries=2,
         **download_mapbook_cover_page_params,
     )
     .call()
@@ -350,7 +350,7 @@ download_sect_templates = (
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         unzip=False,
-        retries=3,
+        retries=2,
         **download_sect_templates_params,
     )
     .call()
@@ -385,7 +385,7 @@ download_logo_path = (
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         unzip=False,
-        retries=3,
+        retries=2,
         **download_logo_path_params,
     )
     .call()
@@ -575,7 +575,7 @@ annotate_geometry_types_params = dict()
 
 
 annotate_geometry_types = (
-    annotate_gdf_dict_with_geometry_type.set_task_instance_id("annotate_geometry_types")
+    annotate_gdf_dict_with_geom_type.set_task_instance_id("annotate_geometry_types")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -603,9 +603,7 @@ create_styled_landdx_layers_params = dict()
 
 
 create_styled_landdx_layers = (
-    create_map_layers_from_annotated_dict.set_task_instance_id(
-        "create_styled_landdx_layers"
-    )
+    create_layers_from_gdf_dict.set_task_instance_id("create_styled_landdx_layers")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -616,39 +614,37 @@ create_styled_landdx_layers = (
         unpack_depth=1,
     )
     .partial(
-        annotated_dict=annotate_geometry_types,
-        style_config={
-            "styles": {
-                "Community Conservancy": {
-                    "get_fill_color": [85, 107, 47],
-                    "get_line_color": [85, 107, 47],
-                    "opacity": 0.15,
-                    "stroked": True,
-                    "get_line_width": 1.55,
-                },
-                "National Reserve": {
-                    "get_fill_color": [143, 188, 139],
-                    "get_line_color": [143, 188, 139],
-                    "opacity": 0.15,
-                    "stroked": True,
-                    "get_line_width": 1.55,
-                },
-                "National Park": {
-                    "get_fill_color": [255, 250, 205],
-                    "get_line_color": [255, 250, 205],
-                    "opacity": 0.15,
-                    "stroked": True,
-                    "get_line_width": 1.55,
-                },
+        gdf_dict=annotate_geometry_types,
+        styles={
+            "Community Conservancy": {
+                "get_fill_color": [85, 107, 47],
+                "get_line_color": [85, 107, 47],
+                "opacity": 0.15,
+                "stroked": True,
+                "get_line_width": 1.55,
             },
-            "legend": {
-                "labels": [
-                    "Community Conservancy",
-                    "National Reserve",
-                    "National Park",
-                ],
-                "colors": ["#556b2f", "#8fbc8b", "#fffacd"],
+            "National Reserve": {
+                "get_fill_color": [143, 188, 139],
+                "get_line_color": [143, 188, 139],
+                "opacity": 0.15,
+                "stroked": True,
+                "get_line_width": 1.55,
             },
+            "National Park": {
+                "get_fill_color": [255, 250, 205],
+                "get_line_color": [255, 250, 205],
+                "opacity": 0.15,
+                "stroked": True,
+                "get_line_width": 1.55,
+            },
+        },
+        legends={
+            "Community Conservancy": {
+                "labels": ["Community Conservancy"],
+                "colors": ["#556b2f"],
+            },
+            "National Reserve": {"labels": ["National Reserve"], "colors": ["#8fbc8b"]},
+            "National Park": {"labels": ["National Park"], "colors": ["#fffacd"]},
         },
         **create_styled_landdx_layers_params,
     )
@@ -1036,6 +1032,40 @@ persist_trajectory_df = (
 
 
 # %% [markdown]
+# ## Persist trajectories as geoparquet
+
+# %%
+# parameters
+
+persist_trajectory_gpq_params = dict()
+
+# %%
+# call the task
+
+
+persist_trajectory_gpq = (
+    persist_df.set_task_instance_id("persist_trajectory_gpq")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        df=rename_traj_cols,
+        filetype="geoparquet",
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="trajectories",
+        **persist_trajectory_gpq_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Persist relocations as gpkg
 
 # %%
@@ -1064,6 +1094,40 @@ persist_relocs_df = (
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         filename="relocations",
         **persist_relocs_df_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Persist relocations as geoparquet
+
+# %%
+# parameters
+
+persist_relocs_gpq_params = dict()
+
+# %%
+# call the task
+
+
+persist_relocs_gpq = (
+    persist_df.set_task_instance_id("persist_relocs_gpq")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        df=annotate_day_night,
+        filetype="geoparquet",
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="relocations",
+        **persist_relocs_gpq_params,
     )
     .call()
 )
@@ -1455,7 +1519,7 @@ draw_speed_ecomap = (
         legend_style={"placement": "bottom-right", "title": "Speed Values(Km/h)"},
         static=False,
         title=None,
-        max_zoom=12,
+        max_zoom=9,
         **draw_speed_ecomap_params,
     )
     .mapvalues(argnames=["geo_layers", "view_state"], argvalues=zip_speed_zoom_values)
@@ -1470,7 +1534,6 @@ draw_speed_ecomap = (
 
 persist_speed_ecomap_urls_params = dict(
     filename=...,
-    filename_suffix=...,
 )
 
 # %%
@@ -1490,6 +1553,7 @@ persist_speed_ecomap_urls = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename_suffix="speedmap",
         **persist_speed_ecomap_urls_params,
     )
     .mapvalues(argnames=["text"], argvalues=draw_speed_ecomap)
@@ -1518,7 +1582,7 @@ create_speedmap_widgets = (
         ],
         unpack_depth=1,
     )
-    .partial(title="Speedmap", **create_speedmap_widgets_params)
+    .partial(title="Speed Map", **create_speedmap_widgets_params)
     .map(argnames=["view", "data"], argvalues=persist_speed_ecomap_urls)
 )
 
@@ -1741,7 +1805,7 @@ draw_day_night_ecomap = (
         legend_style={"placement": "bottom-right", "title": "Night Day Tracks"},
         static=False,
         title=None,
-        max_zoom=12,
+        max_zoom=9,
         **draw_day_night_ecomap_params,
     )
     .mapvalues(argnames=["geo_layers", "view_state"], argvalues=zoom_day_night)
@@ -1756,7 +1820,6 @@ draw_day_night_ecomap = (
 
 persist_day_night_ecomap_urls_params = dict(
     filename=...,
-    filename_suffix=...,
 )
 
 # %%
@@ -1776,6 +1839,7 @@ persist_day_night_ecomap_urls = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename_suffix="day_night",
         **persist_day_night_ecomap_urls_params,
     )
     .mapvalues(argnames=["text"], argvalues=draw_day_night_ecomap)
@@ -2004,7 +2068,7 @@ draw_quarter_status_ecomap = (
         legend_style={"placement": "bottom-right", "title": "Legend"},
         static=False,
         title=None,
-        max_zoom=12,
+        max_zoom=9,
         **draw_quarter_status_ecomap_params,
     )
     .mapvalues(argnames=["geo_layers", "view_state"], argvalues=zoom_quarter_movements)
@@ -2019,7 +2083,6 @@ draw_quarter_status_ecomap = (
 
 persist_quarter_ecomap_urls_params = dict(
     filename=...,
-    filename_suffix=...,
 )
 
 # %%
@@ -2039,6 +2102,7 @@ persist_quarter_ecomap_urls = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename_suffix="movement_tracks",
         **persist_quarter_ecomap_urls_params,
     )
     .mapvalues(argnames=["text"], argvalues=draw_quarter_status_ecomap)
@@ -2492,7 +2556,7 @@ draw_hr_ecomap = (
         legend_style={"placement": "bottom-right", "title": "ETD Metrics"},
         static=False,
         title=None,
-        max_zoom=12,
+        max_zoom=9,
         **draw_hr_ecomap_params,
     )
     .mapvalues(argnames=["geo_layers", "view_state"], argvalues=hr_view_zip)
@@ -2507,7 +2571,6 @@ draw_hr_ecomap = (
 
 persist_hr_ecomap_urls_params = dict(
     filename=...,
-    filename_suffix=...,
 )
 
 # %%
@@ -2526,6 +2589,7 @@ persist_hr_ecomap_urls = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename_suffix="home_range",
         **persist_hr_ecomap_urls_params,
     )
     .mapvalues(argnames=["text"], argvalues=draw_hr_ecomap)
@@ -2920,7 +2984,7 @@ draw_speed_raster_ecomaps = (
         legend_style={"placement": "bottom-right", "title": "Mean Speed Value (km/h)"},
         static=False,
         title=None,
-        max_zoom=12,
+        max_zoom=9,
         **draw_speed_raster_ecomaps_params,
     )
     .mapvalues(argnames=["geo_layers", "view_state"], argvalues=speedraster_view_zip)
@@ -2935,7 +2999,6 @@ draw_speed_raster_ecomaps = (
 
 speed_raster_ecomap_urls_params = dict(
     filename=...,
-    filename_suffix=...,
 )
 
 # %%
@@ -2955,6 +3018,7 @@ speed_raster_ecomap_urls = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename_suffix="speed_raster",
         **speed_raster_ecomap_urls_params,
     )
     .mapvalues(argnames=["text"], argvalues=draw_speed_raster_ecomaps)
@@ -2983,7 +3047,7 @@ speed_raster_ecomap_widgets = (
         ],
         unpack_depth=1,
     )
-    .partial(title="Speed Raster Ecomap", **speed_raster_ecomap_widgets_params)
+    .partial(title="Mean Speed Map", **speed_raster_ecomap_widgets_params)
     .map(argnames=["view", "data"], argvalues=speed_raster_ecomap_urls)
 )
 
@@ -3212,7 +3276,7 @@ seasonal_ecomap = (
         legend_style={"placement": "bottom-right", "title": "Seasons"},
         static=False,
         title=None,
-        max_zoom=12,
+        max_zoom=9,
         **seasonal_ecomap_params,
     )
     .mapvalues(argnames=["geo_layers", "view_state"], argvalues=seasons_view_zip)
@@ -3227,7 +3291,6 @@ seasonal_ecomap = (
 
 season_etd_ecomap_html_url_params = dict(
     filename=...,
-    filename_suffix=...,
 )
 
 # %%
@@ -3247,6 +3310,7 @@ season_etd_ecomap_html_url = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename_suffix="seasons",
         **season_etd_ecomap_html_url_params,
     )
     .mapvalues(argnames=["text"], argvalues=seasonal_ecomap)
@@ -3415,7 +3479,7 @@ round_grid_area = (
         ],
         unpack_depth=1,
     )
-    .partial(dp=2, **round_grid_area_params)
+    .partial(dp=1, **round_grid_area_params)
     .mapvalues(argnames=["value"], argvalues=total_grid_area)
 )
 
