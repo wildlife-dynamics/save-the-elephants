@@ -1,18 +1,4 @@
 # write test functions for these functions
-from ._map_utils import (
-    create_map_layers,
-    make_text_layer,
-    combine_map_layers,
-    detect_geometry_type,
-    create_layer_from_gdf,
-    build_landdx_style_config,
-    create_view_state_from_gdf,
-    find_landdx_gpkg_path,
-    annotate_gdf_dict_with_geometry_type,
-    create_map_layers_from_annotated_dict,
-)
-
-# write test functions for these functions
 from ._ste_utils import (
     get_duration,
     label_quarter_status,
@@ -36,18 +22,25 @@ from ._downloader import get_file_path, fetch_and_persist_file
 from ._zip import zip_grouped_by_key, flatten_tuple, zip_lists
 from ._tabular import split_gdf_by_column, generate_mcp_gdf, round_off_values
 
+from ._custom_ecomap import (
+    create_view_state_from_gdf,
+    get_gdf_geom_type,
+    annotate_gdf_dict_with_geom_type,
+    create_layer_from_gdf,
+    create_layers_from_gdf_dict,
+    combine_map_layers,
+    make_text_layer,
+)
+
 __all__ = [
-    # _map_utils
-    "find_landdx_gpkg_path",
-    "make_text_layer",
-    "create_map_layers",
-    "combine_map_layers",
-    "create_layer_from_gdf",
-    "build_landdx_style_config",
+    # _custom_ecomap
+    "get_gdf_geom_type",
+    "annotate_gdf_dict_with_geom_type",
+    "create_layers_from_gdf_dict",
     "create_view_state_from_gdf",
-    "detect_geometry_type",
-    "annotate_gdf_dict_with_geometry_type",
-    "create_map_layers_from_annotated_dict",
+    "create_layer_from_gdf",
+    "combine_map_layers",
+    "make_text_layer",
     # _ste_utils
     "create_report_context_from_tuple",
     "get_split_group_column",
