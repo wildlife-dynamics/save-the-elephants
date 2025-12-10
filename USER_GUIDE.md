@@ -133,7 +133,7 @@ An interactive dashboard is also generated, allowing users to:
 - Requires valid access to **EarthRanger** and **Google Earth Engine (GEE)**.  
 - Internet connectivity is required for logo download ,base map access, earthranger interaction and gee connectivity.  
 - Text layers are automatically included on basemaps for contextual labeling.  
-
+- LandDX db link: https://www.dropbox.com/scl/fi/v9maw2jeg1zptv68qtpv3/landDx.gpkg?rlkey=kez5vsbxkgha2emfy5kzwa5n1&st=v0260s0c&dl=0
 ---
 
 ## Output Summary
