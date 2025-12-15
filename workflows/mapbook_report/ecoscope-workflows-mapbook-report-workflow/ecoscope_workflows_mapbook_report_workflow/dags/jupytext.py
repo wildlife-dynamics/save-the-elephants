@@ -2254,7 +2254,7 @@ zip_etd_and_grouped_trajs_params = dict()
 
 
 zip_etd_and_grouped_trajs = (
-    groupbykey.set_task_instance_id("zip_etd_and_grouped_trajs")
+    zip_grouped_by_key.set_task_instance_id("zip_etd_and_grouped_trajs")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -2264,7 +2264,8 @@ zip_etd_and_grouped_trajs = (
         unpack_depth=1,
     )
     .partial(
-        iterables=[determine_seasonal_windows, assign_quarter_colors_traj],
+        left=determine_seasonal_windows,
+        right=assign_quarter_colors_traj,
         **zip_etd_and_grouped_trajs_params,
     )
     .call()
@@ -2451,7 +2452,7 @@ zip_mcp_hr_params = dict()
 
 
 zip_mcp_hr = (
-    groupbykey.set_task_instance_id("zip_mcp_hr")
+    zip_grouped_by_key.set_task_instance_id("zip_mcp_hr")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -2461,7 +2462,7 @@ zip_mcp_hr = (
         unpack_depth=1,
     )
     .partial(
-        iterables=[generate_mcp_layers, generate_etd_ecomap_layers], **zip_mcp_hr_params
+        left=generate_mcp_layers, right=generate_etd_ecomap_layers, **zip_mcp_hr_params
     )
     .call()
 )

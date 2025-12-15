@@ -860,11 +860,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.determine_seasonal_windows.return }}
-        -  ${{ workflow.assign_quarter_colors_traj.return }}
+      left: ${{ workflow.determine_seasonal_windows.return }}
+      right: ${{ workflow.assign_quarter_colors_traj.return }}
 
   # add seasonal labels to grouped trajectories
   - name: Generate seasonal labels
@@ -959,11 +958,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.generate_mcp_layers.return }}
-        -  ${{ workflow.generate_etd_ecomap_layers.return }}
+      left: ${{ workflow.generate_mcp_layers.return }}
+      right: ${{ workflow.generate_etd_ecomap_layers.return }}
 
   # combine static LandDx layers with home range (ETD) ecomap layers
   - name: Combine landDx and Home Range ecomap layers

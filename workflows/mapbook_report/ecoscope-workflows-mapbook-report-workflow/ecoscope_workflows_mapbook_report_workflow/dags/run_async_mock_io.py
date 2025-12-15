@@ -1900,7 +1900,7 @@ def main(params: Params):
             },
         ),
         "zip_etd_and_grouped_trajs": Node(
-            async_task=groupbykey.validate()
+            async_task=zip_grouped_by_key.validate()
             .set_task_instance_id("zip_etd_and_grouped_trajs")
             .handle_errors()
             .with_tracing()
@@ -1912,12 +1912,8 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "iterables": DependsOnSequence(
-                    [
-                        DependsOn("determine_seasonal_windows"),
-                        DependsOn("assign_quarter_colors_traj"),
-                    ],
-                ),
+                "left": DependsOn("determine_seasonal_windows"),
+                "right": DependsOn("assign_quarter_colors_traj"),
             }
             | (params_dict.get("zip_etd_and_grouped_trajs") or {}),
             method="call",
@@ -2053,7 +2049,7 @@ def main(params: Params):
             },
         ),
         "zip_mcp_hr": Node(
-            async_task=groupbykey.validate()
+            async_task=zip_grouped_by_key.validate()
             .set_task_instance_id("zip_mcp_hr")
             .handle_errors()
             .with_tracing()
@@ -2065,12 +2061,8 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "iterables": DependsOnSequence(
-                    [
-                        DependsOn("generate_mcp_layers"),
-                        DependsOn("generate_etd_ecomap_layers"),
-                    ],
-                ),
+                "left": DependsOn("generate_mcp_layers"),
+                "right": DependsOn("generate_etd_ecomap_layers"),
             }
             | (params_dict.get("zip_mcp_hr") or {}),
             method="call",
