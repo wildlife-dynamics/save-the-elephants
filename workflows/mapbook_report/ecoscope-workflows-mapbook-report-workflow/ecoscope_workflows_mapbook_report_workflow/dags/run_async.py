@@ -144,6 +144,7 @@ from ecoscope_workflows_ext_ste.tasks import (
 )
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
+from ecoscope_workflows_ext_ste.tasks import zip_grouped_by_key as zip_grouped_by_key
 from ecoscope_workflows_ext_ste.tasks import zip_lists as zip_lists
 
 from ..params import Params
@@ -1263,24 +1264,21 @@ def main(params: Params):
             },
         ),
         "zip_speed_zoom_values": Node(
-            async_task=groupbykey.validate()
+            async_task=zip_grouped_by_key.validate()
             .set_task_instance_id("zip_speed_zoom_values")
             .handle_errors()
             .with_tracing()
             .skipif(
                 conditions=[
-                    never,
+                    any_is_empty_df,
+                    any_dependency_skipped,
                 ],
                 unpack_depth=1,
             )
             .set_executor("lithops"),
             partial={
-                "iterables": DependsOnSequence(
-                    [
-                        DependsOn("ldx_speed_layers"),
-                        DependsOn("zoom_global_view"),
-                    ],
-                ),
+                "left": DependsOn("ldx_speed_layers"),
+                "right": DependsOn("zoom_global_view"),
             }
             | (params_dict.get("zip_speed_zoom_values") or {}),
             method="call",
@@ -1488,7 +1486,7 @@ def main(params: Params):
             },
         ),
         "zoom_day_night": Node(
-            async_task=groupbykey.validate()
+            async_task=zip_grouped_by_key.validate()
             .set_task_instance_id("zoom_day_night")
             .handle_errors()
             .with_tracing()
@@ -1500,12 +1498,8 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "iterables": DependsOnSequence(
-                    [
-                        DependsOn("ldx_dn_layers"),
-                        DependsOn("zoom_global_view"),
-                    ],
-                ),
+                "left": DependsOn("ldx_dn_layers"),
+                "right": DependsOn("zoom_global_view"),
             }
             | (params_dict.get("zoom_day_night") or {}),
             method="call",
@@ -1693,7 +1687,7 @@ def main(params: Params):
             },
         ),
         "zoom_quarter_movements": Node(
-            async_task=groupbykey.validate()
+            async_task=zip_grouped_by_key.validate()
             .set_task_instance_id("zoom_quarter_movements")
             .handle_errors()
             .with_tracing()
@@ -1705,12 +1699,8 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "iterables": DependsOnSequence(
-                    [
-                        DependsOn("combine_quarter_ecomap_layers"),
-                        DependsOn("zoom_global_view"),
-                    ],
-                ),
+                "left": DependsOn("combine_quarter_ecomap_layers"),
+                "right": DependsOn("zoom_global_view"),
             }
             | (params_dict.get("zoom_quarter_movements") or {}),
             method="call",
@@ -2069,7 +2059,7 @@ def main(params: Params):
             },
         ),
         "hr_view_zip": Node(
-            async_task=groupbykey.validate()
+            async_task=zip_grouped_by_key.validate()
             .set_task_instance_id("hr_view_zip")
             .handle_errors()
             .with_tracing()
@@ -2081,12 +2071,8 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "iterables": DependsOnSequence(
-                    [
-                        DependsOn("combine_landdx_hr_ecomap_layers"),
-                        DependsOn("zoom_global_view"),
-                    ],
-                ),
+                "left": DependsOn("combine_landdx_hr_ecomap_layers"),
+                "right": DependsOn("zoom_global_view"),
             }
             | (params_dict.get("hr_view_zip") or {}),
             method="call",
@@ -2405,7 +2391,7 @@ def main(params: Params):
             },
         ),
         "speedraster_view_zip": Node(
-            async_task=groupbykey.validate()
+            async_task=zip_grouped_by_key.validate()
             .set_task_instance_id("speedraster_view_zip")
             .handle_errors()
             .with_tracing()
@@ -2417,12 +2403,8 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "iterables": DependsOnSequence(
-                    [
-                        DependsOn("combine_seasonal_raster_layers"),
-                        DependsOn("zoom_global_view"),
-                    ],
-                ),
+                "left": DependsOn("combine_seasonal_raster_layers"),
+                "right": DependsOn("zoom_global_view"),
             }
             | (params_dict.get("speedraster_view_zip") or {}),
             method="call",
@@ -2634,7 +2616,7 @@ def main(params: Params):
             },
         ),
         "seasons_view_zip": Node(
-            async_task=groupbykey.validate()
+            async_task=zip_grouped_by_key.validate()
             .set_task_instance_id("seasons_view_zip")
             .handle_errors()
             .with_tracing()
@@ -2646,12 +2628,8 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "iterables": DependsOnSequence(
-                    [
-                        DependsOn("comb_season_map_layers"),
-                        DependsOn("zoom_global_view"),
-                    ],
-                ),
+                "left": DependsOn("comb_season_map_layers"),
+                "right": DependsOn("zoom_global_view"),
             }
             | (params_dict.get("seasons_view_zip") or {}),
             method="call",

@@ -505,14 +505,21 @@ workflow:
   # Zip up tasks to pass them on the same mapvalues
   - name: Zip speedmap layers and zoom values
     id: zip_speed_zoom_values
-    skipif:
-      conditions:
-        - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.ldx_speed_layers.return }} # geo_layers
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+      left: ${{ workflow.ldx_speed_layers.return }} # geo_layers
+      right: ${{ workflow.zoom_global_view.return }} # view_state
+
+  # - name: Zip speedmap layers and zoom values
+  #   id: zip_speed_zoom_values
+  #   skipif:
+  #     conditions:
+  #       - never
+  #   task: groupbykey 
+  #   partial:
+  #     iterables: 
+  #       -  ${{ workflow.ldx_speed_layers.return }} # geo_layers
+  #       -  ${{ workflow.zoom_global_view.return }} # view_state
 
   # draw speed ecomap for each traj group
   - name: Draw Speepmap by group
@@ -638,11 +645,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
-    partial:
-      iterables: 
-        -  ${{ workflow.ldx_dn_layers.return }} # geo_layers
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+    task: zip_grouped_by_key
+    partial: 
+      left: ${{ workflow.ldx_dn_layers.return }} # geo_layers
+      right: ${{ workflow.zoom_global_view.return }} # view_state
 
   # draw day/night ecomaps for each trajectory group
   - name: Draw Day/Night ecomaps by group
@@ -750,11 +756,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.combine_quarter_ecomap_layers.return }} # geo_layers
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+      left:  ${{ workflow.combine_quarter_ecomap_layers.return }} # geo_layers
+      right:  ${{ workflow.zoom_global_view.return }} # view_state
 
   # draw previous/current quarter movement ecomaps for each trajectory group
   - name: Draw quarter status ecomaps by group
@@ -981,11 +986,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.combine_landdx_hr_ecomap_layers.return }}
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+      left:  ${{ workflow.combine_landdx_hr_ecomap_layers.return }}
+      right:  ${{ workflow.zoom_global_view.return }} # view_state
 
   # draw home range (ETD) ecomaps for each subject group
   - name: Draw Home Range ecomap
@@ -1205,11 +1209,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.combine_seasonal_raster_layers.return }}
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+      left: ${{ workflow.combine_seasonal_raster_layers.return }}
+      right: ${{ workflow.zoom_global_view.return }} # view_state
 
   # draw speed raster ecomaps for each trajectory group
   - name: Draw speedraster ecomaps by group
@@ -1349,11 +1352,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.comb_season_map_layers.return }}
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+      left: ${{ workflow.comb_season_map_layers.return }}
+      right: ${{ workflow.zoom_global_view.return }} # view_state
 
   - name: Draw season ecomap 
     id: seasonal_ecomap

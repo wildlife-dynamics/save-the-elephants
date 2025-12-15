@@ -45,7 +45,6 @@ get_subjectgroup_observations = create_task_magicmock(  # 🧪
     anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
     func_name="get_subjectgroup_observations",  # 🧪
 )  # 🧪
-from ecoscope_workflows_core.tasks.groupby import groupbykey as groupbykey
 from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
 from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.results import (
@@ -103,6 +102,7 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import (
     modify_quarter_status_colors as modify_quarter_status_colors,
 )
+from ecoscope_workflows_ext_ste.tasks import zip_grouped_by_key as zip_grouped_by_key
 
 determine_season_windows = create_task_magicmock(  # 🧪
     anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
@@ -186,6 +186,7 @@ from ecoscope_workflows_ext_ste.tasks import (
     retrieve_feature_gdf as retrieve_feature_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
+from ecoscope_workflows_ext_ste.tasks import zip_grouped_by_key as zip_grouped_by_key
 from ecoscope_workflows_ext_ste.tasks import zip_lists as zip_lists
 
 from ..params import Params
@@ -1046,18 +1047,20 @@ def main(params: Params):
     )
 
     zip_speed_zoom_values = (
-        groupbykey.validate()
+        zip_grouped_by_key.validate()
         .set_task_instance_id("zip_speed_zoom_values")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                never,
+                any_is_empty_df,
+                any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            iterables=[ldx_speed_layers, zoom_global_view],
+            left=ldx_speed_layers,
+            right=zoom_global_view,
             **(params_dict.get("zip_speed_zoom_values") or {}),
         )
         .call()
@@ -1230,7 +1233,7 @@ def main(params: Params):
     )
 
     zoom_day_night = (
-        groupbykey.validate()
+        zip_grouped_by_key.validate()
         .set_task_instance_id("zoom_day_night")
         .handle_errors()
         .with_tracing()
@@ -1241,7 +1244,8 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            iterables=[ldx_dn_layers, zoom_global_view],
+            left=ldx_dn_layers,
+            right=zoom_global_view,
             **(params_dict.get("zoom_day_night") or {}),
         )
         .call()
@@ -1400,7 +1404,7 @@ def main(params: Params):
     )
 
     zoom_quarter_movements = (
-        groupbykey.validate()
+        zip_grouped_by_key.validate()
         .set_task_instance_id("zoom_quarter_movements")
         .handle_errors()
         .with_tracing()
@@ -1411,7 +1415,8 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            iterables=[combine_quarter_ecomap_layers, zoom_global_view],
+            left=combine_quarter_ecomap_layers,
+            right=zoom_global_view,
             **(params_dict.get("zoom_quarter_movements") or {}),
         )
         .call()
@@ -1710,7 +1715,7 @@ def main(params: Params):
     )
 
     hr_view_zip = (
-        groupbykey.validate()
+        zip_grouped_by_key.validate()
         .set_task_instance_id("hr_view_zip")
         .handle_errors()
         .with_tracing()
@@ -1721,7 +1726,8 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            iterables=[combine_landdx_hr_ecomap_layers, zoom_global_view],
+            left=combine_landdx_hr_ecomap_layers,
+            right=zoom_global_view,
             **(params_dict.get("hr_view_zip") or {}),
         )
         .call()
@@ -1984,7 +1990,7 @@ def main(params: Params):
     )
 
     speedraster_view_zip = (
-        groupbykey.validate()
+        zip_grouped_by_key.validate()
         .set_task_instance_id("speedraster_view_zip")
         .handle_errors()
         .with_tracing()
@@ -1995,7 +2001,8 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            iterables=[combine_seasonal_raster_layers, zoom_global_view],
+            left=combine_seasonal_raster_layers,
+            right=zoom_global_view,
             **(params_dict.get("speedraster_view_zip") or {}),
         )
         .call()
@@ -2174,7 +2181,7 @@ def main(params: Params):
     )
 
     seasons_view_zip = (
-        groupbykey.validate()
+        zip_grouped_by_key.validate()
         .set_task_instance_id("seasons_view_zip")
         .handle_errors()
         .with_tracing()
@@ -2185,7 +2192,8 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            iterables=[comb_season_map_layers, zoom_global_view],
+            left=comb_season_map_layers,
+            right=zoom_global_view,
             **(params_dict.get("seasons_view_zip") or {}),
         )
         .call()
