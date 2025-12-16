@@ -115,7 +115,6 @@ from ecoscope_workflows_core.tasks.analysis import (
 from ecoscope_workflows_core.tasks.analysis import (
     dataframe_column_sum as dataframe_column_sum,
 )
-from ecoscope_workflows_core.tasks.groupby import groupbykey as groupbykey
 from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.results import (
     create_map_widget_single_view as create_map_widget_single_view,
@@ -360,18 +359,24 @@ def main(params: Params):
         "convert_hr_html_to_png": ["persist_hr_ecomap_urls"],
         "convert_speed_raster_html_to_png": ["speed_raster_ecomap_urls"],
         "convert_seasonal_hr_html_to_png": ["season_etd_ecomap_html_url"],
-        "zip_mapbook_context": [
-            "round_grid_area",
-            "round_mcp_area",
-            "convert_quarter_html_to_png",
-            "convert_hr_html_to_png",
+        "zip_grid_mcp": ["round_grid_area", "round_mcp_area"],
+        "zip_grid_mcp_quarter": ["zip_grid_mcp", "convert_quarter_html_to_png"],
+        "zip_grid_mcp_quarter_hr": ["zip_grid_mcp_quarter", "convert_hr_html_to_png"],
+        "zip_grid_mcp_speedraster": [
+            "zip_grid_mcp_quarter_hr",
             "convert_speed_raster_html_to_png",
-            "convert_day_night_html_to_png",
-            "convert_speedmap_html_to_png",
-            "convert_seasonal_hr_html_to_png",
-            "get_subject_name",
         ],
-        "flatten_mbook_context": ["zip_mapbook_context"],
+        "zip_grid_mcp_dn": [
+            "zip_grid_mcp_speedraster",
+            "convert_day_night_html_to_png",
+        ],
+        "zip_grid_dn_speedmap": ["zip_grid_mcp_dn", "convert_speedmap_html_to_png"],
+        "zip_all_mapbook_context_inputs": [
+            "zip_grid_dn_speedmap",
+            "convert_seasonal_hr_html_to_png",
+        ],
+        "zip_all_with_name": ["zip_all_mapbook_context_inputs", "get_subject_name"],
+        "flatten_mbook_context": ["zip_all_with_name"],
         "get_grouper_names": ["split_trajectories_by_group"],
         "zip_grouper_with_context": ["get_grouper_names", "flatten_mbook_context"],
         "flatten_final_report_context": ["zip_grouper_with_context"],
@@ -3277,34 +3282,164 @@ def main(params: Params):
                 "argvalues": DependsOn("season_etd_ecomap_html_url"),
             },
         ),
-        "zip_mapbook_context": Node(
-            async_task=groupbykey.validate()
-            .set_task_instance_id("zip_mapbook_context")
+        "zip_grid_mcp": Node(
+            async_task=zip_grouped_by_key.validate()
+            .set_task_instance_id("zip_grid_mcp")
             .handle_errors()
             .with_tracing()
             .skipif(
                 conditions=[
-                    never,
+                    any_is_empty_df,
+                    any_dependency_skipped,
                 ],
                 unpack_depth=1,
             )
             .set_executor("lithops"),
             partial={
-                "iterables": DependsOnSequence(
-                    [
-                        DependsOn("round_grid_area"),
-                        DependsOn("round_mcp_area"),
-                        DependsOn("convert_quarter_html_to_png"),
-                        DependsOn("convert_hr_html_to_png"),
-                        DependsOn("convert_speed_raster_html_to_png"),
-                        DependsOn("convert_day_night_html_to_png"),
-                        DependsOn("convert_speedmap_html_to_png"),
-                        DependsOn("convert_seasonal_hr_html_to_png"),
-                        DependsOn("get_subject_name"),
-                    ],
-                ),
+                "left": DependsOn("round_grid_area"),
+                "right": DependsOn("round_mcp_area"),
             }
-            | (params_dict.get("zip_mapbook_context") or {}),
+            | (params_dict.get("zip_grid_mcp") or {}),
+            method="call",
+        ),
+        "zip_grid_mcp_quarter": Node(
+            async_task=zip_grouped_by_key.validate()
+            .set_task_instance_id("zip_grid_mcp_quarter")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_mcp"),
+                "right": DependsOn("convert_quarter_html_to_png"),
+            }
+            | (params_dict.get("zip_grid_mcp_quarter") or {}),
+            method="call",
+        ),
+        "zip_grid_mcp_quarter_hr": Node(
+            async_task=zip_grouped_by_key.validate()
+            .set_task_instance_id("zip_grid_mcp_quarter_hr")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_mcp_quarter"),
+                "right": DependsOn("convert_hr_html_to_png"),
+            }
+            | (params_dict.get("zip_grid_mcp_quarter_hr") or {}),
+            method="call",
+        ),
+        "zip_grid_mcp_speedraster": Node(
+            async_task=zip_grouped_by_key.validate()
+            .set_task_instance_id("zip_grid_mcp_speedraster")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_mcp_quarter_hr"),
+                "right": DependsOn("convert_speed_raster_html_to_png"),
+            }
+            | (params_dict.get("zip_grid_mcp_speedraster") or {}),
+            method="call",
+        ),
+        "zip_grid_mcp_dn": Node(
+            async_task=zip_grouped_by_key.validate()
+            .set_task_instance_id("zip_grid_mcp_dn")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_mcp_speedraster"),
+                "right": DependsOn("convert_day_night_html_to_png"),
+            }
+            | (params_dict.get("zip_grid_mcp_dn") or {}),
+            method="call",
+        ),
+        "zip_grid_dn_speedmap": Node(
+            async_task=zip_grouped_by_key.validate()
+            .set_task_instance_id("zip_grid_dn_speedmap")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_mcp_dn"),
+                "right": DependsOn("convert_speedmap_html_to_png"),
+            }
+            | (params_dict.get("zip_grid_dn_speedmap") or {}),
+            method="call",
+        ),
+        "zip_all_mapbook_context_inputs": Node(
+            async_task=zip_grouped_by_key.validate()
+            .set_task_instance_id("zip_all_mapbook_context_inputs")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_grid_dn_speedmap"),
+                "right": DependsOn("convert_seasonal_hr_html_to_png"),
+            }
+            | (params_dict.get("zip_all_mapbook_context_inputs") or {}),
+            method="call",
+        ),
+        "zip_all_with_name": Node(
+            async_task=zip_grouped_by_key.validate()
+            .set_task_instance_id("zip_all_with_name")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "left": DependsOn("zip_all_mapbook_context_inputs"),
+                "right": DependsOn("get_subject_name"),
+            }
+            | (params_dict.get("zip_all_with_name") or {}),
             method="call",
         ),
         "flatten_mbook_context": Node(
@@ -3324,7 +3459,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["nested"],
-                "argvalues": DependsOn("zip_mapbook_context"),
+                "argvalues": DependsOn("zip_all_with_name"),
             },
         ),
         "get_grouper_names": Node(

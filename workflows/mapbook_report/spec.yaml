@@ -1643,31 +1643,86 @@ workflow:
       argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}
 
   # === Zip mapbook context inputs into a single grouped iterable ===
-  - name: Mapbook context iterables
-    id: zip_mapbook_context
-    skipif:
-      conditions:
-        - never
-    task: groupbykey 
-    partial:
-      iterables: 
-        -  ${{ workflow.round_grid_area.return }}
-        -  ${{ workflow.round_mcp_area.return }}
-        -  ${{ workflow.convert_quarter_html_to_png.return }}
-        -  ${{ workflow.convert_hr_html_to_png.return }}
-        -  ${{ workflow.convert_speed_raster_html_to_png.return }}
-        -  ${{ workflow.convert_day_night_html_to_png.return }}
-        -  ${{ workflow.convert_speedmap_html_to_png.return }}
-        -  ${{ workflow.convert_seasonal_hr_html_to_png.return }}
-        -  ${{ workflow.get_subject_name.return }}
+  # - name: Mapbook context iterables
+  #   id: zip_mapbook_context
+  #   skipif:
+  #     conditions:
+  #       - never
+  #   task: groupbykey 
+  #   partial:
+  #     iterables: 
+  #       -  ${{ workflow.round_grid_area.return }}
+  #       -  ${{ workflow.round_mcp_area.return }}
+  #       -  ${{ workflow.convert_quarter_html_to_png.return }}
+  #       -  ${{ workflow.convert_hr_html_to_png.return }}
+  #       -  ${{ workflow.convert_speed_raster_html_to_png.return }}
+  #       -  ${{ workflow.convert_day_night_html_to_png.return }}
+  #       -  ${{ workflow.convert_speedmap_html_to_png.return }}
+  #       -  ${{ workflow.convert_seasonal_hr_html_to_png.return }}
+  #       -  ${{ workflow.get_subject_name.return }}
 
+  - name: Zip grid and mcp
+    id: zip_grid_mcp
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.round_grid_area.return }}
+      right: ${{ workflow.round_mcp_area.return }}
+
+  - name: Zip with quarter png
+    id: zip_grid_mcp_quarter
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp.return }}
+      right: ${{ workflow.convert_quarter_html_to_png.return }}
+
+  - name: Zip with hr png
+    id: zip_grid_mcp_quarter_hr
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_quarter.return }}
+      right: ${{ workflow.convert_hr_html_to_png.return }}
+
+  - name: Zip with speed raster png
+    id: zip_grid_mcp_speedraster
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_quarter_hr.return }}
+      right: ${{ workflow.convert_speed_raster_html_to_png.return }}
+
+  - name: Zip with day/night png
+    id: zip_grid_mcp_dn
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_speedraster.return }}
+      right: ${{ workflow.convert_day_night_html_to_png.return }}
+
+  - name: Zip with speedmap png
+    id: zip_grid_dn_speedmap
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_dn.return }}
+      right: ${{ workflow.convert_speedmap_html_to_png.return }}
+
+  - name: Zip with seasonal hr png (final)
+    id: zip_all_mapbook_context_inputs
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_dn_speedmap.return }}
+      right: ${{ workflow.convert_seasonal_hr_html_to_png.return }}
+  - name: Zip with subject name
+    id: zip_all_with_name
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_all_mapbook_context_inputs.return }}
+      right: ${{ workflow.get_subject_name.return }}
+      
   # this section can equally be improved
   - name: Flatten zipped mapbook context inputs
     id: flatten_mbook_context
     task: flatten_tuple
     mapvalues:
       argnames: nested
-      argvalues: ${{ workflow.zip_mapbook_context.return }}
+      argvalues: ${{ workflow.zip_all_with_name.return }}
 
   - name: Get split group names 
     id: get_grouper_names 

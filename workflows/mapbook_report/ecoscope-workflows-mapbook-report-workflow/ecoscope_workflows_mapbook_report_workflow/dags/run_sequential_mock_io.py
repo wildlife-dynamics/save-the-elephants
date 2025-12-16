@@ -114,7 +114,6 @@ from ecoscope_workflows_core.tasks.analysis import (
 from ecoscope_workflows_core.tasks.analysis import (
     dataframe_column_sum as dataframe_column_sum,
 )
-from ecoscope_workflows_core.tasks.groupby import groupbykey as groupbykey
 from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.results import (
     create_map_widget_single_view as create_map_widget_single_view,
@@ -2713,30 +2712,162 @@ def main(params: Params):
         .mapvalues(argnames=["html_path"], argvalues=season_etd_ecomap_html_url)
     )
 
-    zip_mapbook_context = (
-        groupbykey.validate()
-        .set_task_instance_id("zip_mapbook_context")
+    zip_grid_mcp = (
+        zip_grouped_by_key.validate()
+        .set_task_instance_id("zip_grid_mcp")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                never,
+                any_is_empty_df,
+                any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            iterables=[
-                round_grid_area,
-                round_mcp_area,
-                convert_quarter_html_to_png,
-                convert_hr_html_to_png,
-                convert_speed_raster_html_to_png,
-                convert_day_night_html_to_png,
-                convert_speedmap_html_to_png,
-                convert_seasonal_hr_html_to_png,
-                get_subject_name,
+            left=round_grid_area,
+            right=round_mcp_area,
+            **(params_dict.get("zip_grid_mcp") or {}),
+        )
+        .call()
+    )
+
+    zip_grid_mcp_quarter = (
+        zip_grouped_by_key.validate()
+        .set_task_instance_id("zip_grid_mcp_quarter")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
             ],
-            **(params_dict.get("zip_mapbook_context") or {}),
+            unpack_depth=1,
+        )
+        .partial(
+            left=zip_grid_mcp,
+            right=convert_quarter_html_to_png,
+            **(params_dict.get("zip_grid_mcp_quarter") or {}),
+        )
+        .call()
+    )
+
+    zip_grid_mcp_quarter_hr = (
+        zip_grouped_by_key.validate()
+        .set_task_instance_id("zip_grid_mcp_quarter_hr")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            left=zip_grid_mcp_quarter,
+            right=convert_hr_html_to_png,
+            **(params_dict.get("zip_grid_mcp_quarter_hr") or {}),
+        )
+        .call()
+    )
+
+    zip_grid_mcp_speedraster = (
+        zip_grouped_by_key.validate()
+        .set_task_instance_id("zip_grid_mcp_speedraster")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            left=zip_grid_mcp_quarter_hr,
+            right=convert_speed_raster_html_to_png,
+            **(params_dict.get("zip_grid_mcp_speedraster") or {}),
+        )
+        .call()
+    )
+
+    zip_grid_mcp_dn = (
+        zip_grouped_by_key.validate()
+        .set_task_instance_id("zip_grid_mcp_dn")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            left=zip_grid_mcp_speedraster,
+            right=convert_day_night_html_to_png,
+            **(params_dict.get("zip_grid_mcp_dn") or {}),
+        )
+        .call()
+    )
+
+    zip_grid_dn_speedmap = (
+        zip_grouped_by_key.validate()
+        .set_task_instance_id("zip_grid_dn_speedmap")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            left=zip_grid_mcp_dn,
+            right=convert_speedmap_html_to_png,
+            **(params_dict.get("zip_grid_dn_speedmap") or {}),
+        )
+        .call()
+    )
+
+    zip_all_mapbook_context_inputs = (
+        zip_grouped_by_key.validate()
+        .set_task_instance_id("zip_all_mapbook_context_inputs")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            left=zip_grid_dn_speedmap,
+            right=convert_seasonal_hr_html_to_png,
+            **(params_dict.get("zip_all_mapbook_context_inputs") or {}),
+        )
+        .call()
+    )
+
+    zip_all_with_name = (
+        zip_grouped_by_key.validate()
+        .set_task_instance_id("zip_all_with_name")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            left=zip_all_mapbook_context_inputs,
+            right=get_subject_name,
+            **(params_dict.get("zip_all_with_name") or {}),
         )
         .call()
     )
@@ -2754,7 +2885,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(**(params_dict.get("flatten_mbook_context") or {}))
-        .mapvalues(argnames=["nested"], argvalues=zip_mapbook_context)
+        .mapvalues(argnames=["nested"], argvalues=zip_all_with_name)
     )
 
     get_grouper_names = (
