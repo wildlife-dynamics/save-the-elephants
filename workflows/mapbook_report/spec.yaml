@@ -505,14 +505,21 @@ workflow:
   # Zip up tasks to pass them on the same mapvalues
   - name: Zip speedmap layers and zoom values
     id: zip_speed_zoom_values
-    skipif:
-      conditions:
-        - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.ldx_speed_layers.return }} # geo_layers
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+      left: ${{ workflow.ldx_speed_layers.return }} # geo_layers
+      right: ${{ workflow.zoom_global_view.return }} # view_state
+
+  # - name: Zip speedmap layers and zoom values
+  #   id: zip_speed_zoom_values
+  #   skipif:
+  #     conditions:
+  #       - never
+  #   task: groupbykey 
+  #   partial:
+  #     iterables: 
+  #       -  ${{ workflow.ldx_speed_layers.return }} # geo_layers
+  #       -  ${{ workflow.zoom_global_view.return }} # view_state
 
   # draw speed ecomap for each traj group
   - name: Draw Speepmap by group
@@ -638,11 +645,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
-    partial:
-      iterables: 
-        -  ${{ workflow.ldx_dn_layers.return }} # geo_layers
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+    task: zip_grouped_by_key
+    partial: 
+      left: ${{ workflow.ldx_dn_layers.return }} # geo_layers
+      right: ${{ workflow.zoom_global_view.return }} # view_state
 
   # draw day/night ecomaps for each trajectory group
   - name: Draw Day/Night ecomaps by group
@@ -750,11 +756,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.combine_quarter_ecomap_layers.return }} # geo_layers
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+      left:  ${{ workflow.combine_quarter_ecomap_layers.return }} # geo_layers
+      right:  ${{ workflow.zoom_global_view.return }} # view_state
 
   # draw previous/current quarter movement ecomaps for each trajectory group
   - name: Draw quarter status ecomaps by group
@@ -855,11 +860,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.determine_seasonal_windows.return }}
-        -  ${{ workflow.assign_quarter_colors_traj.return }}
+      left: ${{ workflow.determine_seasonal_windows.return }}
+      right: ${{ workflow.assign_quarter_colors_traj.return }}
 
   # add seasonal labels to grouped trajectories
   - name: Generate seasonal labels
@@ -954,11 +958,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.generate_mcp_layers.return }}
-        -  ${{ workflow.generate_etd_ecomap_layers.return }}
+      left: ${{ workflow.generate_mcp_layers.return }}
+      right: ${{ workflow.generate_etd_ecomap_layers.return }}
 
   # combine static LandDx layers with home range (ETD) ecomap layers
   - name: Combine landDx and Home Range ecomap layers
@@ -981,11 +984,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.combine_landdx_hr_ecomap_layers.return }}
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+      left:  ${{ workflow.combine_landdx_hr_ecomap_layers.return }}
+      right:  ${{ workflow.zoom_global_view.return }} # view_state
 
   # draw home range (ETD) ecomaps for each subject group
   - name: Draw Home Range ecomap
@@ -1205,11 +1207,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.combine_seasonal_raster_layers.return }}
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+      left: ${{ workflow.combine_seasonal_raster_layers.return }}
+      right: ${{ workflow.zoom_global_view.return }} # view_state
 
   # draw speed raster ecomaps for each trajectory group
   - name: Draw speedraster ecomaps by group
@@ -1349,11 +1350,10 @@ workflow:
     skipif:
       conditions:
         - never
-    task: groupbykey 
+    task: zip_grouped_by_key
     partial:
-      iterables: 
-        -  ${{ workflow.comb_season_map_layers.return }}
-        -  ${{ workflow.zoom_global_view.return }} # view_state
+      left: ${{ workflow.comb_season_map_layers.return }}
+      right: ${{ workflow.zoom_global_view.return }} # view_state
 
   - name: Draw season ecomap 
     id: seasonal_ecomap
@@ -1643,31 +1643,86 @@ workflow:
       argvalues: ${{ workflow.season_etd_ecomap_html_url.return }}
 
   # === Zip mapbook context inputs into a single grouped iterable ===
-  - name: Mapbook context iterables
-    id: zip_mapbook_context
-    skipif:
-      conditions:
-        - never
-    task: groupbykey 
-    partial:
-      iterables: 
-        -  ${{ workflow.round_grid_area.return }}
-        -  ${{ workflow.round_mcp_area.return }}
-        -  ${{ workflow.convert_quarter_html_to_png.return }}
-        -  ${{ workflow.convert_hr_html_to_png.return }}
-        -  ${{ workflow.convert_speed_raster_html_to_png.return }}
-        -  ${{ workflow.convert_day_night_html_to_png.return }}
-        -  ${{ workflow.convert_speedmap_html_to_png.return }}
-        -  ${{ workflow.convert_seasonal_hr_html_to_png.return }}
-        -  ${{ workflow.get_subject_name.return }}
+  # - name: Mapbook context iterables
+  #   id: zip_mapbook_context
+  #   skipif:
+  #     conditions:
+  #       - never
+  #   task: groupbykey 
+  #   partial:
+  #     iterables: 
+  #       -  ${{ workflow.round_grid_area.return }}
+  #       -  ${{ workflow.round_mcp_area.return }}
+  #       -  ${{ workflow.convert_quarter_html_to_png.return }}
+  #       -  ${{ workflow.convert_hr_html_to_png.return }}
+  #       -  ${{ workflow.convert_speed_raster_html_to_png.return }}
+  #       -  ${{ workflow.convert_day_night_html_to_png.return }}
+  #       -  ${{ workflow.convert_speedmap_html_to_png.return }}
+  #       -  ${{ workflow.convert_seasonal_hr_html_to_png.return }}
+  #       -  ${{ workflow.get_subject_name.return }}
 
+  - name: Zip grid and mcp
+    id: zip_grid_mcp
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.round_grid_area.return }}
+      right: ${{ workflow.round_mcp_area.return }}
+
+  - name: Zip with quarter png
+    id: zip_grid_mcp_quarter
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp.return }}
+      right: ${{ workflow.convert_quarter_html_to_png.return }}
+
+  - name: Zip with hr png
+    id: zip_grid_mcp_quarter_hr
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_quarter.return }}
+      right: ${{ workflow.convert_hr_html_to_png.return }}
+
+  - name: Zip with speed raster png
+    id: zip_grid_mcp_speedraster
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_quarter_hr.return }}
+      right: ${{ workflow.convert_speed_raster_html_to_png.return }}
+
+  - name: Zip with day/night png
+    id: zip_grid_mcp_dn
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_speedraster.return }}
+      right: ${{ workflow.convert_day_night_html_to_png.return }}
+
+  - name: Zip with speedmap png
+    id: zip_grid_dn_speedmap
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_mcp_dn.return }}
+      right: ${{ workflow.convert_speedmap_html_to_png.return }}
+
+  - name: Zip with seasonal hr png (final)
+    id: zip_all_mapbook_context_inputs
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_grid_dn_speedmap.return }}
+      right: ${{ workflow.convert_seasonal_hr_html_to_png.return }}
+  - name: Zip with subject name
+    id: zip_all_with_name
+    task: zip_grouped_by_key
+    partial:
+      left: ${{ workflow.zip_all_mapbook_context_inputs.return }}
+      right: ${{ workflow.get_subject_name.return }}
+      
   # this section can equally be improved
   - name: Flatten zipped mapbook context inputs
     id: flatten_mbook_context
     task: flatten_tuple
     mapvalues:
       argnames: nested
-      argvalues: ${{ workflow.zip_mapbook_context.return }}
+      argvalues: ${{ workflow.zip_all_with_name.return }}
 
   - name: Get split group names 
     id: get_grouper_names 
