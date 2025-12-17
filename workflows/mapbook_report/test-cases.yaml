@@ -13,8 +13,7 @@ subject-grouper:
     # Connect to EarthRanger
     er_client_name:
       data_source:
-       - subject_name
-
+       - ste
 
     # Connect to EarthEngine
     gee_project_name:
