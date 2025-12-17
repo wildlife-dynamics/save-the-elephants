@@ -51,8 +51,10 @@ if ! yq eval "has(\"${test_case}\")" "$test_cases_file" | grep -q "true"; then
     exit 1
 fi
 
-# Create temporary results directory
-results_dir="/tmp/workflow-test-results/${workflow_name}/${test_case}"
+# Create temporary results directory (cross-platform compatible)
+# Use RUNNER_TEMP if available (GitHub Actions), otherwise fall back to /tmp
+temp_base="${RUNNER_TEMP:-/tmp}"
+results_dir="${temp_base}/workflow-test-results/${workflow_name}/${test_case}"
 rm -rf "$results_dir"
 mkdir -p "$results_dir"
 echo "Created results directory: $results_dir"

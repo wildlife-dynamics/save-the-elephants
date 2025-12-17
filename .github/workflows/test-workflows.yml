@@ -135,10 +135,12 @@ jobs:
   test-workflows:
     needs: [build-release, discover-workflow-test-pairs]
     if: needs.discover-workflow-test-pairs.outputs.pairs != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include: ${{ fromJson(needs.discover-workflow-test-pairs.outputs.pairs) }}
+        # os: [ubuntu-latest, macos-latest, windows-latest] # todo
+        os: [windows-latest]
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -157,10 +159,12 @@ jobs:
 
 
       - name: Write GEE key to file
+        shell: bash
         run: |
           echo "${{ secrets.EE_KEY_JSON }}" > gee-key.json
 
       - name: Run a workflow test case
+        shell: bash
         env:
           # Add your GitHub secrets here
           # They will be available to the workflow
@@ -171,5 +175,5 @@ jobs:
           ecoscope_workflows__connections__earthengine__ecoscope_poc__private_key: ${{ github.workspace }}/gee-key.json
         #   # Add more secrets as needed
         run: |
-          chmod +x dev/pytest-cli.sh
+          chmod +x dev/pytest-cli.sh || true
           ./dev/pytest-cli.sh ${{ matrix.workflow }} ${{ matrix.case }}
