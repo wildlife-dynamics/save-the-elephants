@@ -13,7 +13,7 @@ subject-grouper:
     # Connect to EarthRanger
     er_client_name:
       data_source:
-       - ste
+        name: ste
 
     # Connect to EarthEngine
     gee_project_name:
@@ -23,7 +23,8 @@ subject-grouper:
 
     # Value grouper /temporal grouper
     groupers:
-      groupers: []
+      groupers: 
+        - subject_name
 
     # Subject group name
     subject_observations:
