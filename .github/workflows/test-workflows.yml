@@ -155,15 +155,20 @@ jobs:
       - name: Install pixi
         run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH
 
+
+      - name: Write GEE key to file
+        run: |
+          echo "${{ secrets.EE_KEY_JSON }}" > gee-key.json
+
       - name: Run a workflow test case
-        # env:
-        #   # Add your GitHub secrets here
-        #   # They will be available to the workflow
-        #   ER_SERVER: ${{ secrets.ER_SERVER }}
-        #   ER_USERNAME: ${{ secrets.ER_USERNAME }}
-        #   ER_PASSWORD: ${{ secrets.ER_PASSWORD }}
-        #   GEE_SERVICE_ACCOUNT: ${{ secrets.GEE_SERVICE_ACCOUNT }}
-        #   GEE_KEY_JSON: ${{ secrets.GEE_KEY_JSON }}
+        env:
+          # Add your GitHub secrets here
+          # They will be available to the workflow
+          ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHRANGER__STE__SERVER: ${{ secrets.STE_SERVER }}
+          ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHRANGER__STE__PASSWORD: ${{ secrets.STE_PASSWORD }}
+          ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHRANGER__STE__USERNAME: ${{ secrets.STE_USERNAME }}
+          ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHENGINE__ECOSCOPE_POC__SERVICE_ACCOUNT: ${{ secrets.EE_SERVICE_ACCOUNT }}
+          ecoscope_workflows__connections__earthengine__ecoscope_poc__private_key: ${{ github.workspace }}/gee-key.json
         #   # Add more secrets as needed
         run: |
           chmod +x dev/pytest-cli.sh
