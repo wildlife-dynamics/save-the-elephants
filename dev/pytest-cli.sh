@@ -40,7 +40,7 @@ if [ "$skip_setup" = false ]; then
     echo "Updating pixi environment..."
     pixi update --manifest-path $manifest_path
     echo "Installing playwright..."
-    pixi run --manifest-path $manifest_path --locked -e default playwright-install
+    pixi run --manifest-path $manifest_path --locked -e default bash -c "playwright install --with-deps chromium"
 else
     echo "Skipping pixi update and playwright-install (--skip-setup flag provided)"
 fi
