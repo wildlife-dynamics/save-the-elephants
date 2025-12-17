@@ -44,3 +44,44 @@ jobs:
       - name: Recompile workflow
         run: |
           pixi run --manifest-path pixi.toml -e compile bash -c "./dev/recompile.sh ${{ matrix.workflow }} --update"
+
+      - name: Check for differences in generated files
+        id: check-diff
+        run: |
+          # Convert workflow name to use dashes instead of underscores for directory name
+          WORKFLOW_DIR_NAME=$(echo "${{ matrix.workflow }}" | tr '_' '-')
+          GENERATED_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
+
+          echo "Checking for differences in ${GENERATED_DIR}"
+
+          if [ ! -d "${GENERATED_DIR}" ]; then
+            echo "::error::Generated directory ${GENERATED_DIR} does not exist!"
+            echo "::error::The recompile step may have failed to generate the workflow."
+            exit 1
+          fi
+
+          # Check if there are any differences
+          if ! git diff --exit-code "${GENERATED_DIR}"; then
+            echo "diff_found=true" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "diff_found=false" >> $GITHUB_OUTPUT
+            echo "No differences found - generated files are up to date!"
+          fi
+
+      - name: Display diff if changes exist
+        if: steps.check-diff.outputs.diff_found == 'true'
+        run: |
+          WORKFLOW_DIR_NAME=$(echo "${{ matrix.workflow }}" | tr '_' '-')
+          GENERATED_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
+
+          echo "::error::Generated files differ from committed files in ${GENERATED_DIR}"
+          echo "Full diff:"
+          git diff "${GENERATED_DIR}"
+
+      - name: Fail if uncommitted changes exist
+        if: steps.check-diff.outputs.diff_found == 'true'
+        run: |
+          echo "::error::Generated workflow files are out of sync with the committed version."
+          echo "::error::Please run the compilation locally and commit the changes."
+          exit 1
