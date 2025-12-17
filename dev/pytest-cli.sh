@@ -69,7 +69,7 @@ echo ""
 echo "Executing workflow..."
 echo "Results will be written to: $ECOSCOPE_WORKFLOWS_RESULTS"
 
-workflow_underscore=$(echo $workflow_name | tr '_' '-')
+workflow_underscore=$(echo $workflow_name | tr '-' '_')
 pixi run --manifest-path $manifest_path -e default \
     python -m ecoscope_workflows_${workflow_underscore}_workflow.cli run \
     --config-file "$params_file" \

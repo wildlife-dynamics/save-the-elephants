@@ -1,64 +1,93 @@
 all-grouper:
-  name: All Subjects - No Grouper
-  description: Run workflow on all STE subjects without any grouping.
-  params:
-    initialize_workflow_metadata:
-      name: "STE Mapbook - All Subjects"
-      description: "Run for all collared elephants with no grouping applied."
-    define_time_range:
-      since: "2024-01-01T00:00:00Z"
-      until: "2024-12-31T23:59:59Z"
-    configure_grouping_strategy:
-      groupers: []
-    convert_to_trajectories:
-      trajectory_segment_filter:
-        min_length_meters: 0.001
-        max_length_meters: 5000.0
-        max_time_secs: 7200.0
-        min_time_secs: 1.0
-        max_speed_kmhr: 9.0
-        min_speed_kmhr: 0.01
+  # Workflow description
+  initialize_workflow_metadata:
+    name: "Save the Elephants Mapbook Report"
+    description: "Workflow to showcase movement of STE Collared Elephants that entails various metrics"
 
-month-grouper:
-  name: Month-Based Grouper
-  description: Group STE movements by month of segment start.
-  params:
-    initialize_workflow_metadata:
-      name: "STE Mapbook - Monthly Grouping"
-      description: "Group and visualize elephant movement per month."
-    define_time_range:
-      since: "2024-01-01T00:00:00Z"
-      until: "2024-12-31T23:59:59Z"
-    configure_grouping_strategy:
-      groupers:
-        - "%B"
-    convert_to_trajectories:
-      trajectory_segment_filter:
-        min_length_meters: 0.001
-        max_length_meters: 5000.0
-        max_time_secs: 7200.0
-        min_time_secs: 1.0
-        max_speed_kmhr: 9.0
-        min_speed_kmhr: 0.01
+  # Desired time range
+  time_range:
+    since: "2025-05-01T00:00:00Z"
+    until: "2025-05-30T23:59:59Z"
 
-value-grouper:
-  name: Name-Based Grouper
-  description: Group workflow output by elephant names.
-  params:
-    initialize_workflow_metadata:
-      name: "STE Mapbook - Grouped by Name"
-      description: "Run workflow separately for each collared elephant."
-    define_time_range:
-      since: "2024-01-01T00:00:00Z"
-      until: "2024-12-31T23:59:59Z"
-    configure_grouping_strategy:
-      groupers:
-        - extra__name
-    convert_to_trajectories:
-      trajectory_segment_filter:
-        min_length_meters: 0.001
-        max_length_meters: 5000.0
-        max_time_secs: 7200.0
-        min_time_secs: 1.0
-        max_speed_kmhr: 9.0
-        min_speed_kmhr: 0.01
+  # Connect to EarthRanger
+  er_client_name:
+    data_source:
+      name: "ste"
+
+  # Connect to EarthEngine
+  gee_project_name:
+    data_source:
+      name: "ecoscope_poc"
+      
+
+  # Value grouper /temporal grouper
+  groupers:
+    groupers: []
+
+  # Subject group name
+  subject_observations:
+      subject_group_name: "ecoscope"
+
+  # Subject trajectory filter
+  convert_to_trajectories:
+    trajectory_segment_filter:
+      min_length_meters: 0.001
+      max_length_meters: 5000.0
+      max_time_secs: 7200.0
+      min_time_secs: 1.0
+      max_speed_kmhr: 9.0
+      min_speed_kmhr: 0.01
+
+  # Desired basemap layers
+  configure_base_maps:
+    base_maps:
+      - url: "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
+        opacity: 1.0
+        max_zoom: 15
+        min_zoom: null
+        
+
+
+# month-grouper:
+#   name: Month-Based Grouper
+#   description: Group STE movements by month of segment start.
+#   params:
+#     initialize_workflow_metadata:
+#       name: "STE Mapbook - Monthly Grouping"
+#       description: "Group and visualize elephant movement per month."
+#     define_time_range:
+#       since: "2024-01-01T00:00:00Z"
+#       until: "2024-12-31T23:59:59Z"
+#     configure_grouping_strategy:
+#       groupers:
+#         - "%B"
+#     convert_to_trajectories:
+#       trajectory_segment_filter:
+#         min_length_meters: 0.001
+#         max_length_meters: 5000.0
+#         max_time_secs: 7200.0
+#         min_time_secs: 1.0
+#         max_speed_kmhr: 9.0
+#         min_speed_kmhr: 0.01
+
+# value-grouper:
+#   name: Name-Based Grouper
+#   description: Group workflow output by elephant names.
+#   params:
+#     initialize_workflow_metadata:
+#       name: "STE Mapbook - Grouped by Name"
+#       description: "Run workflow separately for each collared elephant."
+#     define_time_range:
+#       since: "2024-01-01T00:00:00Z"
+#       until: "2024-12-31T23:59:59Z"
+#     configure_grouping_strategy:
+#       groupers:
+#         - extra__name
+#     convert_to_trajectories:
+#       trajectory_segment_filter:
+#         min_length_meters: 0.001
+#         max_length_meters: 5000.0
+#         max_time_secs: 7200.0
+#         min_time_secs: 1.0
+#         max_speed_kmhr: 9.0
+#         min_speed_kmhr: 0.01
