@@ -46,6 +46,31 @@ jobs:
           echo "workflows=$workflows" >> $GITHUB_OUTPUT
           echo "Found workflows: $workflows"
 
+  discover-workflow-test-pairs:
+    runs-on: ubuntu-latest
+    outputs:
+      pairs: ${{ steps.find-pairs.outputs.pairs }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Find all workflow-testcase pairs
+        id: find-pairs
+        run: |
+          # Generate JSON array like: [{"workflow":"mapbook_report","case":"all-grouper"},...]
+          pairs=$(
+            find workflows -maxdepth 1 -type d ! -path workflows | sed 's|workflows/||' | while read workflow; do
+              test_cases_file="workflows/${workflow}/test-cases.yaml"
+              if [ -f "$test_cases_file" ]; then
+                yq eval 'keys | .[]' "$test_cases_file" | while read case; do
+                  echo "{\"workflow\":\"$workflow\",\"case\":\"$case\"}"
+                done
+              fi
+            done | jq -s -c '.'
+          )
+          echo "pairs=$pairs" >> $GITHUB_OUTPUT
+          echo "Found workflow-test pairs: $pairs"
+
   # recompile-workflows:
   #   needs: [build-release, discover-workflows]
   #   if: needs.discover-workflows.outputs.workflows != '[]'
@@ -108,12 +133,12 @@ jobs:
   #         exit 1
 
   test-workflows:
-    needs: [build-release, discover-workflows]
-    if: needs.discover-workflows.outputs.workflows != '[]'
+    needs: [build-release, discover-workflow-test-pairs]
+    if: needs.discover-workflow-test-pairs.outputs.pairs != '[]'
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        workflow: ${{ fromJson(needs.discover-workflows.outputs.workflows) }}
+        include: ${{ fromJson(needs.discover-workflow-test-pairs.outputs.pairs) }}
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -130,103 +155,7 @@ jobs:
       - name: Install pixi
         run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH
 
-      - name: Install system dependencies for Playwright
+      - name: Run single workflow test case
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libnss3 \
-            libnspr4 \
-            libatk1.0-0 \
-            libatk-bridge2.0-0 \
-            libcups2 \
-            libdrm2 \
-            libdbus-1-3 \
-            libxkbcommon0 \
-            libxcomposite1 \
-            libxdamage1 \
-            libxfixes3 \
-            libxrandr2 \
-            libgbm1 \
-            libpango-1.0-0 \
-            libcairo2 \
-            libasound2t64 \
-            libatspi2.0-0
-
-      - name: Get workflow directory name
-        id: workflow-dir
-        run: |
-          WORKFLOW_DIR_NAME=$(echo "ecoscope-workflows-${{ matrix.workflow }}-workflow" | tr '_' '-')
-          echo "dir_name=${WORKFLOW_DIR_NAME}" >> $GITHUB_OUTPUT
-          echo "Workflow directory name: ${WORKFLOW_DIR_NAME}"
-
-      - name: Get test cases
-        id: test-cases
-        run: |
-          TEST_CASES_FILE="workflows/${{ matrix.workflow }}/test-cases.yaml"
-          if [ ! -f "$TEST_CASES_FILE" ]; then
-            echo "No test-cases.yaml found, using default"
-            echo "cases=" >> $GITHUB_OUTPUT
-          else
-            # Extract all top-level keys from test-cases.yaml
-            CASES=$(yq eval 'keys | join(" ")' "$TEST_CASES_FILE")
-            echo "cases=${CASES}" >> $GITHUB_OUTPUT
-            echo "Found test cases: ${CASES}"
-          fi
-
-      - name: Run CLI tests
-        run: |
-          MANIFEST_PATH="workflows/${{ matrix.workflow }}/${{ steps.workflow-dir.outputs.dir_name }}/pixi.toml"
-          CASES="${{ steps.test-cases.outputs.cases }}"
-
-          # Build pytest command with --case flags for each test case
-          CASE_FLAGS=""
-          if [ -n "$CASES" ]; then
-            for case in $CASES; do
-              CASE_FLAGS="$CASE_FLAGS --case $case"
-            done
-          fi
-
-          echo "Running tests with cases: $CASE_FLAGS"
-
-          pixi update --manifest-path $MANIFEST_PATH
-
-          pixi run --manifest-path $MANIFEST_PATH --locked -e test playwright-install
-
-          pixi run --manifest-path $MANIFEST_PATH --locked -e test \
-            bash -c "python -m pytest -v tests/test_results.py -k 'cli and sequential and mock-io' $CASE_FLAGS"
-
-      - name: Validate result.json
-        run: |
-          RESULTS_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${{ steps.workflow-dir.outputs.dir_name }}-workflow"
-
-          # Find all result.json files in the test results directory
-          RESULT_FILES=$(find $RESULTS_DIR -name "result.json" -type f 2>/dev/null || true)
-
-          if [ -z "$RESULT_FILES" ]; then
-            echo "::error::No result.json files found in $RESULTS_DIR"
-            exit 1
-          fi
-
-          echo "Found result.json files:"
-          echo "$RESULT_FILES"
-
-          # Check each result.json for error field
-          ERROR_FOUND=false
-          while IFS= read -r result_file; do
-            echo "Checking $result_file"
-            ERROR_VALUE=$(jq -r '.error // "null"' "$result_file")
-
-            if [ "$ERROR_VALUE" != "null" ]; then
-              echo "::error::Error found in $result_file: $ERROR_VALUE"
-              cat "$result_file"
-              ERROR_FOUND=true
-            else
-              echo "✓ $result_file has no errors"
-            fi
-          done <<< "$RESULT_FILES"
-
-          if [ "$ERROR_FOUND" = true ]; then
-            exit 1
-          fi
-
-          echo "All result.json files are valid!"
+          chmod +x dev/pytest-cli.sh
+          ./dev/pytest-cli.sh ${{ matrix.workflow }} ${{ matrix.case }}
