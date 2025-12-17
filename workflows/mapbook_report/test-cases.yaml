@@ -1,55 +1,56 @@
 subject-grouper:
-  # Workflow description
-  initialize_workflow_metadata:
-    name: "Save the Elephants Mapbook Report"
-    description: "Workflow to showcase movement of STE Collared Elephants that entails various metrics"
+  params:
+    # Workflow description
+    initialize_workflow_metadata:
+      name: "Save the Elephants Mapbook Report"
+      description: "Workflow to showcase movement of STE Collared Elephants that entails various metrics"
 
-  # Desired time range
-  time_range:
-    since: "2025-05-01T00:00:00Z"
-    until: "2025-05-30T23:59:59Z"
+    # Desired time range
+    time_range:
+      since: "2025-05-01T00:00:00Z"
+      until: "2025-05-30T23:59:59Z"
 
-  # Connect to EarthRanger
-  er_client_name:
-    data_source:
-     - subject_name
+    # Connect to EarthRanger
+    er_client_name:
+      data_source:
+       - subject_name
 
 
-  # Connect to EarthEngine
-  gee_project_name:
-    data_source:
-      name: "ecoscope_poc"
-      
+    # Connect to EarthEngine
+    gee_project_name:
+      data_source:
+        name: "ecoscope_poc"
 
-  # Value grouper /temporal grouper
-  groupers:
-    groupers: []
 
-  # Subject group name
-  subject_observations:
-      subject_group_name: "ecoscope"
+    # Value grouper /temporal grouper
+    groupers:
+      groupers: []
 
-  # Subject trajectory filter
-  convert_to_trajectories:
-    trajectory_segment_filter:
-      min_length_meters: 0.001
-      max_length_meters: 5000.0
-      max_time_secs: 7200.0
-      min_time_secs: 1.0
-      max_speed_kmhr: 9.0
-      min_speed_kmhr: 0.01
+    # Subject group name
+    subject_observations:
+        subject_group_name: "ecoscope"
 
-  # Desired basemap layers
-  configure_base_maps:
-    base_maps:
-      - url: "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
-        opacity: 1.0
-        max_zoom: 15
-        min_zoom: null
-    
-  retrieve_ldx_db: 
-    input_method:
-      url: https://www.dropbox.com/scl/fi/v9maw2jeg1zptv68qtpv3/landDx.gpkg?rlkey=kez5vsbxkgha2emfy5kzwa5n1&st=c4q2x4r5&dl=0
+    # Subject trajectory filter
+    convert_to_trajectories:
+      trajectory_segment_filter:
+        min_length_meters: 0.001
+        max_length_meters: 5000.0
+        max_time_secs: 7200.0
+        min_time_secs: 1.0
+        max_speed_kmhr: 9.0
+        min_speed_kmhr: 0.01
+
+    # Desired basemap layers
+    configure_base_maps:
+      base_maps:
+        - url: "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
+          opacity: 1.0
+          max_zoom: 15
+          min_zoom: null
+
+    retrieve_ldx_db:
+      input_method:
+        url: https://www.dropbox.com/scl/fi/v9maw2jeg1zptv68qtpv3/landDx.gpkg?rlkey=kez5vsbxkgha2emfy5kzwa5n1&st=c4q2x4r5&dl=0
         
 
 

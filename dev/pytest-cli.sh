@@ -55,6 +55,8 @@ fi
 results_dir="/tmp/workflow-test-results/${workflow_name}/${test_case}"
 rm -rf "$results_dir"
 mkdir -p "$results_dir"
+echo "Created results directory: $results_dir"
+echo ""
 
 # Export ECOSCOPE_WORKFLOWS_RESULTS for workflow to use
 export ECOSCOPE_WORKFLOWS_RESULTS="$results_dir"
@@ -62,6 +64,8 @@ export ECOSCOPE_WORKFLOWS_RESULTS="$results_dir"
 # Extract params for this test case
 params_file="${results_dir}/params.yaml"
 yq eval ".${test_case}.params" "$test_cases_file" > "$params_file"
+cat "$param_file"
+echo ""
 
 echo "Extracted params:"
 cat "$params_file"

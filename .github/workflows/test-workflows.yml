@@ -155,7 +155,16 @@ jobs:
       - name: Install pixi
         run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH
 
-      - name: Run single workflow test case
+      - name: Run a workflow test case
+        # env:
+        #   # Add your GitHub secrets here
+        #   # They will be available to the workflow
+        #   ER_SERVER: ${{ secrets.ER_SERVER }}
+        #   ER_USERNAME: ${{ secrets.ER_USERNAME }}
+        #   ER_PASSWORD: ${{ secrets.ER_PASSWORD }}
+        #   GEE_SERVICE_ACCOUNT: ${{ secrets.GEE_SERVICE_ACCOUNT }}
+        #   GEE_KEY_JSON: ${{ secrets.GEE_KEY_JSON }}
+        #   # Add more secrets as needed
         run: |
           chmod +x dev/pytest-cli.sh
           ./dev/pytest-cli.sh ${{ matrix.workflow }} ${{ matrix.case }}
