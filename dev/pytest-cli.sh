@@ -24,9 +24,11 @@ fi
 
 workflow_dash=$(echo $workflow_name | tr '_' '-')
 
-workflow_dir="workflows/${workflow_name}/ecoscope-workflows-${workflow_dash}-workflow"
+# Get absolute paths
+repo_root=$(pwd)
+workflow_dir="${repo_root}/workflows/${workflow_name}/ecoscope-workflows-${workflow_dash}-workflow"
 manifest_path="${workflow_dir}/pixi.toml"
-test_cases_file="workflows/${workflow_name}/test-cases.yaml"
+test_cases_file="${repo_root}/workflows/${workflow_name}/test-cases.yaml"
 
 echo "=========================================="
 echo "Workflow: $workflow_name"
@@ -69,6 +71,7 @@ echo ""
 echo "Executing workflow..."
 echo "Results will be written to: $ECOSCOPE_WORKFLOWS_RESULTS"
 
+cd "$workflow_dir"
 workflow_underscore=$(echo $workflow_name | tr '-' '_')
 pixi run --manifest-path $manifest_path -e default \
     python -m ecoscope_workflows_${workflow_underscore}_workflow.cli run \
@@ -87,7 +90,7 @@ echo "Validating result.json..."
 error_value=$(jq -r '.error // "null"' "$result_json")
 
 if [ "$error_value" != "null" ]; then
-    echo "ERROR: Workflow failed"f
+    echo "ERROR: Workflow failed"
     echo "Error details:"
     jq -r '.error' "$result_json"
     echo ""
