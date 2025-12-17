@@ -5,48 +5,57 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    paths:
+      - 'workflows/**'
 
 jobs:
-  build-release:
+  check-no-src-changes:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # get tags, so hatch-vcs dev version is correct
+          fetch-depth: 0
 
-      - name: Install pixi
-        run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH
+      - name: Check for src changes
+        run: |
+          # Fail if src/ was also modified
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q "^src/"; then
+            echo "::error::This PR modifies both workflows/ and src/"
+            echo "::error::Please separate into two PRs:"
+            echo "::error::  1. PR for src/ changes (publish packages first)"
+            echo "::error::  2. PR for workflows/ changes (uses published packages)"
+            exit 1
+          fi
+          echo "✓ No src changes detected - proceeding with workflow tests"
 
-      - name: Build release
-        run: pixi run --manifest-path pixi.toml build-release
-
-      - name: Upload conda channel
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-artifacts
-          path: |
-            /tmp/ecoscope-workflows-custom/release/artifacts/
-            !/tmp/ecoscope-workflows-custom/release/artifacts/bld
-            !/tmp/ecoscope-workflows-custom/release/artifacts/src_cache
-          if-no-files-found: error
-          compression-level: 0
-
-  discover-workflows:
+  discover-changed-workflows:
+    needs: check-no-src-changes
     runs-on: ubuntu-latest
     outputs:
       workflows: ${{ steps.find-workflows.outputs.workflows }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Find workflow folders
+      - name: Find changed workflow folders
         id: find-workflows
         run: |
-          workflows=$(find workflows -maxdepth 1 -type d ! -path workflows | sed 's|workflows/||' | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          # Get list of changed workflow directories
+          workflows=$(
+            git diff --name-only origin/${{ github.base_ref }}...HEAD | \
+              grep "^workflows/" | \
+              cut -d'/' -f2 | \
+              sort -u | \
+              jq -R -s -c 'split("\n") | map(select(length > 0))'
+          )
           echo "workflows=$workflows" >> $GITHUB_OUTPUT
-          echo "Found workflows: $workflows"
+          echo "Found changed workflows: $workflows"
 
   discover-workflow-test-pairs:
+    needs: discover-changed-workflows
     runs-on: ubuntu-latest
     outputs:
       pairs: ${{ steps.find-pairs.outputs.pairs }}
@@ -54,12 +63,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Find all workflow-testcase pairs
+      - name: Find test cases for changed workflows only
         id: find-pairs
         run: |
+          # Get changed workflows from previous job
+          changed_workflows='${{ needs.discover-changed-workflows.outputs.workflows }}'
+
           # Generate JSON array like: [{"workflow":"mapbook_report","case":"all-grouper"},...]
           pairs=$(
-            find workflows -maxdepth 1 -type d ! -path workflows | sed 's|workflows/||' | while read workflow; do
+            echo "$changed_workflows" | jq -r '.[]' | while read workflow; do
               test_cases_file="workflows/${workflow}/test-cases.yaml"
               if [ -f "$test_cases_file" ]; then
                 yq eval 'keys | .[]' "$test_cases_file" | while read case; do
@@ -69,90 +81,19 @@ jobs:
             done | jq -s -c '.'
           )
           echo "pairs=$pairs" >> $GITHUB_OUTPUT
-          echo "Found workflow-test pairs: $pairs"
-
-  # recompile-workflows:
-  #   needs: [build-release, discover-workflows]
-  #   if: needs.discover-workflows.outputs.workflows != '[]'
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     matrix:
-  #       workflow: ${{ fromJson(needs.discover-workflows.outputs.workflows) }}
-  #     fail-fast: false
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-
-  #     - name: Download conda channel
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: release-artifacts
-  #         path: /tmp/ecoscope-workflows-custom/release/artifacts
-
-  #     - name: Install Pixi
-  #       run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH
-
-  #     - name: Recompile workflow
-  #       run: |
-  #         pixi run --manifest-path pixi.toml --locked -e compile bash -c "./dev/recompile.sh ${{ matrix.workflow }} --update"
-
-  #     - name: Check for differences in generated files
-  #       id: check-diff
-  #       run: |
-  #         WORKFLOW_DIR_NAME=$(echo "${{ matrix.workflow }}" | tr '_' '-')
-  #         GENERATED_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
-  #         EXCLUDE_PATTERNS=":(exclude)${GENERATED_DIR}/pixi.lock :(exclude)${GENERATED_DIR}/VERSION.yaml :(exclude)${GENERATED_DIR}/graph.png"
-
-  #         echo "Checking for differences in ${GENERATED_DIR}"
-
-  #         if [ ! -d "${GENERATED_DIR}" ]; then
-  #           echo "::error::Generated directory ${GENERATED_DIR} does not exist!"
-  #           exit 1
-  #         fi
-
-  #         # Exclude auto-generated files: pixi.lock (dependency resolution), VERSION.yaml (auto-versioned), graph.png (binary)
-  #         if ! git diff --exit-code -- "${GENERATED_DIR}" ${EXCLUDE_PATTERNS}; then
-  #           echo "diff_found=true" >> $GITHUB_OUTPUT
-  #         else
-  #           echo "diff_found=false" >> $GITHUB_OUTPUT
-  #           echo "No differences found - generated files are up to date!"
-  #         fi
-
-  #     - name: Display diff and fail if changes exist
-  #       if: steps.check-diff.outputs.diff_found == 'true'
-  #       run: |
-  #         WORKFLOW_DIR_NAME=$(echo "${{ matrix.workflow }}" | tr '_' '-')
-  #         GENERATED_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
-  #         EXCLUDE_PATTERNS=":(exclude)${GENERATED_DIR}/pixi.lock :(exclude)${GENERATED_DIR}/VERSION.yaml :(exclude)${GENERATED_DIR}/graph.png"
-
-  #         echo "::error::Generated files differ from committed files in ${GENERATED_DIR}"
-  #         echo "Full diff (excluding auto-generated files):"
-  #         git diff -- "${GENERATED_DIR}" ${EXCLUDE_PATTERNS}
-  #         echo ""
-  #         echo "::error::Please run the compilation locally and commit the changes."
-  #         exit 1
+          echo "Found workflow-test pairs for changed workflows: $pairs"
 
   test-workflows:
-    needs: [build-release, discover-workflow-test-pairs]
+    needs: discover-workflow-test-pairs
     if: needs.discover-workflow-test-pairs.outputs.pairs != '[]'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include: ${{ fromJson(needs.discover-workflow-test-pairs.outputs.pairs) }}
-        # os: [ubuntu-latest, macos-latest, windows-latest] # todo
-        os: [windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download conda channel
-        uses: actions/download-artifact@v4
-        with:
-          name: release-artifacts
-          path: /tmp/ecoscope-workflows-custom/release/artifacts
-
-      - name: Log conda channel contents
-        run: ls -lR /tmp/ecoscope-workflows-custom/release/artifacts
 
       - name: Install pixi
         run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH

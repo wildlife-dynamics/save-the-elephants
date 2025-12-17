@@ -1,13 +1,36 @@
-name: Run Unit Tests
+name: Test Task Library
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+    paths:
+      - 'src/**'
 
 jobs:
+  check-no-workflow-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for workflow changes
+        run: |
+          # Fail if workflows/ was also modified
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q "^workflows/"; then
+            echo "::error::This PR modifies both src/ and workflows/"
+            echo "::error::Please separate into two PRs:"
+            echo "::error::  1. PR for src/ changes (publish packages first)"
+            echo "::error::  2. PR for workflows/ changes (uses published packages)"
+            exit 1
+          fi
+          echo "✓ No workflow changes detected - proceeding with task library tests"
+
   test:
+    needs: check-no-workflow-changes
     runs-on: ubuntu-latest
     strategy:
       matrix:
