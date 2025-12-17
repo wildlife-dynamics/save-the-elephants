@@ -1,0 +1,46 @@
+name: Compile Workflow and Check Diffs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  discover-workflows:
+    runs-on: ubuntu-latest
+    outputs:
+      workflows: ${{ steps.find-workflows.outputs.workflows }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Find workflow folders
+        id: find-workflows
+        run: |
+          workflows=$(find workflows -maxdepth 1 -type d ! -path workflows | sed 's|workflows/||' | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "workflows=$workflows" >> $GITHUB_OUTPUT
+          echo "Found workflows: $workflows"
+
+  compile-workflows:
+    needs: discover-workflows
+    if: needs.discover-workflows.outputs.workflows != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        workflow: ${{ fromJson(needs.discover-workflows.outputs.workflows) }}
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Pixi
+        run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH
+
+      - name: Run pixi build-release
+        run: |
+          pixi run --manifest-path pixi.toml build-release
+
+      - name: Recompile workflow
+        run: |
+          pixi run --manifest-path pixi.toml -e compile bash -c "./dev/recompile.sh ${{ matrix.workflow }} --update"
