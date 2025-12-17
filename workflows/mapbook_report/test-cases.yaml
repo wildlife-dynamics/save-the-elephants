@@ -1,4 +1,4 @@
-all-grouper:
+subject-grouper:
   # Workflow description
   initialize_workflow_metadata:
     name: "Save the Elephants Mapbook Report"
@@ -12,7 +12,8 @@ all-grouper:
   # Connect to EarthRanger
   er_client_name:
     data_source:
-      name: "ste"
+     - subject_name
+
 
   # Connect to EarthEngine
   gee_project_name:
@@ -45,6 +46,10 @@ all-grouper:
         opacity: 1.0
         max_zoom: 15
         min_zoom: null
+    
+  retrieve_ldx_db: 
+    input_method:
+      url: https://www.dropbox.com/scl/fi/v9maw2jeg1zptv68qtpv3/landDx.gpkg?rlkey=kez5vsbxkgha2emfy5kzwa5n1&st=c4q2x4r5&dl=0
         
 
 
