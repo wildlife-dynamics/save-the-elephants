@@ -59,7 +59,7 @@ echo "Created results directory: $results_dir"
 echo ""
 
 # Export ECOSCOPE_WORKFLOWS_RESULTS for workflow to use
-export ECOSCOPE_WORKFLOWS_RESULTS="$results_dir"
+export ECOSCOPE_WORKFLOWS_RESULTS="file://${results_dir}"
 
 # Extract params for this test case
 params_file="${results_dir}/params.yaml"

@@ -8,7 +8,7 @@ subject-grouper:
     # Desired time range
     time_range:
       since: "2025-05-01T00:00:00Z"
-      until: "2025-05-30T23:59:59Z"
+      until: "2025-05-02T23:59:59Z"
 
     # Connect to EarthRanger
     er_client_name:
