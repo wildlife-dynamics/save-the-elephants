@@ -68,8 +68,10 @@ echo ""
 # Run workflow CLI directly
 echo "Executing workflow..."
 echo "Results will be written to: $ECOSCOPE_WORKFLOWS_RESULTS"
-pixi run --manifest-path $manifest_path -e runner \
-    python -m ecoscope_workflows_${workflow_name}_workflow.cli run \
+
+workflow_underscore=$(echo $workflow_name | tr '_' '-')
+pixi run --manifest-path $manifest_path -e default \
+    python -m ecoscope_workflows_${workflow_underscore}_workflow.cli run \
     --config-file "$params_file" \
     --mock-io
 
