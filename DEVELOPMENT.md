@@ -265,3 +265,19 @@ If the package failed to publish to prefix:
 - Check if the tag exists on main branch
 - Check if `PREFIX_API_KEY` is correctly set up in the repo
 
+
+---
+
+### Prefix Timeout
+
+Something like:
+```
+Error:   × failed to fetch lonboard-0.0.8-pyh4616a5c_0.conda
+  ├─▶ failed to interact with the package cache layer.
+  ├─▶ error sending request for url (https://repo.prefix.dev/ecoscope-workflows/noarch/lonboard-0.0.8-pyh4616a5c_0.conda)
+  ├─▶ client error (SendRequest)
+  ├─▶ connection error
+  ╰─▶ stream closed because of a broken pipe
+```
+
+It happens when you update PRs too frequently and reach throttling limit on prefix, which is usually resolved by a retry in a few minutes.
