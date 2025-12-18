@@ -1,11 +1,11 @@
 id: aerial_lines
 requirements:
   - name: ecoscope-workflows-core
-    version: "*"
+    version: "0.19.3"
     channel: https://repo.prefix.dev/ecoscope-workflows/
   - name: ecoscope-workflows-ext-ste
     version: "*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
 
 
 workflow:
