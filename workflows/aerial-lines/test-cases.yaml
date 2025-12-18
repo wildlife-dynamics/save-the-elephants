@@ -43,7 +43,7 @@ value-grouper:
       description: "An example workflow for testing purposes."
     groupers:
       groupers:
-        - index_name: "test"
+        - "test"
     time_range:
       since: "2015-01-01T00:00:00Z"
       until: "2015-02-28T23:59:59Z"

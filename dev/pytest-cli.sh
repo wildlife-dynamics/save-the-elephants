@@ -75,9 +75,6 @@ echo ""
 echo "Executing workflow..."
 echo "Results will be written to: $ECOSCOPE_WORKFLOWS_RESULTS"
 echo ""
-echo "Environment variables (ECOSCOPE_WORKFLOWS__ prefixed):"
-env | grep "ECOSCOPE_WORKFLOWS__" || echo "  None found!!!!!!!!!!!!!!!!!!!!!"
-echo ""
 
 cd "$workflow_dir"
 workflow_underscore=$(echo $workflow_name | tr '-' '_')
