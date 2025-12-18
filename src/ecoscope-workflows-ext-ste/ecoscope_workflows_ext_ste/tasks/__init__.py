@@ -1,5 +1,5 @@
-from ._example import add_one_thousand
+from ._example import add_two_thousand
 
 __all__ = [
-    "add_one_thousand",
+    "add_two_thousand",
 ]
