@@ -42,7 +42,7 @@ jobs:
 
       - name: Recompile workflow
         run: |
-          pixi run --manifest-path pixi.toml --locked -e compile bash -c "./dev/recompile.sh ${{ matrix.workflow }} --update"
+          pixi run --manifest-path pixi.toml --locked -e compile bash -c "./dev/recompile.sh ${{ matrix.workflow }} --install"
 
       - name: Check for differences in generated files
         id: check-diff
