@@ -25,7 +25,7 @@ workflow:
     task: apply_arithmetic_operation
   - name: Add More
     id: add_more
-    task: add_one_thousand
+    task: add_two_thousand
     partial:
       value: ${{ workflow.calculator.return }}
   - name: Create Single Value Widgets
