@@ -8,90 +8,17 @@ on:
 
 jobs:
   build-release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # get tags, so hatch-vcs dev version is correct
-
-      - uses: ./.github/actions/setup-pixi
-
-      - name: Build release
-        run: pixi run --manifest-path pixi.toml build-release
-
-      - name: Upload conda channel
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-artifacts
-          path: |
-            /tmp/ecoscope-workflows-custom/release/artifacts/
-            !/tmp/ecoscope-workflows-custom/release/artifacts/bld
-            !/tmp/ecoscope-workflows-custom/release/artifacts/src_cache
-          if-no-files-found: error
-          compression-level: 0
+    uses: ./.github/workflows/_build.yml
 
   discover:
     uses: ./.github/workflows/_discover.yml
 
   recompile-workflows:
     needs: [build-release, discover]
-    if: needs.discover.outputs.workflows != '[]'
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        workflow: ${{ fromJson(needs.discover.outputs.workflows) }}
-      fail-fast: false
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download conda channel
-        uses: actions/download-artifact@v4
-        with:
-          name: release-artifacts
-          path: /tmp/ecoscope-workflows-custom/release/artifacts
-
-      - uses: ./.github/actions/setup-pixi
-
-      - name: Recompile workflow
-        run: |
-          pixi run --manifest-path pixi.toml --locked -e compile bash -c "./dev/recompile.sh ${{ matrix.workflow }} --update"
-
-      - name: Check for differences in generated files
-        id: check-diff
-        run: |
-          WORKFLOW_DIR_NAME=$(echo "${{ matrix.workflow }}" | tr '_' '-')
-          GENERATED_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
-          EXCLUDE_PATTERNS=":(exclude)${GENERATED_DIR}/pixi.lock :(exclude)${GENERATED_DIR}/VERSION.yaml :(exclude)${GENERATED_DIR}/graph.png"
-
-          echo "Checking for differences in ${GENERATED_DIR}"
-
-          if [ ! -d "${GENERATED_DIR}" ]; then
-            echo "::error::Generated directory ${GENERATED_DIR} does not exist!"
-            exit 1
-          fi
-
-          # Exclude auto-generated files: pixi.lock (dependency resolution), VERSION.yaml (auto-versioned), graph.png (binary)
-          if ! git diff --exit-code -- "${GENERATED_DIR}" ${EXCLUDE_PATTERNS}; then
-            echo "diff_found=true" >> $GITHUB_OUTPUT
-          else
-            echo "diff_found=false" >> $GITHUB_OUTPUT
-            echo "No differences found - generated files are up to date!"
-          fi
-
-      - name: Display diff and fail if changes exist
-        if: steps.check-diff.outputs.diff_found == 'true'
-        run: |
-          WORKFLOW_DIR_NAME=$(echo "${{ matrix.workflow }}" | tr '_' '-')
-          GENERATED_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
-          EXCLUDE_PATTERNS=":(exclude)${GENERATED_DIR}/pixi.lock :(exclude)${GENERATED_DIR}/VERSION.yaml :(exclude)${GENERATED_DIR}/graph.png"
-
-          echo "::error::Generated files differ from committed files in ${GENERATED_DIR}"
-          echo "Full diff (excluding auto-generated files):"
-          git diff -- "${GENERATED_DIR}" ${EXCLUDE_PATTERNS}
-          echo ""
-          echo "::error::Please run the compilation locally and commit the changes."
-          exit 1
+    uses: ./.github/workflows/_recompile.yml
+    with:
+      workflows: ${{ needs.discover.outputs.workflows }}
+      download-artifacts: true
 
   test-workflows-local:
     needs: [build-release, discover]

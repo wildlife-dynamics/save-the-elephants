@@ -12,27 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  PIXI_VERSION: v0.57.0
-
 jobs:
   build-release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-pixi
-      - name: Build release
-        run: pixi run --manifest-path pixi.toml build-release
-      - name: Upload conda channel
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-artifacts
-          path: |
-            /tmp/ecoscope-workflows-custom/release/artifacts/
-            !/tmp/ecoscope-workflows-custom/release/artifacts/bld
-            !/tmp/ecoscope-workflows-custom/release/artifacts/src_cache
-          if-no-files-found: error
-          compression-level: 0
+    uses: ./.github/workflows/_build.yml
 
   publish-to-prefix:
     needs:
