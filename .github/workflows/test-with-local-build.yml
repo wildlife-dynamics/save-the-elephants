@@ -53,6 +53,7 @@ jobs:
           echo "${{ secrets.EE_KEY_JSON }}" > gee-key.json
 
       - name: Run a workflow test case
+        shell: bash
         env:
           # Add your GitHub secrets here
           # They will be available to the workflow
@@ -64,4 +65,4 @@ jobs:
         #   # Add more secrets as needed
         run: |
           chmod +x dev/pytest-cli.sh || true
-          ./dev/pytest-cli.sh ${{ matrix.workflow }} ${{ matrix.case }}
+          pixi run --manifest-path pixi.toml -e default bash dev/pytest-cli.sh ${{ matrix.workflow }} ${{ matrix.case }}
