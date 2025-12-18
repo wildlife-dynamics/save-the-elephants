@@ -1,4 +1,4 @@
-name: Test Workflows with Local Packages
+name: Test Workflows with Published Packages
 
 on:
   push:
@@ -7,21 +7,18 @@ on:
     branches: [main]
 
 jobs:
-  build-release:
-    uses: ./.github/workflows/_build.yml
-
   discover:
     uses: ./.github/workflows/_discover.yml
 
   recompile-workflows:
-    needs: [build-release, discover]
+    needs: [discover]
     uses: ./.github/workflows/_recompile.yml
     with:
       workflows: ${{ needs.discover.outputs.workflows }}
-      download-artifacts: true
+      download-artifacts: false
 
-  test-workflows-local:
-    needs: [build-release, discover]
+  test-workflows:
+    needs: [discover]
     if: needs.discover.outputs.pairs != '[]'
     runs-on: ubuntu-latest
     strategy:
@@ -30,15 +27,6 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download conda channel
-        uses: actions/download-artifact@v4
-        with:
-          name: release-artifacts
-          path: /tmp/ecoscope-workflows-custom/release/artifacts
-
-      - name: Log conda channel contents
-        run: ls -lR /tmp/ecoscope-workflows-custom/release/artifacts
 
       - uses: ./.github/actions/setup-pixi
 
@@ -62,3 +50,8 @@ jobs:
         run: |
           chmod +x dev/pytest-cli.sh || true
           ./dev/pytest-cli.sh ${{ matrix.workflow }} ${{ matrix.case }}
+
+
+# todo: check version/channel
+# todo: run on all os
+# todo: check no changes in src
