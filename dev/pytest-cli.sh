@@ -46,7 +46,7 @@ else
 fi
 
 # Verify test case exists
-if ! yq eval "has(\"${test_case}\")" "$test_cases_file" | grep -q "true"; then
+if ! yq -e ".\"${test_case}\"" "$test_cases_file" > /dev/null 2>&1; then
     echo "ERROR: Test case '${test_case}' not found in $test_cases_file"
     exit 1
 fi
@@ -65,7 +65,7 @@ export ECOSCOPE_WORKFLOWS_RESULTS="file://${results_dir}"
 
 # Extract params for this test case
 params_file="${results_dir}/params.yaml"
-yq eval ".${test_case}.params" "$test_cases_file" > "$params_file"
+yq ".\"${test_case}\".params" "$test_cases_file" > "$params_file"
 
 echo "Extracted params:"
 cat "$params_file"

@@ -5,9 +5,9 @@ This document describes the development and release process for custom ecoscope 
 ## Table of Contents
 - [Development Workflow](#development-workflow)
 - [CI/CD Overview](#cicd-overview)
-- [PR Testing Labels](#pr-testing-labels)
 - [Release Process](#release-process)
 - [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -141,68 +141,6 @@ When code is pushed to `main`:
 
 ---
 
-## PR Testing Labels
-
-Every PR must have exactly **one** of these labels:
-
-### `test:unit`
-**Use when:** Making changes that don't affect workflows or task libraries
-
-**Runs:**
-- ✅ Python unit tests only
-- ✅ Fast feedback (~minutes)
-
-**Best for:**
-- Documentation updates
-- Configuration changes
-- Non-code changes
-
----
-
-### `test:local`
-**Use when:** Developing new task libraries or workflows
-
-**Runs:**
-- ✅ Python unit tests
-- ✅ Build packages from source
-- ✅ Recompile workflows with local build
-- ✅ Run workflow integration tests
-- ✅ Test on Linux, macOS, Windows
-
-**Best for:**
-- New task library development
-- Workflow logic changes
-- Breaking changes to task APIs
-- Pre-release validation
-
-**Duration:** ~10-30 minutes (builds packages from scratch)
-
----
-
-### `test:published`
-**Use when:** Updating workflows to use newly published packages
-
-**Runs:**
-- ✅ Validate `spec.yaml` requirements
-- ✅ Validate `test-cases.yaml` exists
-- ✅ Recompile workflows with published packages
-- ✅ Run workflow integration tests
-- ✅ Test on Linux, macOS, Windows
-
-**Validates:**
-- No wildcard versions (`*`) in spec.yaml
-- No local file channels (`file://`) in spec.yaml
-- At least one test case exists
-
-**Best for:**
-- Post-publish workflow updates
-- Version pinning validation
-- Production readiness checks
-
-**Duration:** ~5-15 minutes (uses pre-built packages)
-
----
-
 ## Release Process
 
 ### Complete Release Cycle
@@ -275,16 +213,6 @@ version: "*"
 version: "1.*"
 ```
 
-### Channel Patterns
-
-```yaml
-# ✅ Good - Remote HTTPS channel
-channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-
-# ❌ Bad - Local file channel (fails test:published validation)
-channel: file:///tmp/my-channel
-```
-
 ---
 
 ## Troubleshooting
@@ -293,7 +221,7 @@ channel: file:///tmp/my-channel
 
 **Error:** "PR must have one of the following labels..."
 
-**Solution:** Add exactly one label: `test:unit`, `test:local`, or `test:published`
+**Solution:** Add at least one label: `test:unit`, `test:local`, or `test:published`
 
 ---
 
@@ -331,14 +259,9 @@ If tests pass on Linux but fail on Windows/macOS:
 
 ---
 
-## Quick Reference
+### Package Publish Failure
 
-| Stage | Label | Build | Test Time | Use Case |
-|-------|-------|-------|-----------|----------|
-| Development | `test:local` | Local | ~10-30min | Task lib/workflow development |
-| Unit Tests | `test:unit` | None | ~5min | Docs, configs, non-code |
-| Production | `test:published` | Published | ~5-15min | Post-publish validation |
+If the package failed to publish to prefix:
+- Check if the tag exists on main branch
+- Check if `PREFIX_API_KEY` is correctly set up in the repo
 
-**Publish Trigger:** Push version tag (e.g., `v1.2.3`)
-
-**Main Branch:** Only runs unit tests automatically
