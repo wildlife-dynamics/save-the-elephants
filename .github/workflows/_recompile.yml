@@ -40,6 +40,10 @@ jobs:
         with:
           pixi-version: v0.60.0
 
+      - name: Clean pixi cache
+        if: inputs.download-artifacts
+        run: pixi clean cache --yes
+
       - name: Recompile workflow
         run: |
           pixi run --manifest-path pixi.toml --locked bash -c "./dev/recompile.sh ${{ matrix.workflow }} --update"
@@ -49,7 +53,7 @@ jobs:
         run: |
           WORKFLOW_DIR_NAME=$(echo "${{ matrix.workflow }}" | tr '_' '-')
           GENERATED_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
-          EXCLUDE_PATTERNS=":(exclude)${GENERATED_DIR}/pixi.lock :(exclude)${GENERATED_DIR}/VERSION.yaml :(exclude)${GENERATED_DIR}/graph.png"
+          EXCLUDE_PATTERNS=":(exclude)${GENERATED_DIR}/pixi.lock :(exclude)${GENERATED_DIR}/README :(exclude)${GENERATED_DIR}/VERSION.yaml :(exclude)${GENERATED_DIR}/graph.png"
 
           echo "Checking for differences in ${GENERATED_DIR}"
 

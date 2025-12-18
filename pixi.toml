@@ -1,5 +1,5 @@
 [project]
-name = "save-the-elephant"
+name = "save-the-elephants"
 channels = [
     # Uncomment the following lines to use local channels for development.
     # "file:///tmp/ecoscope-workflows/release/artifacts/",

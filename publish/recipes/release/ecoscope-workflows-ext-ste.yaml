@@ -25,6 +25,7 @@ requirements:
   run:
     - python
     - ecoscope-workflows-core
+    - playwright
 
 about:
   license: BSD-3-Clause
