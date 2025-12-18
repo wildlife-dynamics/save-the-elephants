@@ -7,7 +7,6 @@ Closes #
 
 ## 🏷️ Testing Labels
 Choose ONE label to run CI tests:
-- `test:unit` - Run unit tests only (fast)
 - `test:local` - Run unit tests + workflow tests with local build (comprehensive)
 - `test:published` - Run workflow tests with published packages only
 
