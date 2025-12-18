@@ -1,19 +1,20 @@
 name: Test Workflows with Local Build
 
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+    types: [labeled, unlabeled, opened, synchronize, reopened]
 
 jobs:
   build-release:
+    if: contains(github.event.pull_request.labels.*.name, 'test:local')
     uses: ./.github/workflows/_build.yml
 
   discover:
+    if: contains(github.event.pull_request.labels.*.name, 'test:local')
     uses: ./.github/workflows/_discover.yml
 
   recompile-workflows:
+    if: contains(github.event.pull_request.labels.*.name, 'test:local')
     needs: [build-release, discover]
     uses: ./.github/workflows/_recompile.yml
     with:
@@ -22,7 +23,9 @@ jobs:
 
   test-workflows-local:
     needs: [build-release, discover]
-    if: needs.discover.outputs.pairs != '[]'
+    if: |
+      contains(github.event.pull_request.labels.*.name, 'test:local') &&
+      needs.discover.outputs.pairs != '[]'
     runs-on: ubuntu-latest
     strategy:
       matrix:

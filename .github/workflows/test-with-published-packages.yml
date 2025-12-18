@@ -1,16 +1,16 @@
 name: Test Workflows with Published Packages
 
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+    types: [labeled, unlabeled, opened, synchronize, reopened]
 
 jobs:
   discover:
+    if: contains(github.event.pull_request.labels.*.name, 'test:published')
     uses: ./.github/workflows/_discover.yml
 
   recompile-workflows:
+    if: contains(github.event.pull_request.labels.*.name, 'test:published')
     needs: [discover]
     uses: ./.github/workflows/_recompile.yml
     with:
@@ -19,7 +19,9 @@ jobs:
 
   test-workflows:
     needs: [discover]
-    if: needs.discover.outputs.pairs != '[]'
+    if: |
+      contains(github.event.pull_request.labels.*.name, 'test:published') &&
+      needs.discover.outputs.pairs != '[]'
     runs-on: ubuntu-latest
     strategy:
       matrix:
