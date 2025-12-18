@@ -1,0 +1,145 @@
+name: Test Workflows for Publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  discover-workflows:
+    runs-on: ubuntu-latest
+    outputs:
+      workflows: ${{ steps.find-workflows.outputs.workflows }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Find workflow folders
+        id: find-workflows
+        run: |
+          workflows=$(find workflows -maxdepth 1 -type d ! -path workflows | sed 's|workflows/||' | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "workflows=$workflows" >> $GITHUB_OUTPUT
+          echo "Found workflows: $workflows"
+
+  discover-workflow-test-pairs:
+    runs-on: ubuntu-latest
+    outputs:
+      pairs: ${{ steps.find-pairs.outputs.pairs }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Find all workflow-testcase pairs
+        id: find-pairs
+        run: |
+          # Generate JSON array like: [{"workflow":"mapbook_report","case":"all-grouper"},...]
+          pairs=$(
+            find workflows -maxdepth 1 -type d ! -path workflows | sed 's|workflows/||' | while read workflow; do
+              test_cases_file="workflows/${workflow}/test-cases.yaml"
+              if [ -f "$test_cases_file" ]; then
+                yq eval 'keys | .[]' "$test_cases_file" | while read case; do
+                  echo "{\"workflow\":\"$workflow\",\"case\":\"$case\"}"
+                done
+              fi
+            done | jq -s -c '.'
+          )
+          echo "pairs=$pairs" >> $GITHUB_OUTPUT
+          echo "Found workflow-test pairs: $pairs"
+
+  recompile-workflows:
+    needs: [discover-workflows]
+    if: needs.discover-workflows.outputs.workflows != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        workflow: ${{ fromJson(needs.discover-workflows.outputs.workflows) }}
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download conda channel
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: /tmp/ecoscope-workflows-custom/release/artifacts
+
+      - name: Install Pixi
+        run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH
+
+      - name: Recompile workflow
+        run: |
+          pixi run --manifest-path pixi.toml --locked -e compile bash -c "./dev/recompile.sh ${{ matrix.workflow }} --update"
+
+      - name: Check for differences in generated files
+        id: check-diff
+        run: |
+          WORKFLOW_DIR_NAME=$(echo "${{ matrix.workflow }}" | tr '_' '-')
+          GENERATED_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
+          EXCLUDE_PATTERNS=":(exclude)${GENERATED_DIR}/pixi.lock :(exclude)${GENERATED_DIR}/VERSION.yaml :(exclude)${GENERATED_DIR}/graph.png"
+
+          echo "Checking for differences in ${GENERATED_DIR}"
+
+          if [ ! -d "${GENERATED_DIR}" ]; then
+            echo "::error::Generated directory ${GENERATED_DIR} does not exist!"
+            exit 1
+          fi
+
+          # Exclude auto-generated files: pixi.lock (dependency resolution), VERSION.yaml (auto-versioned), graph.png (binary)
+          if ! git diff --exit-code -- "${GENERATED_DIR}" ${EXCLUDE_PATTERNS}; then
+            echo "diff_found=true" >> $GITHUB_OUTPUT
+          else
+            echo "diff_found=false" >> $GITHUB_OUTPUT
+            echo "No differences found - generated files are up to date!"
+          fi
+
+      - name: Display diff and fail if changes exist
+        if: steps.check-diff.outputs.diff_found == 'true'
+        run: |
+          WORKFLOW_DIR_NAME=$(echo "${{ matrix.workflow }}" | tr '_' '-')
+          GENERATED_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
+          EXCLUDE_PATTERNS=":(exclude)${GENERATED_DIR}/pixi.lock :(exclude)${GENERATED_DIR}/VERSION.yaml :(exclude)${GENERATED_DIR}/graph.png"
+
+          echo "::error::Generated files differ from committed files in ${GENERATED_DIR}"
+          echo "Full diff (excluding auto-generated files):"
+          git diff -- "${GENERATED_DIR}" ${EXCLUDE_PATTERNS}
+          echo ""
+          echo "::error::Please run the compilation locally and commit the changes."
+          exit 1
+
+  test-workflows:
+    needs: [discover-workflow-test-pairs]
+    if: needs.discover-workflow-test-pairs.outputs.pairs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.discover-workflow-test-pairs.outputs.pairs) }}
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pixi
+        run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH
+
+      - name: Write GEE key to file
+        run: |
+          echo "${{ secrets.EE_KEY_JSON }}" > gee-key.json
+
+      - name: Run a workflow test case
+        env:
+          # Add your GitHub secrets here
+          # They will be available to the workflow
+          ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHRANGER__STE__SERVER: ${{ secrets.STE_SERVER }}
+          ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHRANGER__STE__PASSWORD: ${{ secrets.STE_PASSWORD }}
+          ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHRANGER__STE__USERNAME: ${{ secrets.STE_USERNAME }}
+          ECOSCOPE_WORKFLOWS__CONNECTIONS__EARTHENGINE__ECOSCOPE_POC__SERVICE_ACCOUNT: ${{ secrets.EE_SERVICE_ACCOUNT }}
+          ecoscope_workflows__connections__earthengine__ecoscope_poc__private_key: ${{ github.workspace }}/gee-key.json
+        #   # Add more secrets as needed
+        run: |
+          chmod +x dev/pytest-cli.sh || true
+          ./dev/pytest-cli.sh ${{ matrix.workflow }} ${{ matrix.case }}
+
+
+# todo: check version/channel
+# todo: run on all os
