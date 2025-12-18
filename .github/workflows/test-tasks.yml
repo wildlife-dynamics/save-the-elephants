@@ -8,10 +8,6 @@ on:
 
 jobs:
   test:
-    if: |
-      github.event_name == 'push' ||
-      contains(github.event.pull_request.labels.*.name, 'test:unit') ||
-      contains(github.event.pull_request.labels.*.name, 'test:local')
     runs-on: ubuntu-latest
     strategy:
       matrix:
