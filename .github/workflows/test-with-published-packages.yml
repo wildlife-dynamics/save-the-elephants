@@ -17,6 +17,75 @@ jobs:
       workflows: ${{ needs.discover.outputs.workflows }}
       download-artifacts: false
 
+  validate-spec:
+    if: contains(github.event.pull_request.labels.*.name, 'test:published')
+    needs: [discover]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        workflow: ${{ fromJson(needs.discover.outputs.workflows) }}
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate spec.yaml requirements
+        run: |
+          SPEC_FILE="workflows/${{ matrix.workflow }}/spec.yaml"
+
+          if [ ! -f "$SPEC_FILE" ]; then
+            echo "⚠️  Warning: spec.yaml not found at $SPEC_FILE"
+            exit 0
+          fi
+
+          echo "Validating $SPEC_FILE..."
+
+          # Check for wildcard versions in requirements
+          if grep -A 2 "^requirements:" "$SPEC_FILE" | grep -E '^\s+version:\s*["\x27]?\*["\x27]?\s*$'; then
+            echo "❌ Error: Found wildcard version (*) in requirements"
+            echo "When using published packages, all versions must be pinned to specific versions"
+            grep -B 1 -A 2 "version.*\*" "$SPEC_FILE" || true
+            exit 1
+          fi
+
+          # Check for file:// channels in requirements
+          if grep -A 2 "^requirements:" "$SPEC_FILE" | grep -E '^\s+channel:\s*["\x27]?file://'; then
+            echo "❌ Error: Found local file channel (file://) in requirements"
+            echo "When using published packages, all channels must be remote URLs"
+            grep -B 1 -A 2 "channel.*file://" "$SPEC_FILE" || true
+            exit 1
+          fi
+
+          echo "✅ spec.yaml validation passed"
+      
+      - name: Validate test-cases.yaml
+        run: |
+          TEST_CASES_FILE="workflows/${{ matrix.workflow }}/test-cases.yaml"
+
+          # Validate test-cases.yaml exists
+          if [ ! -f "$TEST_CASES_FILE" ]; then
+            echo "❌ Error: test-cases.yaml not found at $TEST_CASES_FILE"
+            echo "Every workflow must have a test-cases.yaml file with at least one test case"
+            exit 1
+          fi
+
+          echo "Validating $TEST_CASES_FILE..."
+
+          # Check that test-cases.yaml has at least one top-level key (test case)
+          # Exclude commented lines and empty lines
+          TEST_CASE_COUNT=$(grep -E '^[a-zA-Z0-9_-]+:' "$TEST_CASES_FILE" | wc -l | tr -d ' ')
+
+          if [ "$TEST_CASE_COUNT" -eq 0 ]; then
+            echo "❌ Error: No test cases found in $TEST_CASES_FILE"
+            echo "test-cases.yaml must contain at least one test case"
+            echo "Example format:"
+            echo "  my-test-case:"
+            echo "    params:"
+            echo "      ..."
+            exit 1
+          fi
+
+          echo "✅ test-cases.yaml validation passed ($TEST_CASE_COUNT test case(s) found)"
+
   test-workflows:
     needs: [discover]
     if: |
@@ -54,6 +123,5 @@ jobs:
           ./dev/pytest-cli.sh ${{ matrix.workflow }} ${{ matrix.case }}
 
 
-# todo: check version/channel
 # todo: run on all os
 # todo: check no changes in src
