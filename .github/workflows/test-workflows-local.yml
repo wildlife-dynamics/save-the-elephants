@@ -14,8 +14,7 @@ jobs:
         with:
           fetch-depth: 0  # get tags, so hatch-vcs dev version is correct
 
-      - name: Install pixi
-        run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH
+      - uses: ./.github/actions/setup-pixi
 
       - name: Build release
         run: pixi run --manifest-path pixi.toml build-release
@@ -89,8 +88,7 @@ jobs:
           name: release-artifacts
           path: /tmp/ecoscope-workflows-custom/release/artifacts
 
-      - name: Install Pixi
-        run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH
+      - uses: ./.github/actions/setup-pixi
 
       - name: Recompile workflow
         run: |
@@ -152,10 +150,12 @@ jobs:
       - name: Log conda channel contents
         run: ls -lR /tmp/ecoscope-workflows-custom/release/artifacts
 
-      - name: Install pixi
-        run: curl -fsSL https://pixi.sh/install.sh | bash && echo "$HOME/.pixi/bin" >> $GITHUB_PATH
+      - uses: ./.github/actions/setup-pixi
 
       - name: Write GEE key to file
+        env:
+          EE_KEY_JSON: ${{ secrets.EE_KEY_JSON }}
+        if: env.EE_KEY_JSON != ''
         run: |
           echo "${{ secrets.EE_KEY_JSON }}" > gee-key.json
 
