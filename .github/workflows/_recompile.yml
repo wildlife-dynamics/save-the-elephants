@@ -32,7 +32,9 @@ jobs:
           name: release-artifacts
           path: /tmp/ecoscope-workflows-custom/release/artifacts
 
-      - uses: ./.github/actions/setup-pixi
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: v0.60.0
 
       - name: Recompile workflow
         run: |

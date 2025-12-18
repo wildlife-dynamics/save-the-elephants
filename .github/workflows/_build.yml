@@ -11,7 +11,9 @@ jobs:
         with:
           fetch-depth: 0  # get tags, so hatch-vcs dev version is correct
 
-      - uses: ./.github/actions/setup-pixi
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: v0.60.0
 
       - name: Build release
         run: pixi run --manifest-path pixi.toml build-release

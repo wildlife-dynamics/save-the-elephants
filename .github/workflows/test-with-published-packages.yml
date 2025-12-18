@@ -94,14 +94,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # os: [ubuntu-latest, macos-latest, windows-latest]
-        os: [windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         include: ${{ fromJson(needs.discover.outputs.pairs) }}
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup-pixi
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: v0.60.0
 
       - name: Write GEE key to file
         env:
