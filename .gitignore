@@ -164,4 +164,4 @@ cython_debug/
 .pixi
 .tmp
 .DS_Store
-.claude
+.claude/
