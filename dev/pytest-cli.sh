@@ -40,6 +40,11 @@ if [ "$skip_setup" = false ]; then
     echo "Updating pixi environment..."
     pixi update --manifest-path $manifest_path
     echo "Installing playwright..."
+    # Windows-specific: Install playwright package via pip first
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$RUNNER_OS" == "Windows" ]]; then
+        echo "Windows detected - installing playwright via pip first..."
+        pixi run --manifest-path $manifest_path --locked -e default pip install playwright
+    fi
     pixi run --manifest-path $manifest_path --locked -e default bash -c "playwright install --with-deps chromium"
 else
     echo "Skipping pixi update and playwright-install (--skip-setup flag provided)"
