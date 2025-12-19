@@ -1,0 +1,810 @@
+{
+  "properties": {
+    "initialize_workflow_metadata": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Workflow Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Workflow Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object",
+      "description": "Add information that will help to differentiate this workflow from another.",
+      "title": "Initialize Workflow Metadata"
+    },
+    "define_time_range": {
+      "additionalProperties": false,
+      "properties": {
+        "since": {
+          "format": "date-time",
+          "title": "Since",
+          "type": "string",
+          "description": "The start time"
+        },
+        "until": {
+          "format": "date-time",
+          "title": "Until",
+          "type": "string",
+          "description": "The end time"
+        }
+      },
+      "required": [
+        "since",
+        "until"
+      ],
+      "type": "object",
+      "description": "Choose the period of time to analyze.",
+      "title": "Define Time Range"
+    },
+    "configure_grouping_strategy": {
+      "additionalProperties": false,
+      "properties": {
+        "groupers": {
+          "default": null,
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ValueGrouper"
+              },
+              {
+                "$ref": "#/$defs/TemporalGrouper"
+              }
+            ],
+            "title": "Group by"
+          },
+          "title": " ",
+          "type": "array",
+          "description": "            Specify how the data should be grouped to create the views for your dashboard.\n            This field is optional; if left blank, all the data will appear in a single view.\n            "
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Configure Grouping Strategy"
+    },
+    "configure_base_maps": {
+      "additionalProperties": false,
+      "properties": {
+        "base_maps": {
+          "default": [
+            {
+              "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+              "opacity": 1
+            },
+            {
+              "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+              "opacity": 0.5
+            }
+          ],
+          "items": {
+            "title": "Base Layer or Custom Layer",
+            "anyOf": [
+              {
+                "properties": {
+                  "url": {
+                    "default": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                    "title": "Preset Layer URL",
+                    "type": "string",
+                    "const": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                    "enum": [
+                      "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    ]
+                  },
+                  "opacity": {
+                    "default": 1,
+                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Layer Opacity",
+                    "type": "number"
+                  }
+                },
+                "title": "Open Street Map",
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "url": {
+                    "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+                    "title": "Preset Layer URL",
+                    "type": "string",
+                    "const": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+                    "enum": [
+                      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+                    ]
+                  },
+                  "opacity": {
+                    "default": 1,
+                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Layer Opacity",
+                    "type": "number"
+                  }
+                },
+                "title": "Roadmap",
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "url": {
+                    "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                    "title": "Preset Layer URL",
+                    "type": "string",
+                    "const": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                    "enum": [
+                      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    ]
+                  },
+                  "opacity": {
+                    "default": 1,
+                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Layer Opacity",
+                    "type": "number"
+                  }
+                },
+                "title": "Satellite",
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "url": {
+                    "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+                    "title": "Preset Layer URL",
+                    "type": "string",
+                    "const": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+                    "enum": [
+                      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+                    ]
+                  },
+                  "opacity": {
+                    "default": 1,
+                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Layer Opacity",
+                    "type": "number"
+                  }
+                },
+                "title": "Terrain",
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "url": {
+                    "default": "https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}",
+                    "title": "Preset Layer URL",
+                    "type": "string",
+                    "const": "https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}",
+                    "enum": [
+                      "https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}"
+                    ]
+                  },
+                  "opacity": {
+                    "default": 1,
+                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Layer Opacity",
+                    "type": "number"
+                  }
+                },
+                "title": "LandDx",
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "url": {
+                    "default": "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
+                    "title": "Preset Layer URL",
+                    "type": "string",
+                    "const": "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
+                    "enum": [
+                      "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
+                    ]
+                  },
+                  "opacity": {
+                    "default": 1,
+                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Layer Opacity",
+                    "type": "number"
+                  }
+                },
+                "title": "USGS Hillshade",
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "url": {
+                    "default": "https://example.tiles.com/{z}/{x}/{y}.png",
+                    "description": "The URL of a publicly accessible tiled raster service.",
+                    "pattern": "https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}([-a-zA-Z0-9()@:%_\\+.~#?&//=\\{\\}]*)",
+                    "title": "Custom Layer URL",
+                    "type": "string"
+                  },
+                  "opacity": {
+                    "default": 1,
+                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "title": "Custom Layer Opacity",
+                    "type": "number"
+                  },
+                  "max_zoom": {
+                    "default": null,
+                    "description": "Set the maximum zoom level to fetch tiles for.",
+                    "title": "Custom Layer Max Zoom",
+                    "type": "integer"
+                  },
+                  "min_zoom": {
+                    "default": null,
+                    "description": "Set the minimum zoom level to fetch tiles for.",
+                    "title": "Custom Layer Min Zoom",
+                    "type": "integer"
+                  }
+                },
+                "title": "Custom Layer (Advanced)",
+                "type": "object"
+              }
+            ]
+          },
+          "title": "Set Map Base Layers",
+          "type": "array",
+          "description": "Select tile layers to use as base layers in map outputs. The first layer in the list will be the bottommost layer displayed.",
+          "ecoscope:advanced": true
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Configure Base Map Layers"
+    },
+    "create_output_directory": {
+      "additionalProperties": false,
+      "properties": {
+        "path_name": {
+          "default": "/home/ttemu/ecoscope-workflows/composed-workflows/save-the-elephants/.pixi/envs/compile/lib/python3.12/site-packages/ecoscope_workflows_ext_ste/tasks/output",
+          "title": "Path Name",
+          "type": "string",
+          "description": "Path to the directory that should be created"
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create Output Directory"
+    },
+    "retrieve_landdx_database": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string",
+          "description": "URL to retrieve the LandDx database"
+        },
+        "overwrite_existing": {
+          "default": false,
+          "title": "Overwrite Existing",
+          "type": "boolean",
+          "description": "Overwrite the existing file if it exists"
+        },
+        "unzip": {
+          "default": true,
+          "title": "Unzip",
+          "type": "boolean",
+          "description": "Whether to unzip the downloaded file"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "type": "object",
+      "title": "Retrieve and Unpack LandDx Database"
+    },
+    "load_aoi": {
+      "additionalProperties": false,
+      "properties": {
+        "aoi": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aoi",
+          "type": "array"
+        }
+      },
+      "required": [
+        "aoi"
+      ],
+      "type": "object",
+      "title": "Load AOI from landDx"
+    },
+    "create_styled_landdx_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "style_config": {
+          "$ref": "#/$defs/MapStyleConfig",
+          "title": "Style Config"
+        }
+      },
+      "required": [
+        "style_config"
+      ],
+      "type": "object",
+      "title": "Style LandDx Map Layers"
+    },
+    "er_client_name": {
+      "additionalProperties": false,
+      "properties": {
+        "data_source": {
+          "$ref": "#/$defs/EarthRangerConnection",
+          "title": "",
+          "description": "Select one of your configured data sources."
+        }
+      },
+      "required": [
+        "data_source"
+      ],
+      "type": "object",
+      "title": "Connect to EarthRanger Instance"
+    },
+    "gee_project_name": {
+      "additionalProperties": false,
+      "properties": {
+        "data_source": {
+          "$ref": "#/$defs/GoogleEarthEngineConnection",
+          "title": "",
+          "description": "Select one of your configured data sources."
+        }
+      },
+      "required": [
+        "data_source"
+      ],
+      "type": "object",
+      "title": "Connect to EE"
+    },
+    "subject_observations": {
+      "additionalProperties": false,
+      "properties": {
+        "subject_group_name": {
+          "title": "Subject Group Name",
+          "type": "string",
+          "description": "Name of EarthRanger Subject"
+        }
+      },
+      "required": [
+        "subject_group_name"
+      ],
+      "type": "object",
+      "title": "Get subject Group Observations from ER"
+    },
+    "convert_to_trajectories": {
+      "additionalProperties": false,
+      "properties": {
+        "trajectory_segment_filter": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TrajectorySegmentFilter"
+            }
+          ],
+          "default": {
+            "min_length_meters": 0.001,
+            "max_length_meters": 100000,
+            "min_time_secs": 1,
+            "max_time_secs": 172800,
+            "min_speed_kmhr": 0.01,
+            "max_speed_kmhr": 500
+          },
+          "title": "Trajectory Segment Filter",
+          "description": "Filter track data by setting limits on track segment length, duration, and speed. Segments outside these bounds are removed, reducing noise and to focus on meaningful movement patterns.",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Convert Relocations to Trajectories"
+    },
+    "generate_seasonal_etd": {
+      "additionalProperties": false,
+      "properties": {
+        "auto_scale_or_custom_cell_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoScaleGridCellSize"
+            },
+            {
+              "$ref": "#/$defs/CustomGridCellSize"
+            }
+          ],
+          "default": {
+            "auto_scale_or_custom": "Auto-scale"
+          },
+          "title": "Auto Scale Or Custom Grid Cell Size",
+          "ecoscope:advanced": true
+        },
+        "max_speed_factor": {
+          "default": 1.05,
+          "title": "Max Speed Factor (Kilometers per Hour)",
+          "type": "number",
+          "description": "An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
+          "ecoscope:advanced": true
+        },
+        "expansion_factor": {
+          "default": 1.05,
+          "title": "Shape Buffer Expansion Factor",
+          "type": "number",
+          "description": "Controls how far time density values spread across the grid, affecting the smoothness of the output.",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Generate Seasonal Home Range ETD"
+    },
+    "sort_trajectories_by_speed": {
+      "additionalProperties": false,
+      "properties": {
+        "ascending": {
+          "default": true,
+          "title": "Ascending",
+          "type": "boolean",
+          "description": "Sort ascending if true"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Sort Trajectories by Speed Bins"
+    },
+    "generate_etd": {
+      "additionalProperties": false,
+      "properties": {
+        "auto_scale_or_custom_cell_size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoScaleGridCellSize"
+            },
+            {
+              "$ref": "#/$defs/CustomGridCellSize"
+            }
+          ],
+          "default": {
+            "auto_scale_or_custom": "Auto-scale"
+          },
+          "title": "Auto Scale Or Custom Grid Cell Size",
+          "ecoscope:advanced": true
+        },
+        "max_speed_factor": {
+          "default": 1.05,
+          "title": "Max Speed Factor (Kilometers per Hour)",
+          "type": "number",
+          "description": "An estimate of the subject's maximum speed as a factor of the maximum measured speed value in the dataset.",
+          "ecoscope:advanced": true
+        },
+        "expansion_factor": {
+          "default": 1.05,
+          "title": "Shape Buffer Expansion Factor",
+          "type": "number",
+          "description": "Controls how far time density values spread across the grid, affecting the smoothness of the output.",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Generate Home Range Ecomaps"
+    },
+    "generate_speed_rasters": {
+      "additionalProperties": false,
+      "properties": {
+        "resolution": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolution",
+          "description": "Resolution of the raster. If None, mean of dist_col is used."
+        },
+        "radius": {
+          "default": 2,
+          "title": "Radius",
+          "type": "integer",
+          "description": "Radius for kernel smoothing"
+        },
+        "cutoff": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cutoff",
+          "description": "Cutoff distance for kernel"
+        },
+        "tortuosity_length": {
+          "default": 3,
+          "title": "Tortuosity Length",
+          "type": "integer",
+          "description": "Length scale for tortuosity smoothing"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Generate Subject Speed Rasters"
+    },
+    "sort_speed_features_by_value": {
+      "additionalProperties": false,
+      "properties": {
+        "ascending": {
+          "default": true,
+          "title": "Ascending",
+          "type": "boolean",
+          "description": "Sort ascending if true"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Sort Speed Features by Value"
+    }
+  },
+  "$defs": {
+    "TemporalGrouper": {
+      "oneOf": [
+        {
+          "const": "%Y",
+          "title": "Year (example: 2024)"
+        },
+        {
+          "const": "%B",
+          "title": "Month (example: September)"
+        },
+        {
+          "const": "%Y-%m",
+          "title": "Year and Month (example: 2023-01)"
+        },
+        {
+          "const": "%j",
+          "title": "Day of the year as a number (example: 365)"
+        },
+        {
+          "const": "%d",
+          "title": "Day of the month as a number (example: 31)"
+        },
+        {
+          "const": "%A",
+          "title": "Day of the week (example: Sunday)"
+        },
+        {
+          "const": "%H",
+          "title": "Hour (24-hour clock) as number (example: 22)"
+        },
+        {
+          "const": "%Y-%m-%d",
+          "title": "Date (example: 2025-01-31)"
+        }
+      ],
+      "title": "Time",
+      "type": "string"
+    },
+    "ValueGrouper": {
+      "oneOf": [],
+      "title": "Category",
+      "type": "string"
+    },
+    "MapStyleConfig": {
+      "properties": {
+        "styles": {
+          "additionalProperties": {
+            "type": "object"
+          },
+          "title": "Styles",
+          "type": "object"
+        },
+        "legend": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Legend",
+          "type": "object"
+        }
+      },
+      "title": "MapStyleConfig",
+      "type": "object"
+    },
+    "EarthRangerConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "EarthRangerConnection",
+      "type": "object"
+    },
+    "GoogleEarthEngineConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "GoogleEarthEngineConnection",
+      "type": "object"
+    },
+    "TrajectorySegmentFilter": {
+      "properties": {
+        "min_length_meters": {
+          "default": 0.001,
+          "ecoscope:advanced": true,
+          "minimum": 0.001,
+          "title": "Minimum Segment Length (Meters)",
+          "type": "number"
+        },
+        "max_length_meters": {
+          "default": 100000,
+          "ecoscope:advanced": true,
+          "title": "Maximum Segment Length (Meters)",
+          "type": "number"
+        },
+        "min_time_secs": {
+          "default": 1,
+          "ecoscope:advanced": true,
+          "minimum": 1,
+          "title": "Minimum Segment Duration (Seconds)",
+          "type": "number"
+        },
+        "max_time_secs": {
+          "default": 172800,
+          "ecoscope:advanced": true,
+          "title": "Maximum Segment Duration (Seconds)",
+          "type": "number"
+        },
+        "min_speed_kmhr": {
+          "default": 0.01,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
+          "title": "Minimum Segment Speed (Kilometers per Hour)",
+          "type": "number"
+        },
+        "max_speed_kmhr": {
+          "default": 500,
+          "ecoscope:advanced": true,
+          "title": "Maximum Segment Speed (Kilometers per Hour)",
+          "type": "number"
+        }
+      },
+      "title": "TrajectorySegmentFilter",
+      "type": "object"
+    },
+    "AutoScaleGridCellSize": {
+      "properties": {
+        "auto_scale_or_custom": {
+          "const": "Auto-scale",
+          "default": "Auto-scale",
+          "description": "Define the resolution of the raster grid (in meters per pixel). Auto-scale for an optimized grid based on the data, or Customize to set a specific resolution.",
+          "ecoscope:advanced": true,
+          "enum": [
+            "Auto-scale"
+          ],
+          "title": " ",
+          "type": "string"
+        }
+      },
+      "title": "Auto-scale",
+      "type": "object"
+    },
+    "CustomGridCellSize": {
+      "properties": {
+        "auto_scale_or_custom": {
+          "const": "Customize",
+          "default": "Customize",
+          "description": "Define the resolution of the raster grid (in meters per pixel). Auto-scale for an optimized grid based on the data, or Customize to set a specific resolution.",
+          "ecoscope:advanced": true,
+          "enum": [
+            "Customize"
+          ],
+          "title": " ",
+          "type": "string"
+        },
+        "grid_cell_size": {
+          "default": 5000,
+          "description": "Custom Raster Pixel Size (Meters)",
+          "exclusiveMaximum": 10000,
+          "exclusiveMinimum": 0,
+          "gt": 0,
+          "lt": 10000,
+          "title": "Grid Cell Size",
+          "type": "number"
+        }
+      },
+      "title": "Customize",
+      "type": "object"
+    }
+  },
+  "uiSchema": {
+    "initialize_workflow_metadata": {
+      "ui:order": [
+        "name",
+        "description"
+      ]
+    },
+    "define_time_range": {
+      "ui:order": [
+        "since",
+        "until"
+      ]
+    },
+    "retrieve_landdx_database": {
+      "ui:order": [
+        "url",
+        "overwrite_existing",
+        "unzip"
+      ]
+    },
+    "generate_seasonal_etd": {
+      "ui:order": [
+        "auto_scale_or_custom_cell_size",
+        "max_speed_factor",
+        "expansion_factor"
+      ]
+    },
+    "generate_etd": {
+      "ui:order": [
+        "auto_scale_or_custom_cell_size",
+        "max_speed_factor",
+        "expansion_factor"
+      ]
+    },
+    "generate_speed_rasters": {
+      "ui:order": [
+        "resolution",
+        "radius",
+        "cutoff",
+        "tortuosity_length"
+      ]
+    },
+    "ui:order": [
+      "initialize_workflow_metadata",
+      "define_time_range",
+      "configure_grouping_strategy",
+      "configure_base_maps",
+      "create_output_directory",
+      "retrieve_landdx_database",
+      "load_aoi",
+      "create_styled_landdx_layers",
+      "er_client_name",
+      "gee_project_name",
+      "subject_observations",
+      "convert_to_trajectories",
+      "generate_seasonal_etd",
+      "sort_trajectories_by_speed",
+      "generate_etd",
+      "generate_speed_rasters",
+      "sort_speed_features_by_value"
+    ]
+  },
+  "additionalProperties": false
+}

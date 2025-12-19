@@ -61,7 +61,14 @@ py-rattler = ">=0.7.0,<0.8"
 "ruamel.yaml" = "*"
 ruff = "*"
 tomli-w = "*"
-ecoscope-workflows-core = ">=0.3.1"
+ecoscope-workflows-core = ">=0.6.0"
+igraph ="*"
+geopandas="*"
+shapely = "*"
+ecoscope-workflows-ext-ecoscope=">=0.6.0"
+ecoscope-workflows-ext-custom = "0.0.2.*"
+ecoscope = { extras = ["analysis"], version = "*" }
+earthengine-api ="*"
 
 # additional dependencies added by this extension
 

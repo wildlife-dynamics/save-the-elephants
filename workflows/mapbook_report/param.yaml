@@ -1,0 +1,101 @@
+# Workflow description
+initialize_workflow_metadata:
+  name: "Save the Elephants Mapbook Report"
+  description: "Workflow to showcase movement of STE Collared Elephants that entails various metrics"
+
+# Desired time range
+define_time_range:
+  since: "2024-01-01T00:00:00Z"
+  until: "2024-12-31T23:59:59Z"
+
+# Connect to EarthRanger
+er_client_name:
+  data_source:
+    name: "ste"
+
+# Connect to EarthEngine
+gee_project_name:
+  data_source:
+    name: "ecoscope-poc"
+    
+
+# Value grouper /temporal grouper
+configure_grouping_strategy:
+  groupers: 
+     - extra__name
+
+# Subject group name
+subject_observations:
+    subject_group_name: "ecoscope"
+
+# Subject trajectory filter
+convert_to_trajectories:
+  trajectory_segment_filter:
+    min_length_meters: 0.001
+    max_length_meters: 5000.0
+    max_time_secs: 7200.0
+    min_time_secs: 1.0
+    max_speed_kmhr: 9.0
+    min_speed_kmhr: 0.01
+
+# Create directory to persist LandDX db 
+create_output_directory:
+  path_name: "/home/ttemu/ecoscope-workflows/outputs"
+
+
+#Link to retrieve landDx db
+retrieve_landdx_database:
+  url: "https://maraelephant.maps.arcgis.com/sharing/rest/content/items/6da0c9bdd43d4dd0ac59a4f3cd73dcab/data"
+
+
+# Specific AOI to use from LandDX db
+load_aoi:
+  aoi: 
+    - "Community Conservancy"
+    - "National Reserve" 
+    - "National Park"
+
+# LandDX specific config styles
+create_styled_landdx_layers:
+  style_config:
+    styles:
+      
+      Community Conservancy:
+        get_fill_color: [85, 107, 47]
+        get_line_color: [85, 107, 47]
+        opacity: 0.25
+        get_line_width: 2
+        stroked: True
+      
+      National Reserve:
+        get_fill_color: [143, 188, 139]
+        get_line_color: [143, 188, 139]
+        opacity: 0.25
+        get_line_width: 2
+        stroked: True
+
+      National Park: 
+        get_fill_color: [255, 250, 205]
+        get_line_color: [255, 250, 205]
+        opacity: 0.25
+        get_line_width: 2
+        stroked: True
+    legend:
+      labels: ["Community Conservancy","National Reserve", "National Park"]
+      colors: ["#556b2f","#8fbc8b","#fffacd"]
+
+generate_etd:
+  auto_scale_or_custom_cell_size:
+     auto_scale_or_custom: "Customize" # you could swap this to Auto
+     grid_cell_size: 500
+
+
+# Desired basemap layers
+configure_base_maps:
+  base_maps:
+    - url: "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
+      opacity: 0.7
+    - url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+      opacity: 0.2
+      max_zoom: 8.5
+      min_zoom: null
