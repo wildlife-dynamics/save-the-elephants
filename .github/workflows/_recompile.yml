@@ -49,7 +49,6 @@ jobs:
           pixi run --manifest-path pixi.toml --locked bash -c "./dev/recompile.sh ${{ matrix.workflow }} --update"
 
       - name: Check for differences in generated files
-        id: check-diff
         run: |
           WORKFLOW_DIR_NAME=$(echo "${{ matrix.workflow }}" | tr '_' '-')
           GENERATED_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
@@ -64,22 +63,10 @@ jobs:
 
           # Exclude auto-generated files: pixi.lock (dependency resolution), VERSION.yaml (auto-versioned), graph.png (binary)
           if ! git diff --exit-code -- "${GENERATED_DIR}" ${EXCLUDE_PATTERNS}; then
-            echo "diff_found=true" >> $GITHUB_OUTPUT
+            echo ""
+            echo "::error::Generated files differ from committed files in ${GENERATED_DIR}"
+            echo "::error::Please run the compilation locally and commit the changes."
+            exit 1
           else
-            echo "diff_found=false" >> $GITHUB_OUTPUT
             echo "No differences found - generated files are up to date!"
           fi
-
-      - name: Display diff and fail if changes exist
-        if: steps.check-diff.outputs.diff_found == 'true'
-        run: |
-          WORKFLOW_DIR_NAME=$(echo "${{ matrix.workflow }}" | tr '_' '-')
-          GENERATED_DIR="workflows/${{ matrix.workflow }}/ecoscope-workflows-${WORKFLOW_DIR_NAME}-workflow"
-          EXCLUDE_PATTERNS=":(exclude)${GENERATED_DIR}/pixi.lock :(exclude)${GENERATED_DIR}/VERSION.yaml :(exclude)${GENERATED_DIR}/graph.png"
-
-          echo "::error::Generated files differ from committed files in ${GENERATED_DIR}"
-          echo "Full diff (excluding auto-generated files):"
-          git diff -- "${GENERATED_DIR}" ${EXCLUDE_PATTERNS}
-          echo ""
-          echo "::error::Please run the compilation locally and commit the changes."
-          exit 1
