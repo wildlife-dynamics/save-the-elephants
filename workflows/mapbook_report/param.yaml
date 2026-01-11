@@ -1,0 +1,36 @@
+workflow_details:
+  description: Mapbook workflow using month grouper
+  name: month_grouper
+groupers:
+  groupers:
+    - '%B'
+configure_base_maps:
+  base_maps:
+    - url: >-
+        https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}
+      opacity: 1
+      max_zoom: 20
+set_previous_period:
+  option:
+    custom: Previous 3 months
+er_client_name:
+  data_source:
+    name: ste
+gee_project_name:
+  data_source:
+    name: ecoscope_poc
+retrieve_ldx_db:
+  input_method:
+    file_path: /Users/tevintemu/Desktop/Ecoscope/shapefiles/landDx.gpkg
+custom_trajs_filter:
+  min_length_meters: 0.001
+  max_length_meters: 5000
+  min_time_secs: 1
+  max_time_secs: 21600
+  min_speed_kmhr: 0.01
+  max_speed_kmhr: 8.5
+time_range:
+  since: '2025-08-31T21:00:00.000Z'
+  until: '2025-12-31T20:59:00.000Z'
+subject_group_var:
+  var: ecoscope

@@ -24,7 +24,15 @@ requirements:
     - pip
   run:
     - python
+    - ecoscope
     - ecoscope-workflows-core
+    - ecoscope-workflows-ext-ecoscope
+    - ecoscope-workflows-ext-custom
+    - geopandas
+    - shapely
+    - python-igraph
+    - earthengine-api
+    - docxtpl
     - playwright
 
 about:
