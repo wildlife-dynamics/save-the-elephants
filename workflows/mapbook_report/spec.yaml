@@ -20,6 +20,7 @@ rjsf-overrides:
   properties: 
     Subject Group.properties.subject_group_var.properties.var.title: Subject Group Name
     Subject Group..properties.subject_group_var.properties.var.default: subject_name
+
   $defs:
     # Restrict category options to Subject Name ,Subject Sex and Subject Subtype
     ValueGrouper.oneOf:
@@ -56,7 +57,7 @@ workflow:
 
   - name: Configure grouping strategy 
     id: groupers 
-    task: set_groupers 
+    task: set_custom_groupers 
   
   - name: Configure base map layers 
     id: configure_base_maps 
@@ -428,12 +429,6 @@ workflow:
       ignore_index: true 
       sort: false
 
-  # - name: Print grouper outputs 
-  #   id: print_grouper
-  #   task: print_output
-  #   partial:  
-  #     value: ${{ workflow.groupers.return }}
-
   - name: Extract grouper names 
     id: extract_grouper_names 
     task: extract_index_names
@@ -469,14 +464,6 @@ workflow:
     partial: 
       df: ${{ workflow.create_current_duration_column.return }}
       groupers: ${{ workflow.groupers.return }}
-
-  # - name: Print current traj outputs 
-  #   id: print_current_trajs
-  #   task: print_output
-  #   mapvalues:
-  #     argnames: value 
-  #     argvalues: ${{ workflow.split_traj_by_group.return }}
-
 
   - name: Split combined current -previous trajs
     id: split_comb_trajs 
@@ -1312,27 +1299,6 @@ workflow:
     mapvalues:
       argnames: gdf
       argvalues: ${{ workflow.add_season_labels.return }}
-  
-
-  - name: View dataframe 
-    id: view_seasonal_df
-    task: view_df 
-    partial: 
-      name: Seasonal dataframe view 
-    mapvalues:  
-      argnames: gdf
-      argvalues: ${{ workflow.seasonal_home_range.return }}
-  
-  - name: Persist seasons gdf 
-    id: persist_seasons_gdf
-    task: persist_df
-    partial:
-      filetype: geoparquet
-      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename_suffix: seasons_gdf
-    mapvalues:
-      argnames: df
-      argvalues: ${{ workflow.seasonal_home_range.return }}
 
   - name: Assign season colors to dataframe 
     id: assign_season_df
@@ -1652,9 +1618,9 @@ workflow:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
         full_page: true 
-        device_scale_factor: 4.0
-        wait_for_timeout: 1000 # testing only -- default should be 30_000
-        max_concurrent_pages: 6
+        device_scale_factor: 2.0
+        wait_for_timeout: 5 # testing only -- default should be 30_000
+        max_concurrent_pages: 5
     
     mapvalues:
       argnames: html_path
@@ -1664,12 +1630,8 @@ workflow:
     id: get_split_names
     task: get_split_group_names
     partial:
-      split_data: ${{ workflow.split_traj_by_group.return }}
-  - name: Print outputs 
-    id: print_traj_outputs 
-    task: print_output
-    partial: 
-      value: ${{ workflow.split_traj_by_group.return }}
+      split_data: 
+        - ${{ workflow.split_traj_by_group.return }}
 
   # Create mapbook context 
   - name: Group grouper context values together 
@@ -1677,17 +1639,11 @@ workflow:
     task: zip_groupbykey
     partial: 
       sequences:
+        - ${{ workflow.apply_speed_colormap.return }} # df
         - ${{ workflow.coverage_grid_quantity.return }} # grid area
         - ${{ workflow.coverage_mcp_quantity.return }} # mcp area
         - ${{ workflow.generate_map_png.return }} # map_paths 
   
-  # testing to view the output we get from group_context_values 
-  - name: Print output values 
-    id: print_ctx_output
-    task: print_output 
-    partial:
-      value: ${{ workflow.group_context_values.return }}
-
   - name: Create individual mapbook grouper context 
     id: indv_mapbook_ctx
     task: create_mapbook_grouper_ctx 
@@ -1695,9 +1651,10 @@ workflow:
       current_period: ${{ workflow.time_range.return }} # current period
       previous_period: ${{ workflow.set_previous_period.return }} # previous period
       period: ${{ workflow.round_report_duration.return }} # period
-      grouper_name: ${{ workflow.get_split_names.return }} # grouper name
+      grouper_name: ${{ workflow.groupers.return }} # grouper name
     mapvalues:
       argnames:
+        - df
         - grid_area 
         - mcp_area
         - map_paths 

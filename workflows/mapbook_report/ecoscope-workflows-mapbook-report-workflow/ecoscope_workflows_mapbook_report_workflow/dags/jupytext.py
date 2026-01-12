@@ -24,7 +24,6 @@ from ecoscope_workflows_core.tasks.config import (
 )
 from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
 from ecoscope_workflows_core.tasks.groupby import groupbykey as groupbykey
-from ecoscope_workflows_core.tasks.groupby import set_groupers as set_groupers
 from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
 from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.io import set_er_connection as set_er_connection
@@ -162,14 +161,13 @@ from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple
 from ecoscope_workflows_ext_ste.tasks import (
     modify_status_colors as modify_status_colors,
 )
-from ecoscope_workflows_ext_ste.tasks import print_output as print_output
 from ecoscope_workflows_ext_ste.tasks import (
     retrieve_feature_gdf as retrieve_feature_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
+from ecoscope_workflows_ext_ste.tasks import set_custom_groupers as set_custom_groupers
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
 from ecoscope_workflows_ext_ste.tasks import to_quantity as to_quantity
-from ecoscope_workflows_ext_ste.tasks import view_df as view_df
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
 
@@ -260,7 +258,7 @@ groupers_params = dict(
 
 
 groupers = (
-    set_groupers.set_task_instance_id("groupers")
+    set_custom_groupers.set_task_instance_id("groupers")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -3815,69 +3813,6 @@ seasonal_home_range = (
 
 
 # %% [markdown]
-# ## View dataframe
-
-# %%
-# parameters
-
-view_seasonal_df_params = dict()
-
-# %%
-# call the task
-
-
-view_seasonal_df = (
-    view_df.set_task_instance_id("view_seasonal_df")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(name="Seasonal dataframe view", **view_seasonal_df_params)
-    .mapvalues(argnames=["gdf"], argvalues=seasonal_home_range)
-)
-
-
-# %% [markdown]
-# ## Persist seasons gdf
-
-# %%
-# parameters
-
-persist_seasons_gdf_params = dict(
-    filename=...,
-)
-
-# %%
-# call the task
-
-
-persist_seasons_gdf = (
-    persist_df.set_task_instance_id("persist_seasons_gdf")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        filetype="geoparquet",
-        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="seasons_gdf",
-        **persist_seasons_gdf_params,
-    )
-    .mapvalues(argnames=["df"], argvalues=seasonal_home_range)
-)
-
-
-# %% [markdown]
 # ## Assign season colors to dataframe
 
 # %%
@@ -4805,9 +4740,9 @@ generate_map_png = (
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         config={
             "full_page": True,
-            "device_scale_factor": 4.0,
-            "wait_for_timeout": 1000,
-            "max_concurrent_pages": 6,
+            "device_scale_factor": 2.0,
+            "wait_for_timeout": 5,
+            "max_concurrent_pages": 5,
         },
         **generate_map_png_params,
     )
@@ -4844,34 +4779,6 @@ get_split_names = (
 
 
 # %% [markdown]
-# ## Print outputs
-
-# %%
-# parameters
-
-print_traj_outputs_params = dict()
-
-# %%
-# call the task
-
-
-print_traj_outputs = (
-    print_output.set_task_instance_id("print_traj_outputs")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(value=split_traj_by_group, **print_traj_outputs_params)
-    .call()
-)
-
-
-# %% [markdown]
 # ## Group grouper context values together
 
 # %%
@@ -4895,37 +4802,14 @@ group_context_values = (
         unpack_depth=1,
     )
     .partial(
-        sequences=[coverage_grid_quantity, coverage_mcp_quantity, generate_map_png],
+        sequences=[
+            apply_speed_colormap,
+            coverage_grid_quantity,
+            coverage_mcp_quantity,
+            generate_map_png,
+        ],
         **group_context_values_params,
     )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Print output values
-
-# %%
-# parameters
-
-print_ctx_output_params = dict()
-
-# %%
-# call the task
-
-
-print_ctx_output = (
-    print_output.set_task_instance_id("print_ctx_output")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(value=group_context_values, **print_ctx_output_params)
     .call()
 )
 
@@ -4957,11 +4841,12 @@ indv_mapbook_ctx = (
         current_period=time_range,
         previous_period=set_previous_period,
         period=round_report_duration,
-        grouper_name=get_split_names,
+        grouper_name=groupers,
         **indv_mapbook_ctx_params,
     )
     .mapvalues(
-        argnames=["grid_area", "mcp_area", "map_paths"], argvalues=group_context_values
+        argnames=["df", "grid_area", "mcp_area", "map_paths"],
+        argvalues=group_context_values,
     )
 )
 

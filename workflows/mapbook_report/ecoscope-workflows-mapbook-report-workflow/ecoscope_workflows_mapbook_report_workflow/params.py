@@ -212,28 +212,6 @@ class CustomTrajsFilter(BaseModel):
     max_speed_kmhr: float | None = Field(9.0, title="Max Speed Kmhr")
 
 
-class PersistSeasonsGdf(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    filename: str | None = Field(
-        None,
-        description="            Optional filename to persist text to within the `root_path`.\n            If not provided, a filename will be generated based on a hash of the df content.\n            ",
-        title="Filename",
-    )
-
-
-class TemporalGrouper(str, Enum):
-    field_Y = "%Y"
-    field_B = "%B"
-    field_Y__m = "%Y-%m"
-    field_j = "%j"
-    field_d = "%d"
-    field_A = "%A"
-    field_H = "%H"
-    field_Y__m__d = "%Y-%m-%d"
-
-
 class ValueGrouper(RootModel[str]):
     root: str = Field(..., title="Category")
 
@@ -281,7 +259,7 @@ class Groupers(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    groupers: list[ValueGrouper | TemporalGrouper] | None = Field(
+    groupers: list[ValueGrouper] | None = Field(
         None,
         description="            Specify how the data should be grouped to create the views for your dashboard.\n            This field is optional; if left blank, all the data will appear in a single view.\n            ",
         title=" ",
@@ -375,7 +353,4 @@ class Params(BaseModel):
     retrieve_ldx_db: RetrieveLdxDb | None = Field(None, title="Load landDx database")
     custom_trajs_filter: CustomTrajsFilter | None = Field(
         None, title="Trajectory Segment Filter"
-    )
-    persist_seasons_gdf: PersistSeasonsGdf | None = Field(
-        None, title="Persist seasons gdf"
     )

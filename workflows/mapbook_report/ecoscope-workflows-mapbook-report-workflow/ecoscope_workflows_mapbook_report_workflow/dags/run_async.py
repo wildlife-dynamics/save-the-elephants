@@ -15,7 +15,6 @@ from ecoscope_workflows_core.tasks.config import (
 )
 from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
 from ecoscope_workflows_core.tasks.groupby import groupbykey as groupbykey
-from ecoscope_workflows_core.tasks.groupby import set_groupers as set_groupers
 from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
 from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.io import set_er_connection as set_er_connection
@@ -153,14 +152,13 @@ from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple
 from ecoscope_workflows_ext_ste.tasks import (
     modify_status_colors as modify_status_colors,
 )
-from ecoscope_workflows_ext_ste.tasks import print_output as print_output
 from ecoscope_workflows_ext_ste.tasks import (
     retrieve_feature_gdf as retrieve_feature_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
+from ecoscope_workflows_ext_ste.tasks import set_custom_groupers as set_custom_groupers
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
 from ecoscope_workflows_ext_ste.tasks import to_quantity as to_quantity
-from ecoscope_workflows_ext_ste.tasks import view_df as view_df
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
 
@@ -333,8 +331,6 @@ def main(params: Params):
         "create_mean_speed_raster_widgets": ["persist_mean_speed_raster_html"],
         "merge_mean_speed_raster_widgets": ["create_mean_speed_raster_widgets"],
         "seasonal_home_range": ["add_season_labels"],
-        "view_seasonal_df": ["seasonal_home_range"],
-        "persist_seasons_gdf": ["seasonal_home_range"],
         "assign_season_df": ["seasonal_home_range"],
         "generate_season_layers": ["assign_season_df"],
         "combined_ldx_seasonal_hr_layers": [
@@ -390,18 +386,17 @@ def main(params: Params):
         ],
         "generate_map_png": ["group_mapbook_maps"],
         "get_split_names": ["split_traj_by_group"],
-        "print_traj_outputs": ["split_traj_by_group"],
         "group_context_values": [
+            "apply_speed_colormap",
             "coverage_grid_quantity",
             "coverage_mcp_quantity",
             "generate_map_png",
         ],
-        "print_ctx_output": ["group_context_values"],
         "indv_mapbook_ctx": [
             "time_range",
             "set_previous_period",
             "round_report_duration",
-            "get_split_names",
+            "groupers",
             "group_context_values",
         ],
         "create_grouper_doc": ["download_sect_templates", "indv_mapbook_ctx"],
@@ -465,7 +460,7 @@ def main(params: Params):
             method="call",
         ),
         "groupers": Node(
-            async_task=set_groupers.validate()
+            async_task=set_custom_groupers.validate()
             .set_task_instance_id("groupers")
             .handle_errors()
             .with_tracing()
@@ -3088,54 +3083,6 @@ def main(params: Params):
                 "argvalues": DependsOn("add_season_labels"),
             },
         ),
-        "view_seasonal_df": Node(
-            async_task=view_df.validate()
-            .set_task_instance_id("view_seasonal_df")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "name": "Seasonal dataframe view",
-            }
-            | (params_dict.get("view_seasonal_df") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["gdf"],
-                "argvalues": DependsOn("seasonal_home_range"),
-            },
-        ),
-        "persist_seasons_gdf": Node(
-            async_task=persist_df.validate()
-            .set_task_instance_id("persist_seasons_gdf")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "filetype": "geoparquet",
-                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "filename_suffix": "seasons_gdf",
-            }
-            | (params_dict.get("persist_seasons_gdf") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("seasonal_home_range"),
-            },
-        ),
         "assign_season_df": Node(
             async_task=assign_season_colors.validate()
             .set_task_instance_id("assign_season_df")
@@ -3832,9 +3779,9 @@ def main(params: Params):
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "config": {
                     "full_page": True,
-                    "device_scale_factor": 4.0,
-                    "wait_for_timeout": 1000,
-                    "max_concurrent_pages": 6,
+                    "device_scale_factor": 2.0,
+                    "wait_for_timeout": 5,
+                    "max_concurrent_pages": 5,
                 },
             }
             | (params_dict.get("generate_map_png") or {}),
@@ -3863,25 +3810,6 @@ def main(params: Params):
             | (params_dict.get("get_split_names") or {}),
             method="call",
         ),
-        "print_traj_outputs": Node(
-            async_task=print_output.validate()
-            .set_task_instance_id("print_traj_outputs")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "value": DependsOn("split_traj_by_group"),
-            }
-            | (params_dict.get("print_traj_outputs") or {}),
-            method="call",
-        ),
         "group_context_values": Node(
             async_task=zip_groupbykey.validate()
             .set_task_instance_id("group_context_values")
@@ -3898,6 +3826,7 @@ def main(params: Params):
             partial={
                 "sequences": DependsOnSequence(
                     [
+                        DependsOn("apply_speed_colormap"),
                         DependsOn("coverage_grid_quantity"),
                         DependsOn("coverage_mcp_quantity"),
                         DependsOn("generate_map_png"),
@@ -3905,25 +3834,6 @@ def main(params: Params):
                 ),
             }
             | (params_dict.get("group_context_values") or {}),
-            method="call",
-        ),
-        "print_ctx_output": Node(
-            async_task=print_output.validate()
-            .set_task_instance_id("print_ctx_output")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "value": DependsOn("group_context_values"),
-            }
-            | (params_dict.get("print_ctx_output") or {}),
             method="call",
         ),
         "indv_mapbook_ctx": Node(
@@ -3943,12 +3853,12 @@ def main(params: Params):
                 "current_period": DependsOn("time_range"),
                 "previous_period": DependsOn("set_previous_period"),
                 "period": DependsOn("round_report_duration"),
-                "grouper_name": DependsOn("get_split_names"),
+                "grouper_name": DependsOn("groupers"),
             }
             | (params_dict.get("indv_mapbook_ctx") or {}),
             method="mapvalues",
             kwargs={
-                "argnames": ["grid_area", "mcp_area", "map_paths"],
+                "argnames": ["df", "grid_area", "mcp_area", "map_paths"],
                 "argvalues": DependsOn("group_context_values"),
             },
         ),

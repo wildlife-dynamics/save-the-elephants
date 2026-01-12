@@ -50,14 +50,7 @@
         "groupers": {
           "default": null,
           "items": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/ValueGrouper"
-              },
-              {
-                "$ref": "#/$defs/TemporalGrouper"
-              }
-            ],
+            "$ref": "#/$defs/ValueGrouper",
             "title": "Group by"
           },
           "title": " ",
@@ -394,68 +387,9 @@
       "type": "object",
       "required": [],
       "title": "Trajectory Segment Filter"
-    },
-    "persist_seasons_gdf": {
-      "additionalProperties": false,
-      "properties": {
-        "filename": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Filename",
-          "description": "            Optional filename to persist text to within the `root_path`.\n            If not provided, a filename will be generated based on a hash of the df content.\n            "
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Persist seasons gdf"
     }
   },
   "$defs": {
-    "TemporalGrouper": {
-      "oneOf": [
-        {
-          "const": "%Y",
-          "title": "Year (example: 2024)"
-        },
-        {
-          "const": "%B",
-          "title": "Month (example: September)"
-        },
-        {
-          "const": "%Y-%m",
-          "title": "Year and Month (example: 2023-01)"
-        },
-        {
-          "const": "%j",
-          "title": "Day of the year as a number (example: 365)"
-        },
-        {
-          "const": "%d",
-          "title": "Day of the month as a number (example: 31)"
-        },
-        {
-          "const": "%A",
-          "title": "Day of the week (example: Sunday)"
-        },
-        {
-          "const": "%H",
-          "title": "Hour (24-hour clock) as number (example: 22)"
-        },
-        {
-          "const": "%Y-%m-%d",
-          "title": "Date (example: 2025-01-31)"
-        }
-      ],
-      "title": "Time",
-      "type": "string"
-    },
     "ValueGrouper": {
       "oneOf": [],
       "title": "Category",
@@ -661,8 +595,7 @@
       "gee_project_name",
       "subject_group_var",
       "retrieve_ldx_db",
-      "custom_trajs_filter",
-      "persist_seasons_gdf"
+      "custom_trajs_filter"
     ]
   },
   "additionalProperties": false
