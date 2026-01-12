@@ -6,9 +6,10 @@ from ecoscope_workflows_ext_ste.tasks._time_comparison import (
     determine_previous_period,
     PreviousCustomTimeRangeOption,
     PreviousTimeRangeOption,
+    PreviousTimeRange,
     PreviousPeriodType,
 )
-
+from pydantic import ValidationError
 
 UTC_TIMEZONEINFO = TimezoneInfo(label="UTC", tzCode="UTC", name="UTC", utc_offset="+00:00")
 
@@ -18,14 +19,20 @@ def make_timerange(since: datetime, until: datetime):
 
 
 def test_manual_time_range_is_returned_as_is():
-    manual = make_timerange(datetime(2024, 1, 1), datetime(2024, 1, 31))
-    option = PreviousTimeRangeOption(time_range=manual)
+    # Create PreviousTimeRange (has timezone/time_format defaults)
+    manual = PreviousTimeRange(
+        since=datetime(2024, 1, 1),
+        until=datetime(2024, 1, 31),
+        # timezone/time_format auto-default to UTC/DEFAULT_TIME_FORMAT
+    )
 
+    option = PreviousTimeRangeOption(time_range=manual)
     current = make_timerange(datetime(2025, 1, 1), datetime(2025, 1, 31))
 
     result = determine_previous_period(option, current)
 
-    assert result == manual
+    # Compare after conversion (since function returns TimeRange)
+    assert result == manual.to_time_range()
 
 
 def test_same_as_current_shifts_entire_period_backwards():
@@ -102,14 +109,17 @@ def test_previous_year_uses_365_days():
 
 
 def test_unknown_custom_option_raises_error():
-    current = make_timerange(
+    make_timerange(
         datetime(2025, 1, 1),
         datetime(2025, 1, 31),
     )
 
-    option = PreviousCustomTimeRangeOption(
-        custom="INVALID_OPTION"  # type: ignore
-    )
+    # This line already raises ValidationError due to invalid enum value
+    with pytest.raises(ValidationError) as exc_info:
+        PreviousCustomTimeRangeOption(
+            custom="INVALID_OPTION"  # type: ignore
+        )
 
-    with pytest.raises(ValueError):
-        determine_previous_period(option, current)
+    # Optional: assert the error is about the 'custom' field and enum
+    assert "custom" in str(exc_info.value)
+    assert "enum" in str(exc_info.value) or "should be" in str(exc_info.value)

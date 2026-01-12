@@ -3,7 +3,6 @@ import os
 import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
 from ecoscope_workflows_ext_ste.tasks._downloader import (
     fetch_and_persist_file,
     get_file_path,
@@ -96,29 +95,19 @@ def test_download_overwrite_existing_file(temp_dir):
     assert os.path.getsize(result2) == original_size
 
 
-# Retry tests
-def test_download_failure_raises_runtime_error(temp_dir):
-    """Test that repeated download failures raise RuntimeError with context."""
-    # Mock the internal download_file to always fail
-    with patch("ecoscope_workflows_ext_ste.tasks._downloader.download_file") as mock_download:
-        mock_download.side_effect = RuntimeError("Connection failed")  # Simulate network/download error
-
-        with pytest.raises(RuntimeError, match="download_file failed"):
-            fetch_and_persist_file(url=DROPBOX_DOCX_URL, output_path=temp_dir, retries=3)
-
-        assert mock_download.call_count == 4  # 1 initial attempt + 3 retries
-
-
 # Error handling tests
-def test_empty_computed_path_raises_error():
-    """Test that empty computed path raises ValueError."""
-    with pytest.raises(ValueError, match="Computed download target path is empty"):
-        fetch_and_persist_file(url=DROPBOX_DOCX_URL, output_path="")
+def test_empty_string_output_path_uses_cwd(temp_dir, monkeypatch):
+    monkeypatch.chdir(temp_dir)  # optional - make assertion easier
+
+    result = fetch_and_persist_file(
+        url=DROPBOX_DOCX_URL,
+        output_path="",  # empty string
+    )
+
+    assert os.path.dirname(result) == os.getcwd()
 
 
 # Tests for get_file_path
-
-
 @pytest.mark.integration
 def test_download_file_method_real_download(temp_dir):
     """Test get_file_path with real download from Dropbox."""

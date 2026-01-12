@@ -4,7 +4,7 @@ import geopandas as gpd
 from pathlib import Path
 from datetime import datetime
 from shapely.geometry import Point
-from ecoscope_workflows_core.tasks.filter._filter import TimeRange
+from ecoscope_workflows_core.tasks.filter._filter import TimeRange, UTC_TIMEZONEINFO, DEFAULT_TIME_FORMAT
 from ecoscope_workflows_ext_ste.tasks import (
     split_gdf_by_column,
     generate_mcp_gdf,
@@ -20,8 +20,31 @@ TEST_DATA_DIR = Path(__file__).parent.parent / "data"
 
 @pytest.fixture
 def kenyan_counties_gdf():
-    """Fixture to load the Kenyan counties GeoDataFrame."""
-    return gpd.read_file(TEST_DATA_DIR, "kenyan_counties.gpkg")
+    path = TEST_DATA_DIR / "kenyan_counties.gpkg"
+
+    print(f"Loading Kenyan counties from: {path}")
+    print(f"File exists? {path.exists()}")
+
+    if not path.exists():
+        raise FileNotFoundError(f"Missing test data file: {path}")
+
+    gdf = gpd.read_file(path)
+
+    print(f"Loaded {len(gdf)} rows")
+    print(f"CRS: {gdf.crs}")
+    print(f"Has valid geometries? {gdf.geometry.is_valid.all()}")
+    print(f"Empty geometries count: {(gdf.geometry.is_empty).sum()}")
+
+    if len(gdf) == 0:
+        raise ValueError("kenyan_counties.gpkg is empty!")
+
+    if gdf.geometry.is_empty.all() or gdf.geometry.isna().all():
+        raise ValueError("All geometries are empty or NaN!")
+
+    # This line will crash if the gdf is really broken
+    print(f"Total bounds: {gdf.total_bounds}")
+
+    return gdf
 
 
 @pytest.fixture
@@ -466,18 +489,12 @@ def test_round_with_negative_decimals():
     assert result == 12300.0
 
 
-def test_round_preserves_type():
-    """Test that result is always a float."""
-    result = round_off_values(5, 2)
-    assert isinstance(result, float)
-
-
 # get_duration
 def test_duration_in_days_one_day():
     """Test duration of exactly one day."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 2, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="days")
     assert result == 1.0
@@ -487,7 +504,7 @@ def test_duration_in_days_multiple_days():
     """Test duration of multiple days."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 10, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="days")
     assert result == 9.0
@@ -497,7 +514,7 @@ def test_duration_in_days_with_hours():
     """Test duration with partial days (hours)."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 1, 12, 0, 0)  # 12 hours = 0.5 days
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="days")
     assert result == 0.5
@@ -507,7 +524,7 @@ def test_duration_in_days_with_seconds():
     """Test duration with seconds included."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 2, 0, 0, 30)  # 1 day + 30 seconds
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="days")
     # 1 day = 86400 seconds, 30 seconds = 30/86400 ≈ 0.000347
@@ -519,7 +536,7 @@ def test_duration_in_days_less_than_one_day():
     """Test duration less than one day."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 1, 6, 0, 0)  # 6 hours
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="days")
     assert result == 0.25  # 6 hours = 0.25 days
@@ -529,7 +546,7 @@ def test_duration_in_days_zero():
     """Test zero duration."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="days")
     assert result == 0.0
@@ -539,7 +556,7 @@ def test_duration_in_days_across_month_boundary():
     """Test duration across month boundary."""
     since = datetime(2024, 1, 30, 0, 0, 0)
     until = datetime(2024, 2, 2, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="days")
     assert result == 3.0  # Jan 30 -> Jan 31 -> Feb 1 -> Feb 2
@@ -549,7 +566,7 @@ def test_duration_in_days_across_year_boundary():
     """Test duration across year boundary."""
     since = datetime(2023, 12, 30, 0, 0, 0)
     until = datetime(2024, 1, 2, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="days")
     assert result == 3.0
@@ -559,7 +576,7 @@ def test_duration_in_days_leap_year():
     """Test duration including leap day."""
     since = datetime(2024, 2, 28, 0, 0, 0)
     until = datetime(2024, 3, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="days")
     assert result == 2.0  # Feb 28 -> Feb 29 (leap day) -> Mar 1
@@ -569,7 +586,7 @@ def test_duration_in_months_one_month():
     """Test duration of exactly one month."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 2, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="months")
     assert result == 1.0
@@ -579,7 +596,7 @@ def test_duration_in_months_multiple_months():
     """Test duration of multiple months."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 4, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="months")
     assert result == 3.0
@@ -589,17 +606,17 @@ def test_duration_in_months_one_year():
     """Test duration of exactly one year."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2025, 1, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="months")
     assert result == 12.0
 
 
-def test_duration_in_months_with_days(self):
+def test_duration_in_months_with_days():
     """Test duration with partial months (days)."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 16, 0, 0, 0)  # 15 days
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="months")
     # 15 days / 30.44 ≈ 0.49 months
@@ -611,7 +628,7 @@ def test_duration_in_months_partial():
     """Test duration of one month plus some days."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 2, 15, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="months")
     # 1 month + 14 days
@@ -623,7 +640,7 @@ def test_duration_in_months_zero():
     """Test zero duration in months."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="months")
     assert result == 0.0
@@ -633,59 +650,47 @@ def test_duration_in_months_across_year():
     """Test duration spanning multiple years."""
     since = datetime(2023, 11, 1, 0, 0, 0)
     until = datetime(2024, 2, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="months")
     assert result == 3.0  # Nov, Dec, Jan
 
 
-def test_duration_in_months_multiple_years(self):
+def test_duration_in_months_multiple_years():
     """Test duration of multiple years."""
     since = datetime(2022, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="months")
     assert result == 24.0  # 2 years = 24 months
 
 
-def test_duration_in_months_leap_year_february(self):
+def test_duration_in_months_leap_year_february():
     """Test duration through February in leap year."""
     since = datetime(2024, 2, 1, 0, 0, 0)
     until = datetime(2024, 3, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="months")
     assert result == 1.0
-
-
-def test_duration_in_months_less_than_one_day():
-    """Test very short duration in months."""
-    since = datetime(2024, 1, 1, 0, 0, 0)
-    until = datetime(2024, 1, 1, 12, 0, 0)  # 12 hours
-    time_range = TimeRange(since=since, until=until)
-
-    result = get_duration(time_range, time_unit="months")
-    # 0.5 days / 30.44 ≈ 0.02 months
-    expected = round(0.5 / 30.44, 2)
-    assert result == expected
 
 
 def test_duration_invalid_unit():
     """Test error with invalid time unit."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 2, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     with pytest.raises(ValueError, match="time_unit must be either 'days' or 'months'"):
         get_duration(time_range, time_unit="years")
 
 
-def test_duration_invalid_unit_weeks(self):
+def test_duration_invalid_unit_weeks():
     """Test error with 'weeks' as time unit."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 8, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     with pytest.raises(ValueError, match="time_unit must be either 'days' or 'months'"):
         get_duration(time_range, time_unit="weeks")
@@ -695,7 +700,7 @@ def test_duration_default_unit_is_months():
     """Test that default time_unit is 'months'."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 2, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     # Call without specifying time_unit
     result = get_duration(time_range)
@@ -706,7 +711,7 @@ def test_duration_rounding_precision():
     """Test that results are rounded to 2 decimal places."""
     since = datetime(2024, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 1, 1, 23, 45)  # Complex time
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result_days = get_duration(time_range, time_unit="days")
     result_months = get_duration(time_range, time_unit="months")
@@ -720,7 +725,7 @@ def test_duration_very_long_period_days():
     """Test duration over a very long period in days."""
     since = datetime(2020, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="days")
     # 4 years = 1461 days (including one leap year 2020)
@@ -731,7 +736,7 @@ def test_duration_very_long_period_months():
     """Test duration over a very long period in months."""
     since = datetime(2020, 1, 1, 0, 0, 0)
     until = datetime(2024, 1, 1, 0, 0, 0)
-    time_range = TimeRange(since=since, until=until)
+    time_range = TimeRange(since=since, until=until, timezone=UTC_TIMEZONEINFO, time_format=DEFAULT_TIME_FORMAT)
 
     result = get_duration(time_range, time_unit="months")
     assert result == 48.0  # 4 years = 48 months

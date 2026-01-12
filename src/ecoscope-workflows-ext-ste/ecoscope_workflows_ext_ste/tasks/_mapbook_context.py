@@ -10,6 +10,7 @@ from typing import Annotated, Optional, Dict, Any, Union
 from ecoscope_workflows_core.tasks.filter._filter import TimeRange
 from ecoscope_workflows_core.tasks.transformation._unit import Quantity
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
+from ecoscope_workflows_core.annotations import AnyDataFrame
 
 
 @task
@@ -164,7 +165,8 @@ def create_mapbook_grouper_ctx(
     current_period: TimeRange,
     previous_period: TimeRange,
     period: float | None,
-    grouper_name: list,
+    grouper_name: tuple | list | str | None,
+    df: AnyDataFrame,
     grid_area: Quantity | None,
     mcp_area: Quantity | None,
     map_paths: list | None,
@@ -199,11 +201,37 @@ def create_mapbook_grouper_ctx(
 
     print(f"grid area: {grid_area_str} || mcp area: {mcp_area_str}")
 
-    # Handle grouper value
+    # Extract grouper value dynamically
     grouper_value = "All"
-    print("grouper name: {grouper_name}")
-    if isinstance(grouper_name, list) and len(grouper_name) > 0:
-        grouper_value = str(grouper_name[0])
+    print(f"grouper name raw: {grouper_name} (type: {type(grouper_name)})")
+
+    if grouper_name:
+        if isinstance(grouper_name, str):
+            grouper_value = grouper_name
+        elif isinstance(grouper_name, (list, tuple)) and len(grouper_name) > 0:
+            grouper = grouper_name[0]
+            if hasattr(grouper, "__class__"):
+                grouper_type = grouper.__class__.__name__
+                print(f"grouper_type: {grouper_type}")
+
+                if grouper_type == "ValueGrouper":
+                    index_name = grouper.index_name
+                    if df is not None and index_name in df.columns:
+                        unique_values = df[index_name].unique()
+                        if len(unique_values) == 1:
+                            grouper_value = str(unique_values[0])
+                    else:
+                        # Fallback if df not provided or column missing
+                        grouper_value = index_name
+                elif grouper_type == "AllGrouper":
+                    grouper_value = "All"
+                else:
+                    grouper_value = str(grouper_name)
+            else:
+                grouper_value = str(grouper_name)
+        else:
+            grouper_value = str(grouper_name)
+
     print(f"grouper_value: {grouper_value}")
 
     # Map parsing with None handling
@@ -220,7 +248,7 @@ def create_mapbook_grouper_ctx(
 
     if map_paths:
         for path in map_paths:
-            if path:  # Check path is not None
+            if path:
                 for key, suffix in map_suffixes.items():
                     if path.endswith(suffix):
                         mapbook_png_paths[key] = path

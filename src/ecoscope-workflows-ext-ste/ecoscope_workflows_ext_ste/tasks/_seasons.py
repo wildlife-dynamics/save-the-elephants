@@ -31,9 +31,9 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
     """
     try:
         # Validate input DataFrames are not empty
-        if trajectories is None or trajectories.empty:
+        if trajectories is None or len(trajectories) == 0:
             raise ValueError("`create_seasonal_labels`: trajectories gdf is empty.")
-        if seasons_df is None or seasons_df.empty:
+        if seasons_df is None or len(seasons_df) == 0:
             raise ValueError("`create_seasonal_labels`: seasons_df is empty.")
 
         # Validate required columns in trajectories
@@ -110,7 +110,8 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
 
     except Exception as e:
         logger.error(f"Failed to apply seasonal label to trajectories: {e}")
-        return None
+        trajectories["season"] = None
+        return trajectories
 
 
 @task
@@ -218,34 +219,16 @@ def calculate_seasonal_home_range(
     # Early cleaning - remove rows without season
     gdf = gdf[gdf["season"].notna()].copy()
 
-    # Helper function to compute ETD for a single group
-    def compute_etd(group_df):
-        # Critical safety: reset index BEFORE calling the potentially dangerous function
-        group_df = group_df.reset_index(drop=True)
-
-        return calculate_elliptical_time_density(
-            group_df,
-            auto_scale_or_custom_cell_size=auto_scale_or_custom_cell_size,
-            percentiles=percentiles,
+    season_etd = (
+        gdf.groupby(["season"])
+        .apply(
+            lambda df: calculate_elliptical_time_density(
+                df,
+                auto_scale_or_custom_cell_size=auto_scale_or_custom_cell_size,
+                percentiles=percentiles,
+            )
         )
-
-    try:
-        # Preferred modern pattern (pandas 2.0+)
-        season_etd = (
-            gdf.groupby(groupby_cols, group_keys=False).apply(compute_etd).reset_index(drop=True)  # Final safety net
-        )
-    except TypeError:
-        # Fallback for older pandas or strict include_groups behavior
-        season_etd = (
-            gdf.groupby(groupby_cols, group_keys=False).apply(compute_etd, include_groups=False).reset_index(drop=True)
-        )
-
-    # Extra defensive layer (rarely needed after the above, but cheap insurance)
-    if isinstance(season_etd.index, pd.MultiIndex):
-        season_etd = season_etd.reset_index(drop=True)
-
-    # Optional: ensure no leftover categorical index issues
-    if season_etd.index.name is not None:
-        season_etd = season_etd.reset_index(drop=True)
+        .reset_index()
+    )
 
     return season_etd

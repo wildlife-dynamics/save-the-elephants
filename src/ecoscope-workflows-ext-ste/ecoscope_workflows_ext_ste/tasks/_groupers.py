@@ -2,7 +2,15 @@ from pydantic import Field
 from typing import Annotated, Any, Union, List
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.indexes import CompositeFilter
-from ecoscope_workflows_core.indexes import AllGrouper, ValueGrouper, TemporalGrouper
+from pydantic.json_schema import SkipJsonSchema
+
+from ecoscope_workflows_core.indexes import (
+    AllGrouper,
+    TemporalGrouper,
+    ValueAndOrTemporalGroupersBeforeValidator,
+    ValueGrouper,
+)
+from ecoscope_workflows_core.tasks.groupby._groupby import _groupers_field_json_schema_extra
 
 
 @task
@@ -94,7 +102,7 @@ def get_split_group_names(
 
 @task
 def extract_index_names(
-    groupers: Union[List[Union[ValueGrouper, AllGrouper, TemporalGrouper]], ValueGrouper, AllGrouper, TemporalGrouper],
+    groupers: Union[List[Union[ValueGrouper, AllGrouper]], ValueGrouper, AllGrouper, TemporalGrouper],
 ) -> str:
     """
     Extract index_name values from ValueGrouper, AllGrouper, or TemporalGrouper objects.
@@ -125,3 +133,30 @@ def extract_index_names(
             index_names.append(grouper.index_name.lower())
     index_name_str = index_names[0]
     return index_name_str
+
+
+@task
+def set_custom_groupers(
+    groupers: Annotated[
+        list[ValueGrouper] | SkipJsonSchema[None],
+        Field(
+            default=None,
+            title=" ",  # deliberately a single empty space, to hide the field in the UI
+            json_schema_extra=_groupers_field_json_schema_extra,
+            description="""\
+            Specify how the data should be grouped to create the views for your dashboard.
+            This field is optional; if left blank, all the data will appear in a single view.
+            """,
+        ),
+        ValueAndOrTemporalGroupersBeforeValidator,
+    ] = None,
+) -> Annotated[
+    AllGrouper | list[ValueGrouper],
+    Field(
+        description="""\
+        Passthrough of the input groupers, for use in downstream tasks.
+        If no groupers are given, the `AllGrouper` is returned instead.
+        """,
+    ),
+]:
+    return groupers if groupers else AllGrouper()

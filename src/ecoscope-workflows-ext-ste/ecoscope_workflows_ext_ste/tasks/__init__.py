@@ -12,7 +12,7 @@ from ._tabular import (
     filter_df_cols,
     create_column,
 )
-from ._zip import zip_lists, zip_groupbykey
+from ._zip import zip_groupbykey
 from ._time_comparison import determine_previous_period
 from ._mapdeck_utils import (
     view_state_deck_gdf,
@@ -24,7 +24,13 @@ from ._mapdeck_utils import (
     create_deckgl_layer_from_gdf,
     create_deckgl_layers_from_gdf_dict,
 )
-from ._groupers import get_split_group_column, get_split_group_values, get_split_group_names, extract_index_names
+from ._groupers import (
+    get_split_group_column,
+    get_split_group_values,
+    get_split_group_names,
+    extract_index_names,
+    set_custom_groupers,
+)
 
 from ._quantity import to_quantity
 from ._merge import merge_multiple_df
@@ -38,7 +44,6 @@ from ._mapbook_context import (
 )
 
 from ._preprocess import custom_trajectory_segment_filter
-from ._inspect import print_output, view_df
 from ._filter import filter_groups_by_value_criteria
 
 __all__ = [
@@ -57,7 +62,6 @@ __all__ = [
     "get_duration",
     "filter_df_cols",
     "create_column",
-    "zip_lists",
     "zip_groupbykey",
     "determine_previous_period",
     "view_state_deck_gdf",
@@ -82,7 +86,6 @@ __all__ = [
     "create_grouper_page",
     "merge_mapbook_files",
     "custom_trajectory_segment_filter",
-    "print_output",
-    "view_df",
     "filter_groups_by_value_criteria",
+    "set_custom_groupers",
 ]

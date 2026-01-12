@@ -2,6 +2,7 @@ from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_ext_ecoscope.tasks.preprocessing._preprocessing import TrajectorySegmentFilter
 
 
+# creates custom trajsegfilter for this workflow and also to allow me to use the same filter on both api calls
 @task
 def custom_trajectory_segment_filter(
     min_length_meters: float = 0.001,

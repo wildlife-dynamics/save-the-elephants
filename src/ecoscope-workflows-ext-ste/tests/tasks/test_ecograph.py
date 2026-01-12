@@ -4,7 +4,6 @@ import geopandas as gpd
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from shapely.geometry import Point
-from unittest.mock import patch
 
 from ecoscope_workflows_ext_ste.tasks._ecograph import generate_ecograph_raster, retrieve_feature_gdf
 
@@ -14,7 +13,7 @@ TEST_DATA_DIR = Path(__file__).parent.parent / "data"
 @pytest.fixture
 def sample_trajs_gdf():
     """Fixture to load the sample trajectories GeoDataFrame."""
-    return gpd.read_file(TEST_DATA_DIR, "sample_trajs.gpkg").to_crs("EPSG:4326")
+    return gpd.read_file(os.path.join(TEST_DATA_DIR, "sample_trajs.gpkg")).to_crs("EPSG:4326")
 
 
 @pytest.fixture
@@ -146,26 +145,6 @@ def test_generate_raster_creates_output_dir(sample_trajs_gdf, temp_dir):
 
     assert os.path.exists(nested_dir)
     assert os.path.exists(result)
-
-
-def test_generate_raster_removes_file_scheme(sample_trajs_gdf, temp_dir):
-    """Test that file:// scheme is removed from output_dir."""
-    file_scheme_path = f"file://{temp_dir}"
-
-    with patch("your_module.remove_file_scheme") as mock_remove:
-        mock_remove.return_value = temp_dir
-
-        result = generate_ecograph_raster(
-            gdf=sample_trajs_gdf,
-            dist_col="dist_meters",
-            output_dir=file_scheme_path,
-            filename="test_scheme",
-            movement_covariate="speed",
-            step_length=100,
-        )
-        assert os.path.exists(result)
-
-        mock_remove.assert_called_once_with(file_scheme_path)
 
 
 # Resolution and step_length tests
