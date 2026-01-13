@@ -14,7 +14,7 @@ requirements:
     
   - name: ecoscope-workflows-ext-ste
     version: "*"
-    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
+    channel: "0.0.2.*"
 
 rjsf-overrides:
   properties: 
