@@ -1,29 +1,8 @@
-import os
 from pathlib import Path
 from typing import Annotated
 from ecoscope_workflows_core.decorators import task
 from pydantic import Field, FilePath, AfterValidator
-
-
-def normalize_file_url(path: str) -> str:
-    """Convert file:// URL to local path, handling malformed Windows URLs."""
-    if not path.startswith("file://"):
-        return path
-
-    path = path[7:]
-
-    if os.name == "nt":
-        # Remove leading slash before drive letter: /C:/path -> C:/path
-        if path.startswith("/") and len(path) > 2 and path[2] in (":", "|"):
-            path = path[1:]
-
-        path = path.replace("/", "\\")
-        path = path.replace("|", ":")
-    else:
-        if not path.startswith("/"):
-            path = "/" + path
-
-    return path
+from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
 
 
 def validate_geo_file(path: Path) -> Path:
@@ -41,7 +20,6 @@ def get_local_geo_path(
         Field(description="Path to the geospatial file (shapefile, geopackage, or geoparquet)."),
     ],
 ) -> str:
-    # FilePath already validates the file exists, so we can normalize it
     file_path_str = str(file_path)
-    normalized_path = normalize_file_url(file_path_str)
+    normalized_path = remove_file_scheme(file_path_str)
     return normalized_path
