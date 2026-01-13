@@ -6,7 +6,7 @@
 ```yaml
 # fingerprint:
 artifacts_sha256_basic: eb0ba2bc2616daada0783ecb8714489774c8a2ae4723493c3e8c9859bf157836
-artifacts_sha256_strict: 73596a75a3127327d99e5952189eed81b36294e4ffbbcb6d8576da4c70fe466f
+artifacts_sha256_strict: d2a5d27cb74ea1fdbe142fdacb67aea544af25e276c567ee2fd79805fb942acf
 installed_requirements:
 - channel: https://repo.prefix.dev/ecoscope-workflows/
   name: ecoscope-workflows-core
@@ -19,15 +19,9 @@ installed_requirements:
   version: {version: ==0.0.12}
 - channel: https://repo.prefix.dev/ecoscope-workflows-custom/
   name: ecoscope-workflows-ext-ste
-<<<<<<< HEAD
-  version: {version: ==0.0.3.dev11+gd41f5cc25.d20260113}
-params_sha256: 91fac8228a08f0aba2419a12d9de5e940dc446675fed316d290f70147e0f6ccd
-spec_sha256: 8ac3aecec559e74c56de8ed65324cbede04358bd1d872909c2b866c3708b1978
-=======
-  version: {version: ==0.0.2}
+  version: {version: ==0.0.3}
 params_sha256: 284765fd532f39401068cfe1138d2ab7068f933c245a39c3c31d1c310abb7fdf
 spec_sha256: 72c2ef132713c9b3b262849d4b7b4ff56c8b0914694a1fd4c8e70349368c5877
->>>>>>> b842cbf (build-compile and update lock file)
 
 ```
 
