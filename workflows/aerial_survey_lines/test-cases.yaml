@@ -17,8 +17,8 @@ all-grouper:
           opacity: 0.1
     retrieve_file_params:
       input_method:
-        file_path: >-
-          /Users/tevintemu/Desktop/Ecoscope/shapefiles/big-life/national_parks_and_reserves.gpkg
+        url: >-
+          https://github.com/wildlife-dynamics/save-the-elephants/tree/tt/ste-aerial-survey-lines
     survey_lines:
       direction: North South
       spacing: 600
@@ -43,8 +43,8 @@ month-grouper:
           opacity: 0.1
     retrieve_file_params:
       input_method:
-        file_path: >-
-          /Users/tevintemu/Desktop/Ecoscope/shapefiles/big-life/national_parks_and_reserves.gpkg
+        url: >-
+          https://github.com/wildlife-dynamics/save-the-elephants/tree/tt/ste-aerial-survey-lines
     survey_lines:
       direction: North South
       spacing: 600
