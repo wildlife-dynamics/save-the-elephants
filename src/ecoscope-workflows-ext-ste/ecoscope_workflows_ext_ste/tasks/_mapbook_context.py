@@ -209,26 +209,43 @@ def create_mapbook_grouper_ctx(
         if isinstance(grouper_name, str):
             grouper_value = grouper_name
         elif isinstance(grouper_name, (list, tuple)) and len(grouper_name) > 0:
-            grouper = grouper_name[0]
-            if hasattr(grouper, "__class__"):
+            # Check if it's a tuple structure like (('index_name', 'All'),)
+            first_item = grouper_name[0]
+
+            # Handle tuple structure (('index_name', 'All'),)
+            if isinstance(first_item, tuple) and len(first_item) == 2:
+                key, value = first_item
+                if key == "index_name" and value == "All":
+                    grouper_value = "All"
+                else:
+                    grouper_value = str(value)
+                print(f"Extracted from tuple structure: {grouper_value}")
+            # Handle grouper objects
+            elif hasattr(first_item, "__class__"):
+                grouper = first_item
                 grouper_type = grouper.__class__.__name__
                 print(f"grouper_type: {grouper_type}")
 
                 if grouper_type == "ValueGrouper":
-                    index_name = grouper.index_name
-                    if df is not None and index_name in df.columns:
+                    index_name = getattr(grouper, "index_name", None)
+                    if df is not None and index_name and index_name in df.columns:
                         unique_values = df[index_name].unique()
                         if len(unique_values) == 1:
                             grouper_value = str(unique_values[0])
+                        else:
+                            grouper_value = index_name
                     else:
-                        # Fallback if df not provided or column missing
-                        grouper_value = index_name
+                        grouper_value = index_name if index_name else "Value"
+
+                elif grouper_type == "TemporalGrouper":
+                    grouper_value = _format_temporal_grouper(grouper, df)
+
                 elif grouper_type == "AllGrouper":
                     grouper_value = "All"
                 else:
                     grouper_value = str(grouper_name)
             else:
-                grouper_value = str(grouper_name)
+                grouper_value = str(first_item)
         else:
             grouper_value = str(grouper_name)
 
@@ -245,7 +262,6 @@ def create_mapbook_grouper_ctx(
     }
 
     mapbook_png_paths = {key: None for key in map_suffixes.keys()}
-
     if map_paths:
         for path in map_paths:
             if path:
@@ -267,6 +283,201 @@ def create_mapbook_grouper_ctx(
 
     print(f"Context: {ctx}")
     return ctx
+
+
+def _format_temporal_grouper(grouper: Any, df: AnyDataFrame) -> str:
+    """
+    Format temporal grouper with human-readable labels.
+    Extracts actual temporal values from the segment_start column.
+    """
+    # Try to get the temporal_index attribute
+    temporal_index = getattr(grouper, "temporal_index", None)
+
+    if temporal_index and df is not None:
+        # Get the directive (e.g., '%B' for full month name, '%A' for day name)
+        directive = getattr(temporal_index, "directive", None)
+
+        # Check if segment_start column exists
+        if "segment_start" in df.columns:
+            try:
+                # Get unique dates from segment_start
+                dates = df["segment_start"].dropna()
+
+                if len(dates) > 0:
+                    # Format based on directive
+                    if directive == "%B":  # Full month name
+                        unique_months = dates.dt.strftime("%B").unique()
+                        if len(unique_months) == 1:
+                            return unique_months[0]
+                        elif len(unique_months) > 1:
+                            return f"{unique_months[0]} - {unique_months[-1]}"
+
+                    elif directive == "%b":  # Abbreviated month name
+                        unique_months = dates.dt.strftime("%b").unique()
+                        if len(unique_months) == 1:
+                            return unique_months[0]
+                        elif len(unique_months) > 1:
+                            return f"{unique_months[0]} - {unique_months[-1]}"
+
+                    elif directive == "%A":  # Full day name
+                        unique_days = dates.dt.strftime("%A").unique()
+                        if len(unique_days) == 1:
+                            return unique_days[0]
+                        elif len(unique_days) > 1:
+                            return f"{unique_days[0]} - {unique_days[-1]}"
+
+                    elif directive == "%a":  # Abbreviated day name
+                        unique_days = dates.dt.strftime("%a").unique()
+                        if len(unique_days) == 1:
+                            return unique_days[0]
+                        elif len(unique_days) > 1:
+                            return f"{unique_days[0]} - {unique_days[-1]}"
+
+                    elif directive == "%Y":  # Year
+                        unique_years = dates.dt.strftime("%Y").unique()
+                        if len(unique_years) == 1:
+                            return unique_years[0]
+                        elif len(unique_years) > 1:
+                            return f"{unique_years[0]} - {unique_years[-1]}"
+
+                    elif directive == "%d":  # Day of month
+                        unique_days = dates.dt.strftime("%d").unique()
+                        if len(unique_days) == 1:
+                            return f"Day {unique_days[0]}"
+                        elif len(unique_days) > 1:
+                            return f"Day {unique_days[0]} - {unique_days[-1]}"
+
+                    elif directive == "%j":  # Day of year
+                        unique_days = dates.dt.strftime("%j").unique()
+                        if len(unique_days) == 1:
+                            return f"Day {int(unique_days[0])}"
+                        elif len(unique_days) > 1:
+                            return f"Day {int(unique_days[0])} - {int(unique_days[-1])}"
+
+                    elif directive == "%U" or directive == "%W":  # Week number
+                        unique_weeks = dates.dt.strftime("%U").unique()
+                        if len(unique_weeks) == 1:
+                            return f"Week {int(unique_weeks[0])}"
+                        elif len(unique_weeks) > 1:
+                            return f"Week {int(unique_weeks[0])} - {int(unique_weeks[-1])}"
+
+                    else:
+                        # Default: try to format with the directive
+                        formatted = dates.dt.strftime(directive).unique()
+                        if len(formatted) == 1:
+                            return formatted[0]
+                        elif len(formatted) > 1:
+                            return f"{formatted[0]} - {formatted[-1]}"
+
+            except Exception as e:
+                print(f"Error extracting temporal value from segment_start: {e}")
+
+        # Fallback: Use directive mapping
+        directive_mapping = {
+            "%B": "Monthly",
+            "%b": "Monthly",
+            "%A": "Day of Week",
+            "%a": "Day of Week",
+            "%Y": "Yearly",
+            "%d": "Daily",
+            "%j": "Day of Year",
+            "%U": "Weekly",
+            "%W": "Weekly",
+        }
+
+        if directive in directive_mapping:
+            return directive_mapping[directive]
+
+    # Final fallback
+    return "Temporal"
+
+
+def _format_temporal_value(value: Any, frequency: str | None) -> str:
+    """
+    Format temporal value based on frequency type.
+    Converts month numbers to names, day numbers to day names, etc.
+    """
+    # Month name mapping
+    month_names = {
+        1: "January",
+        2: "February",
+        3: "March",
+        4: "April",
+        5: "May",
+        6: "June",
+        7: "July",
+        8: "August",
+        9: "September",
+        10: "October",
+        11: "November",
+        12: "December",
+    }
+
+    # Day of week mapping (0=Monday, 6=Sunday)
+    day_names = {0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday", 4: "Friday", 5: "Saturday", 6: "Sunday"}
+
+    # Handle month frequencies
+    if frequency in ["M", "MS", "ME"]:
+        # Check if value is a datetime-like object
+        if hasattr(value, "month"):
+            month_num = value.month
+            year = value.year
+            month_name = month_names.get(month_num, str(month_num))
+            return f"{month_name} {year}"
+        # Check if value is an integer (month number)
+        elif isinstance(value, (int, float)) and 1 <= value <= 12:
+            return month_names.get(int(value), str(value))
+        # Check if value is a pandas Period
+        elif hasattr(value, "strftime"):
+            try:
+                return value.strftime("%B %Y")
+            except Exception as e:
+                print(f"{e}")
+                pass
+
+    # Handle day of week
+    if frequency == "DOW":
+        if isinstance(value, (int, float)) and 0 <= value <= 6:
+            return day_names.get(int(value), str(value))
+        elif isinstance(value, str):
+            # Value might already be day name
+            return value
+        elif hasattr(value, "day_name"):
+            return value.day_name()
+
+    # Handle day of year
+    if frequency == "DOY":
+        if isinstance(value, (int, float)):
+            return f"Day {int(value)}"
+
+    # Handle daily frequency
+    if frequency == "D":
+        if hasattr(value, "strftime"):
+            return value.strftime("%d %B %Y")
+
+    # Handle yearly frequency
+    if frequency in ["Y", "YS", "YE"]:
+        if hasattr(value, "year"):
+            return str(value.year)
+        elif isinstance(value, (int, float)):
+            return str(int(value))
+
+    # Handle quarterly frequency
+    if frequency == "Q":
+        if hasattr(value, "quarter"):
+            return f"Q{value.quarter} {value.year}"
+        elif hasattr(value, "strftime"):
+            month = value.month
+            quarter = (month - 1) // 3 + 1
+            return f"Q{quarter} {value.year}"
+
+    # Handle weekly frequency
+    if frequency == "W":
+        if hasattr(value, "strftime"):
+            return value.strftime("Week %U, %Y")
+
+    # Default: convert to string
+    return str(value)
 
 
 def prepare_context_for_template(
@@ -375,40 +586,72 @@ def merge_mapbook_files(
     MONTH_LOOKUP = {name.lower(): idx for idx, name in enumerate(calendar.month_name) if name}
     MONTH_ABBR_LOOKUP = {name.lower(): idx for idx, name in enumerate(calendar.month_abbr) if name}
 
-    def extract_path(item, idx):
+    def is_skip_sentinel(obj):
+        """Check if object is a SkipSentinel."""
+        return hasattr(obj, "__class__") and "SkipSentinel" in obj.__class__.__name__
+
+    def extract_path(item):
+        """Extract a valid file path from various item formats."""
+        # Check for SkipSentinel
+        if is_skip_sentinel(item):
+            return None
+
         if isinstance(item, str):
             return item
+
         if isinstance(item, (list, tuple)):
+            # Check for SkipSentinel in tuples
             for x in item:
+                if is_skip_sentinel(x):
+                    return None
                 if isinstance(x, str) and os.path.exists(x):
                     return x
+            # Fallback: return first string found
             for x in reversed(item):
                 if isinstance(x, str):
                     return x
-            raise ValueError(f"context_page_items[{idx}] is a list/tuple but contains no string path: {item!r}")
-        raise ValueError(f"context_page_items[{idx}] has unsupported type {type(item)}; expected str or tuple/list")
+            return None
+
+        return None
 
     def detect_month(path: str):
         """Detect month name or abbreviation in filename/path."""
         name = os.path.basename(path).lower()
-
         for month, idx in MONTH_LOOKUP.items():
             if month in name:
                 return idx
-
         for abbr, idx in MONTH_ABBR_LOOKUP.items():
             if abbr in name:
                 return idx
-
         return None
 
-    # Normalize paths
+    # Normalize paths - filter out None and SkipSentinel
     normalized_paths = []
     print(f"Context page items: {context_page_items}")
     for idx, item in enumerate(context_page_items):
-        if item is None:
+        if item is None or is_skip_sentinel(item):
+            print(f"Skipping item {idx}: None or SkipSentinel")
             continue
-        normalized_paths.append(extract_path(item, idx))
+
+        path = extract_path(item)
+        if path is not None:
+            normalized_paths.append(path)
+        else:
+            print(f"Skipping item {idx}: Could not extract valid path")
+
+    if not normalized_paths:
+        print("Warning: No valid context pages to merge, returning cover page only")
+        # Just save cover page as output
+        output_dir = remove_file_scheme(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
+        if not filename:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"overall_report_{timestamp}.docx"
+        output_path = Path(output_dir) / filename
+
+        master = Document(cover_page_path)
+        master.save(str(output_path))
+        return str(output_path)
 
     if not os.path.exists(cover_page_path):
         raise FileNotFoundError(f"Cover page file not found: {cover_page_path}")
@@ -420,13 +663,12 @@ def merge_mapbook_files(
     # Calendar-aware ordering
     with_month = []
     without_month = []
-
     for i, path in enumerate(normalized_paths):
         month_idx = detect_month(path)
         if month_idx is not None:
             with_month.append((month_idx, path))
         else:
-            without_month.append((i, path))  # preserve original order
+            without_month.append((i, path))
 
     with_month.sort(key=lambda x: x[0])
     ordered_paths = [p for _, p in with_month] + [p for _, p in without_month]
@@ -434,7 +676,6 @@ def merge_mapbook_files(
     output_dir = remove_file_scheme(output_dir)
     if not output_dir.strip():
         raise ValueError("output_dir is empty after normalization")
-
     os.makedirs(output_dir, exist_ok=True)
 
     if not filename:

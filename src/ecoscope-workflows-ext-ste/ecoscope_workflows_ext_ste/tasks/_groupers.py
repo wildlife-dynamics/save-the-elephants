@@ -102,7 +102,7 @@ def get_split_group_names(
 
 @task
 def extract_index_names(
-    groupers: Union[List[Union[ValueGrouper, AllGrouper]], ValueGrouper, AllGrouper, TemporalGrouper],
+    groupers: Union[List[Union[ValueGrouper, AllGrouper, TemporalGrouper]], ValueGrouper, AllGrouper, TemporalGrouper],
 ) -> str:
     """
     Extract index_name values from ValueGrouper, AllGrouper, or TemporalGrouper objects.
@@ -131,6 +131,7 @@ def extract_index_names(
             index_names.append(grouper.temporal_index.directive.lower())
         else:  # ValueGrouper
             index_names.append(grouper.index_name.lower())
+
     index_name_str = index_names[0]
     return index_name_str
 
