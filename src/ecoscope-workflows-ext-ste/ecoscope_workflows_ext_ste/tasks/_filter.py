@@ -140,6 +140,6 @@ def filter_groups_by_value_criteria(
             count = group_counts[group]
             print(f"  {group}: {group_vals} (n={count})")
 
-    print(f"Rows: {len(df)} → {len(filtered_df)}")
+    print(f"Rows: {len(df)}: {len(filtered_df)}")
 
     return filtered_df
