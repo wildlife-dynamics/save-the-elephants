@@ -216,17 +216,6 @@ class CustomTrajsFilter(BaseModel):
     max_speed_kmhr: float | None = Field(9.0, title="Max Speed Kmhr")
 
 
-class TemporalGrouper(str, Enum):
-    field_Y = "%Y"
-    field_B = "%B"
-    field_Y__m = "%Y-%m"
-    field_j = "%j"
-    field_d = "%d"
-    field_A = "%A"
-    field_H = "%H"
-    field_Y__m__d = "%Y-%m-%d"
-
-
 class ValueGrouper(str, Enum):
     subject_name = "subject_name"
     subject_sex = "subject_sex"
@@ -276,7 +265,7 @@ class Groupers(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    groupers: list[ValueGrouper | TemporalGrouper] | None = Field(
+    groupers: list[ValueGrouper] | None = Field(
         None,
         description="            Specify how the data should be grouped to create the views for your dashboard.\n            This field is optional; if left blank, all the data will appear in a single view.\n            ",
         title=" ",
