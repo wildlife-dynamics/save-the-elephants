@@ -20,10 +20,10 @@ hatch-vcs="*"
 
 [feature.compile.dependencies]
 # Include this if you add new tasks and the package has been built
-ecoscope-workflows-ext-ste = "*"
+ecoscope-workflows-ext-ste = "0.0.2.*"
 
-ecoscope-workflows-ext-custom = "0.0.7.*"
-ecoscope-workflows-core = "0.19.0.*"
+ecoscope-workflows-ext-custom = "0.0.12.*"
+ecoscope-workflows-core = "0.19.4.*"
 
 # Here we don't specify the channel on purpose, as we want to use the local channel if it exists,
 # otherwise we fall back to the remote channel.
@@ -48,15 +48,6 @@ cmd = './dev/pytest-task.sh 311'
 
 [tasks.pytest-312]
 cmd = './dev/pytest-task.sh 312'
-
-[feature.compile.tasks.compile-aerial-lines]
-cmd = './dev/recompile.sh aerial-lines --install'
-depends-on = ["build-release"]
-
-[feature.compile.tasks.recompile-aerial-lines]
-cmd = './dev/recompile.sh aerial-lines --update'
-depends-on = ["build-release"]
-
 
 [feature.compile.tasks.compile-aerial_survey_lines]
 cmd = './dev/recompile.sh aerial_survey_lines --install'

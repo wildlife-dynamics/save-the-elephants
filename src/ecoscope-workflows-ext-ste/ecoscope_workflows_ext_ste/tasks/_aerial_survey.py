@@ -27,7 +27,7 @@ def validate_polygon_geometry(gdf: AnyGeoDataFrame) -> AnyGeoDataFrame:
 @task
 def generate_survey_lines(
     gdf: AnyGeoDataFrame,
-    direction: Literal["North South", "East West"] = "NorthSouth",
+    direction: Literal["North South", "East West"] = "North South",
     spacing: int = 500,
 ) -> AnyGeoDataFrame:
     """
@@ -41,8 +41,7 @@ def generate_survey_lines(
     Returns:
         GeoDataFrame: GeoDataFrame of clipped survey lines.
     """
-    if gdf.crs is None or gdf.crs.to_string() in ["EPSG:4269", "EPSG:4326"]:
-        gdf = gdf.to_crs(epsg=3857)
+    gdf = gdf.to_crs(epsg=3857)
 
     if any(isinstance(geom, MultiPolygon) for geom in gdf.geometry):
         gdf = gdf.explode(index_parts=False)
@@ -60,6 +59,6 @@ def generate_survey_lines(
         raise ValueError("Direction must be 'North South' or 'East West'")
 
     lines_gdf = gpd.GeoDataFrame(geometry=lines, crs=gdf.crs)
-    clipped_lines = gpd.overlay(lines_gdf, gdf, how="intersection")
+    lines_gdf = gpd.overlay(lines_gdf, gdf, how="intersection")
 
-    return clipped_lines
+    return lines_gdf
