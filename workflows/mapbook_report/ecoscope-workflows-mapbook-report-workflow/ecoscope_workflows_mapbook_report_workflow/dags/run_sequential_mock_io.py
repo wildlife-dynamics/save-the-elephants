@@ -16,6 +16,7 @@ from ecoscope_workflows_core.tasks.config import (
     set_workflow_details as set_workflow_details,
 )
 from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
+from ecoscope_workflows_core.tasks.groupby import set_groupers as set_groupers
 from ecoscope_workflows_core.tasks.io import set_er_connection as set_er_connection
 from ecoscope_workflows_core.tasks.io import set_gee_connection as set_gee_connection
 from ecoscope_workflows_core.tasks.skip import (
@@ -29,7 +30,6 @@ from ecoscope_workflows_ext_custom.tasks.results import (
 from ecoscope_workflows_ext_ste.tasks import (
     determine_previous_period as determine_previous_period,
 )
-from ecoscope_workflows_ext_ste.tasks import set_custom_groupers as set_custom_groupers
 
 get_subjectgroup_observations = create_task_magicmock(  # 🧪
     anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
@@ -277,7 +277,7 @@ def main(params: Params):
     )
 
     groupers = (
-        set_custom_groupers.validate()
+        set_groupers.validate()
         .set_task_instance_id("groupers")
         .handle_errors()
         .with_tracing()
