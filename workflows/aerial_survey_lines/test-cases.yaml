@@ -18,7 +18,7 @@ all-grouper:
     retrieve_file_params:
       input_method:
         url: >-
-          https://github.com/wildlife-dynamics/save-the-elephants/tree/tt/ste-aerial-survey-lines
+          https://www.dropbox.com/scl/fi/14rcy4lkwp7xgewj3xf7k/mnc_conservancy.gpkg?rlkey=mtqo7ivxrnvjonm2z1zez6h6f&st=55vxskq6&dl=0
     survey_lines:
       direction: North South
       spacing: 600
@@ -44,7 +44,7 @@ month-grouper:
     retrieve_file_params:
       input_method:
         url: >-
-          https://github.com/wildlife-dynamics/save-the-elephants/tree/tt/ste-aerial-survey-lines
+          https://www.dropbox.com/scl/fi/14rcy4lkwp7xgewj3xf7k/mnc_conservancy.gpkg?rlkey=mtqo7ivxrnvjonm2z1zez6h6f&st=55vxskq6&dl=0
     survey_lines:
       direction: North South
       spacing: 600
