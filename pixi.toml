@@ -48,14 +48,6 @@ cmd = './dev/pytest-task.sh 311'
 [tasks.pytest-312]
 cmd = './dev/pytest-task.sh 312'
 
-[feature.compile.tasks.compile-aerial-lines]
-cmd = './dev/recompile.sh aerial-lines --install'
-depends-on = ["build-release"]
-
-[feature.compile.tasks.recompile-aerial-lines]
-cmd = './dev/recompile.sh aerial-lines --update'
-depends-on = ["build-release"]
-
 [feature.compile.tasks.compile-mapbook_report]
 cmd = './dev/recompile.sh mapbook_report --install'
 depends-on = ["build-release"]
