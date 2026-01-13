@@ -1,23 +1,20 @@
-initialize_workflow_metadata:
-  name: "Generate Aerial Survey Lines Workflow for STE"
-  description: "An example workflow for testing purposes."
-
-fetch_roi_layer:
-  url: "https://www.dropbox.com/s/nvdmidz1o2duyl3/AOIs.gpkg?dl=1"
-
-define_time_range:
-  since: "2015-01-01T00:00:00Z"
-  until: "2015-02-28T23:59:59Z"
-
-configure_grouping_strategy:
+workflow_details:
+  description: testing local shape file
+  name: Local workflow
+groupers:
   groupers: []
-
-# Desired basemap layers
 configure_base_maps:
   base_maps:
-    - url: "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
-      opacity: 0.7
-    - url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-      opacity: 0.2
-      max_zoom: 8.5
-      min_zoom: null
+    - url: >-
+        https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}
+      opacity: 0.75
+    - url: >-
+        https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}
+      opacity: 0.1
+retrieve_file_params:
+  input_method:
+    file_path: >-
+      /Users/tevintemu/Desktop/Ecoscope/shapefiles/big-life/national_parks_and_reserves.gpkg
+survey_lines:
+  direction: North South
+  spacing: 600

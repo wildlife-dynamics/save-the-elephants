@@ -20,30 +20,6 @@
       "description": "Add information that will help to differentiate this workflow from another.",
       "title": "Set workflow details"
     },
-    "time_range": {
-      "additionalProperties": false,
-      "properties": {
-        "since": {
-          "format": "date-time",
-          "title": "Since",
-          "type": "string",
-          "description": "The start time"
-        },
-        "until": {
-          "format": "date-time",
-          "title": "Until",
-          "type": "string",
-          "description": "The end time"
-        }
-      },
-      "required": [
-        "since",
-        "until"
-      ],
-      "type": "object",
-      "description": "Choose the period of time to analyze.",
-      "title": "Time range"
-    },
     "groupers": {
       "additionalProperties": false,
       "properties": {
@@ -76,11 +52,13 @@
           "default": [
             {
               "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-              "opacity": 1
+              "opacity": 1,
+              "max_zoom": 20
             },
             {
               "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-              "opacity": 0.5
+              "opacity": 0.5,
+              "max_zoom": 20
             }
           ],
           "items": {
@@ -242,13 +220,13 @@
                     "type": "number"
                   },
                   "max_zoom": {
-                    "default": null,
+                    "default": 20,
                     "description": "Set the maximum zoom level to fetch tiles for.",
                     "title": "Custom Layer Max Zoom",
                     "type": "integer"
                   },
                   "min_zoom": {
-                    "default": null,
+                    "default": 0,
                     "description": "Set the minimum zoom level to fetch tiles for.",
                     "title": "Custom Layer Min Zoom",
                     "type": "integer"
@@ -290,11 +268,11 @@
       "type": "object",
       "title": "Retrieve input from get shapefile"
     },
-    "draw_survey_lines": {
+    "survey_lines": {
       "additionalProperties": false,
       "properties": {
         "direction": {
-          "default": "NorthSouth",
+          "default": "North South",
           "enum": [
             "North South",
             "East West"
@@ -393,13 +371,7 @@
         "description"
       ]
     },
-    "time_range": {
-      "ui:order": [
-        "since",
-        "until"
-      ]
-    },
-    "draw_survey_lines": {
+    "survey_lines": {
       "ui:order": [
         "direction",
         "spacing"
@@ -407,11 +379,10 @@
     },
     "ui:order": [
       "workflow_details",
-      "time_range",
       "groupers",
       "configure_base_maps",
       "retrieve_file_params",
-      "draw_survey_lines"
+      "survey_lines"
     ]
   },
   "additionalProperties": false

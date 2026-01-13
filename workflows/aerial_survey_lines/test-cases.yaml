@@ -3,51 +3,48 @@ all-grouper:
   description: A demonstration of a workflow with no grouping.
   params:
     workflow_details:
-      name: "Example Workflow"
-      description: "An example workflow for testing purposes."
-    time_range:
-      since: "2015-01-01T00:00:00Z"
-      until: "2015-02-28T23:59:59Z"
+      description: testing local shape file
+      name: Local workflow
     groupers:
       groupers: []
-    calculator:
-      a: 1
-      b: 1
-      operation: "add"
+    configure_base_maps:
+      base_maps:
+        - url: >-
+            https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}
+          opacity: 0.75
+        - url: >-
+            https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}
+          opacity: 0.1
+    retrieve_file_params:
+      input_method:
+        file_path: >-
+          /Users/tevintemu/Desktop/Ecoscope/shapefiles/big-life/national_parks_and_reserves.gpkg
+    survey_lines:
+      direction: North South
+      spacing: 600
 
 month-grouper:
   name: Month Grouper
   description: A demonstration of a workflow with monthly grouping.
   params:
     workflow_details:
-      name: "Example Workflow"
-      description: "An example workflow for testing purposes."
-    time_range:
-      since: "2015-01-01T00:00:00Z"
-      until: "2015-02-28T23:59:59Z"
+      description: testing local shape file
+      name: Local workflow
     groupers:
-      groupers:
+      groupers: 
         - "%B"
-    calculator:
-      a: 1
-      b: 1
-      operation: "add"
-
-
-value-grouper:
-  name: Value Grouper
-  description: A demonstration of a workflow grouped by a value.
-  params:
-    workflow_details:
-      name: "Example Workflow"
-      description: "An example workflow for testing purposes."
-    groupers:
-      groupers:
-        - index_name: "test"
-    time_range:
-      since: "2015-01-01T00:00:00Z"
-      until: "2015-02-28T23:59:59Z"
-    calculator:
-      a: 1
-      b: 1
-      operation: "add"
+    configure_base_maps:
+      base_maps:
+        - url: >-
+            https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}
+          opacity: 0.75
+        - url: >-
+            https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}
+          opacity: 0.1
+    retrieve_file_params:
+      input_method:
+        file_path: >-
+          /Users/tevintemu/Desktop/Ecoscope/shapefiles/big-life/national_parks_and_reserves.gpkg
+    survey_lines:
+      direction: North South
+      spacing: 600

@@ -10,12 +10,12 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.7.*"
+    version: "0.0.12.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-ste
-    version: "*"
-    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
+    version: "0.0.3.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
 task-instance-defaults:
   skipif:
@@ -39,6 +39,8 @@ workflow:
         tzCode: UTC 
         name: UTC 
         utc_offset: "+00:00"
+      since: "2026-01-01T00:00:00Z"
+      until: "2026-02-28T23:59:59Z"
 
   - name: Set groupers
     id: groupers
@@ -46,7 +48,7 @@ workflow:
 
   - name: Configure base map layers
     id: configure_base_maps
-    task: set_base_maps
+    task: set_base_maps_pydeck
 
   - name: Retrieve input from get shapefile 
     id: retrieve_file_params
@@ -86,8 +88,8 @@ workflow:
             color: "#556b2f"
     
   - name: Draw Aerial Survey Lines
-    id: draw_survey_lines
-    task: generate_survey_lines
+    id: survey_lines
+    task: draw_survey_lines
     partial:
       gdf: ${{ workflow.load_gdf.return }}
 
@@ -97,7 +99,7 @@ workflow:
     partial:
       filetype: "gpkg"
       filename: aerial_survey
-      df: ${{ workflow.draw_survey_lines.return }}
+      df: ${{ workflow.survey_lines.return }}
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
   - name: Persist aerial survey as geoparquet
@@ -106,7 +108,7 @@ workflow:
     partial:
       filetype: "geoparquet"
       filename: aerial_survey
-      df: ${{ workflow.draw_survey_lines.return }}
+      df: ${{ workflow.survey_lines.return }}
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
   - name: Create Aerial Survey Lines
@@ -126,10 +128,11 @@ workflow:
         billboard: false
         stroked: true 
       legend:
-        title: Survey Lines 
-        label: Aerial lines
-        color: "#ffa500"
-      geodataframe: ${{ workflow.draw_survey_lines.return }}
+        title: Survey Lines
+        values:
+          - label: Aerial lines
+            color: "#ffa500"
+      geodataframe: ${{ workflow.survey_lines.return }}
 
   - name: Zoom to gdf extent 
     id: zoom_gdf_extent

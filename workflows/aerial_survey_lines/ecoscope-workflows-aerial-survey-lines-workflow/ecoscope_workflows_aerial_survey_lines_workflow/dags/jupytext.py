@@ -27,16 +27,24 @@ from ecoscope_workflows_core.tasks.skip import (
 )
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
+from ecoscope_workflows_ext_custom.tasks.results import (
+    create_path_layer as create_path_layer,
+)
+from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map
+from ecoscope_workflows_ext_custom.tasks.results import (
+    set_base_maps_pydeck as set_base_maps_pydeck,
+)
 from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
-from ecoscope_workflows_ext_ecoscope.tasks.results import (
-    create_polyline_layer as create_polyline_layer,
-)
-from ecoscope_workflows_ext_ecoscope.tasks.results import draw_ecomap as draw_ecomap
-from ecoscope_workflows_ext_ecoscope.tasks.results import set_base_maps as set_base_maps
 from ecoscope_workflows_ext_ste.tasks import (
-    generate_survey_lines as generate_survey_lines,
+    combine_deckgl_map_layers as combine_deckgl_map_layers,
 )
+from ecoscope_workflows_ext_ste.tasks import (
+    create_deckgl_layer_from_gdf as create_deckgl_layer_from_gdf,
+)
+from ecoscope_workflows_ext_ste.tasks import draw_survey_lines as draw_survey_lines
 from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
+from ecoscope_workflows_ext_ste.tasks import get_gdf_geom_type as get_gdf_geom_type
+from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 
 # %% [markdown]
 # ## Set workflow details
@@ -76,10 +84,7 @@ workflow_details = (
 # %%
 # parameters
 
-time_range_params = dict(
-    since=...,
-    until=...,
-)
+time_range_params = dict()
 
 # %%
 # call the task
@@ -104,6 +109,8 @@ time_range = (
             "name": "UTC",
             "utc_offset": "+00:00",
         },
+        since="2026-01-01T00:00:00Z",
+        until="2026-02-28T23:59:59Z",
         **time_range_params,
     )
     .call()
@@ -155,7 +162,7 @@ configure_base_maps_params = dict(
 
 
 configure_base_maps = (
-    set_base_maps.set_task_instance_id("configure_base_maps")
+    set_base_maps_pydeck.set_task_instance_id("configure_base_maps")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -237,22 +244,19 @@ load_gdf = (
 
 
 # %% [markdown]
-# ## Draw Aerial Survey Lines
+# ## Assign geom type to gdf
 
 # %%
 # parameters
 
-draw_survey_lines_params = dict(
-    direction=...,
-    spacing=...,
-)
+assign_geom_type_params = dict()
 
 # %%
 # call the task
 
 
-draw_survey_lines = (
-    generate_survey_lines.set_task_instance_id("draw_survey_lines")
+assign_geom_type = (
+    get_gdf_geom_type.set_task_instance_id("assign_geom_type")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -262,7 +266,80 @@ draw_survey_lines = (
         ],
         unpack_depth=1,
     )
-    .partial(gdf=load_gdf, **draw_survey_lines_params)
+    .partial(gdf=load_gdf, **assign_geom_type_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Generate layers for map
+
+# %%
+# parameters
+
+generate_layers_map_params = dict()
+
+# %%
+# call the task
+
+
+generate_layers_map = (
+    create_deckgl_layer_from_gdf.set_task_instance_id("generate_layers_map")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        gdf=assign_geom_type,
+        style={
+            "get_fill_color": [85, 107, 47],
+            "get_line_color": [85, 107, 47],
+            "opacity": 0.35,
+            "stroked": True,
+            "get_line_width": 1.55,
+        },
+        legend={
+            "title": "Area of interest",
+            "values": [{"label": "AOI", "color": "#556b2f"}],
+        },
+        **generate_layers_map_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Draw Aerial Survey Lines
+
+# %%
+# parameters
+
+survey_lines_params = dict(
+    direction=...,
+    spacing=...,
+)
+
+# %%
+# call the task
+
+
+survey_lines = (
+    draw_survey_lines.set_task_instance_id("survey_lines")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(gdf=load_gdf, **survey_lines_params)
     .call()
 )
 
@@ -293,7 +370,7 @@ persist_aerial_gdf = (
     .partial(
         filetype="gpkg",
         filename="aerial_survey",
-        df=draw_survey_lines,
+        df=survey_lines,
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         **persist_aerial_gdf_params,
     )
@@ -327,7 +404,7 @@ persist_aerial_gpq = (
     .partial(
         filetype="geoparquet",
         filename="aerial_survey",
-        df=draw_survey_lines,
+        df=survey_lines,
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         **persist_aerial_gpq_params,
     )
@@ -341,16 +418,14 @@ persist_aerial_gpq = (
 # %%
 # parameters
 
-aerial_survey_polylines_params = dict(
-    zoom=...,
-)
+aerial_survey_polylines_params = dict()
 
 # %%
 # call the task
 
 
 aerial_survey_polylines = (
-    create_polyline_layer.set_task_instance_id("aerial_survey_polylines")
+    create_path_layer.set_task_instance_id("aerial_survey_polylines")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -362,15 +437,84 @@ aerial_survey_polylines = (
     )
     .partial(
         layer_style={
-            "get_width": 1.5,
-            "get_color": "#2f4f4f",
+            "get_width": 2.25,
+            "get_color": "#ffa500",
             "opacity": 0.85,
-            "width_unit": "pixels",
+            "width_units": "pixels",
+            "width_scale": 1,
+            "width_min_pixels": 2,
+            "width_max_pixels": 8,
+            "cap_rounded": True,
+            "joint_rounded": True,
+            "billboard": False,
+            "stroked": True,
         },
-        legend={"labels": ["Aerial survey lines"], "colors": ["#2f4f4f"]},
-        tooltip_columns=[],
-        geodataframe=draw_survey_lines,
+        legend={
+            "title": "Survey Lines",
+            "values": [{"label": "Aerial lines", "color": "#ffa500"}],
+        },
+        geodataframe=survey_lines,
         **aerial_survey_polylines_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zoom to gdf extent
+
+# %%
+# parameters
+
+zoom_gdf_extent_params = dict()
+
+# %%
+# call the task
+
+
+zoom_gdf_extent = (
+    view_state_deck_gdf.set_task_instance_id("zoom_gdf_extent")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(pitch=0, bearing=0, gdf=load_gdf, **zoom_gdf_extent_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Combine generated aerial survey lines with custom gdf
+
+# %%
+# parameters
+
+combine_map_layers_params = dict()
+
+# %%
+# call the task
+
+
+combine_map_layers = (
+    combine_deckgl_map_layers.set_task_instance_id("combine_map_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        static_layers=generate_layers_map,
+        grouped_layers=aerial_survey_polylines,
+        **combine_map_layers_params,
     )
     .call()
 )
@@ -391,7 +535,7 @@ draw_aerial_survey_lines_ecomap_params = dict(
 
 
 draw_aerial_survey_lines_ecomap = (
-    draw_ecomap.set_task_instance_id("draw_aerial_survey_lines_ecomap")
+    draw_map.set_task_instance_id("draw_aerial_survey_lines_ecomap")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -404,12 +548,11 @@ draw_aerial_survey_lines_ecomap = (
     .partial(
         tile_layers=configure_base_maps,
         static=False,
-        max_zoom=12,
-        north_arrow_style={"placement": "top-left"},
-        legend_style={"placement": "bottom-right", "title": "Aerial survey lines"},
         title=None,
-        geo_layers=aerial_survey_polylines,
-        view_state=None,
+        max_zoom=12,
+        legend_style={"placement": "bottom-right"},
+        geo_layers=combine_map_layers,
+        view_state=zoom_gdf_extent,
         **draw_aerial_survey_lines_ecomap_params,
     )
     .call()

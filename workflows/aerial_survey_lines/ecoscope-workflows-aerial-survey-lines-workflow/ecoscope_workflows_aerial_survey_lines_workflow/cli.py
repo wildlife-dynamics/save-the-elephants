@@ -150,8 +150,12 @@ def run(
     tracer_attributes = {
         "execution_mode": execution_mode,
         "mock_io": mock_io,
-        "config.time_range": params.time_range.model_dump_json(),
-        "config.groupers": params.groupers.model_dump_json(),
+        "config.time_range": params.time_range.model_dump_json()
+        if "time_range" in params.model_fields_set
+        else "",
+        "config.groupers": params.groupers.model_dump_json()
+        if "groupers" in params.model_fields_set
+        else "",
         "version": _version,
     }
     with tracer.start_as_current_span(
