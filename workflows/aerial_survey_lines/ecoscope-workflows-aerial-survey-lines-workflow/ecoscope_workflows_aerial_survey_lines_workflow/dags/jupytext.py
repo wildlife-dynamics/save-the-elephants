@@ -438,7 +438,7 @@ aerial_survey_polylines = (
     .partial(
         layer_style={
             "get_width": 2.25,
-            "get_color": "#ffa500",
+            "get_color": [255, 265, 0],
             "opacity": 0.85,
             "width_units": "pixels",
             "width_scale": 1,

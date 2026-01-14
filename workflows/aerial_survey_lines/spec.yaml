@@ -117,7 +117,7 @@ workflow:
     partial:
       layer_style: 
         get_width: 2.25
-        get_color: "#ffa500"
+        get_color: [255, 265, 0]
         opacity: 0.85
         width_units: pixels
         width_scale: 1
@@ -133,6 +133,7 @@ workflow:
           - label: Aerial lines
             color: "#ffa500"
       geodataframe: ${{ workflow.survey_lines.return }}
+
 
   - name: Zoom to gdf extent 
     id: zoom_gdf_extent
