@@ -3194,7 +3194,7 @@ def main(params: Params):
         .partial(
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             config={
-                "full_page": True,
+                "full_page": False,
                 "device_scale_factor": 2.0,
                 "wait_for_timeout": 5,
                 "max_concurrent_pages": 5,
