@@ -71,6 +71,7 @@ def draw_survey_lines(
 
 
 @task
-def generate_survey_line_colors(df: AnyGeoDataFrame, value: str) -> AnyGeoDataFrame:
-    df["color"] = value
-    df["survey_colors"] = df["value"].apply(hex_to_rgba)
+def generate_survey_line_colors(df: AnyGeoDataFrame, hex_value: str) -> AnyGeoDataFrame:
+    df["color"] = hex_value
+    df["survey_colors"] = df["color"].apply(hex_to_rgba)
+    return df
