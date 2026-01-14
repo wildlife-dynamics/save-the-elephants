@@ -20,7 +20,7 @@ hatch-vcs = "*"
 
 [feature.compile.dependencies]
 # Include this if you add new tasks and the package has been built
-ecoscope-workflows-ext-ste = "0.0.3*"
+ecoscope-workflows-ext-ste = "0.0.3.*"
 ecoscope-workflows-core = "0.19.4.*"
 ecoscope-workflows-ext-custom = "0.0.15.*"
 
