@@ -2,19 +2,19 @@ id: aerial_survey_lines
 
 requirements:
   - name: ecoscope-workflows-core
-    version: "0.19.0.*"
+    version: "0.19.4.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-ecoscope
-    version: "0.19.0.*"
+    version: "0.19.4.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.12.*"
+    version: "0.0.15.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.3.*"
+    version: "0.0.4.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
 task-instance-defaults:
@@ -78,13 +78,13 @@ workflow:
       style: 
         get_fill_color: [85, 107, 47]
         get_line_color: [85, 107, 47]
-        opacity: 0.35
+        opacity: 0.15
         stroked: true 
-        get_line_width: 1.55
+        get_line_width: 1.25
       legend: 
-        title: Area of interest 
+        title: Legend
         values:
-          - label: AOI 
+          - label: Area of Interest
             color: "#556b2f"
     
   - name: Draw Aerial Survey Lines
@@ -111,13 +111,20 @@ workflow:
       df: ${{ workflow.survey_lines.return }}
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
+  - name: Assign survey colors 
+    id: assign_survey_colors
+    task: generate_survey_line_colors 
+    partial: 
+      df: ${{ workflow.survey_lines.return }}
+      value: "#ffa500"
+
   - name: Create Aerial Survey Lines
     id: aerial_survey_polylines
     task: create_path_layer
     partial:
       layer_style: 
         get_width: 2.25
-        get_color: [255, 265, 0]
+        get_color: survey_colors #[255, 265, 0]
         opacity: 0.85
         width_units: pixels
         width_scale: 1
@@ -128,12 +135,11 @@ workflow:
         billboard: false
         stroked: true 
       legend:
-        title: Survey Lines
+        title: ""
         values:
           - label: Aerial lines
             color: "#ffa500"
-      geodataframe: ${{ workflow.survey_lines.return }}
-
+      geodataframe: ${{ workflow.assign_survey_colors.return }}
 
   - name: Zoom to gdf extent 
     id: zoom_gdf_extent
@@ -152,7 +158,6 @@ workflow:
       grouped_layers: 
         - ${{ workflow.aerial_survey_polylines.return }}
     
-
   - name: Draw Aerial Survey Lines Ecomap
     id: draw_aerial_survey_lines_ecomap
     task: draw_map

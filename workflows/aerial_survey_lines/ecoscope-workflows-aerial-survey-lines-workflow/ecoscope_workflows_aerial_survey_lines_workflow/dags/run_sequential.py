@@ -32,6 +32,9 @@ from ecoscope_workflows_ext_ste.tasks import (
     create_deckgl_layer_from_gdf as create_deckgl_layer_from_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import draw_survey_lines as draw_survey_lines
+from ecoscope_workflows_ext_ste.tasks import (
+    generate_survey_line_colors as generate_survey_line_colors,
+)
 from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 from ecoscope_workflows_ext_ste.tasks import get_gdf_geom_type as get_gdf_geom_type
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
@@ -190,13 +193,13 @@ def main(params: Params):
             style={
                 "get_fill_color": [85, 107, 47],
                 "get_line_color": [85, 107, 47],
-                "opacity": 0.35,
+                "opacity": 0.15,
                 "stroked": True,
-                "get_line_width": 1.55,
+                "get_line_width": 1.25,
             },
             legend={
-                "title": "Area of interest",
-                "values": [{"label": "AOI", "color": "#556b2f"}],
+                "title": "Legend",
+                "values": [{"label": "Area of Interest", "color": "#556b2f"}],
             },
             **(params_dict.get("generate_layers_map") or {}),
         )
@@ -263,6 +266,26 @@ def main(params: Params):
         .call()
     )
 
+    assign_survey_colors = (
+        generate_survey_line_colors.validate()
+        .set_task_instance_id("assign_survey_colors")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=survey_lines,
+            value="#ffa500",
+            **(params_dict.get("assign_survey_colors") or {}),
+        )
+        .call()
+    )
+
     aerial_survey_polylines = (
         create_path_layer.validate()
         .set_task_instance_id("aerial_survey_polylines")
@@ -278,7 +301,7 @@ def main(params: Params):
         .partial(
             layer_style={
                 "get_width": 2.25,
-                "get_color": [255, 265, 0],
+                "get_color": "survey_colors",
                 "opacity": 0.85,
                 "width_units": "pixels",
                 "width_scale": 1,
@@ -290,10 +313,10 @@ def main(params: Params):
                 "stroked": True,
             },
             legend={
-                "title": "Survey Lines",
+                "title": "",
                 "values": [{"label": "Aerial lines", "color": "#ffa500"}],
             },
-            geodataframe=survey_lines,
+            geodataframe=assign_survey_colors,
             **(params_dict.get("aerial_survey_polylines") or {}),
         )
         .call()
