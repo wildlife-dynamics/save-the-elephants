@@ -910,7 +910,7 @@ workflow:
 
   - name: Determine seasonal windows 
     id: determine_seasonal_windows 
-    task: custom_determine_season_windows
+    task: determine_season_windows
     partial: 
       client: ${{ workflow.gee_project_name.return }}
       time_range: ${{ workflow.time_range.return }}

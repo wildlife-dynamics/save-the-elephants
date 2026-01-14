@@ -75,36 +75,18 @@ get_subjectgroup_observations = create_task_magicmock(  # 🧪
     anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
     func_name="get_subjectgroup_observations",  # 🧪
 )  # 🧪
-from ecoscope_workflows_core.tasks.analysis import (
-    dataframe_column_nunique as dataframe_column_nunique,
-)
-from ecoscope_workflows_core.tasks.analysis import (
-    dataframe_column_sum as dataframe_column_sum,
-)
-from ecoscope_workflows_core.tasks.groupby import groupbykey as groupbykey
 from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
 from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.results import (
     create_map_widget_single_view as create_map_widget_single_view,
 )
 from ecoscope_workflows_core.tasks.results import (
-    create_single_value_widget_single_view as create_single_value_widget_single_view,
-)
-from ecoscope_workflows_core.tasks.results import (
-    create_text_widget_single_view as create_text_widget_single_view,
-)
-from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
-from ecoscope_workflows_core.tasks.results import (
     merge_widget_views as merge_widget_views,
-)
-from ecoscope_workflows_core.tasks.skip import (
-    all_keyed_iterables_are_skips as all_keyed_iterables_are_skips,
 )
 from ecoscope_workflows_core.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
 )
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
-from ecoscope_workflows_core.tasks.skip import never as never
 from ecoscope_workflows_core.tasks.transformation import (
     add_temporal_index as add_temporal_index,
 )
@@ -113,10 +95,6 @@ from ecoscope_workflows_core.tasks.transformation import (
     map_values_with_unit as map_values_with_unit,
 )
 from ecoscope_workflows_core.tasks.transformation import sort_values as sort_values
-from ecoscope_workflows_ext_custom.tasks.io import html_to_png as html_to_png
-from ecoscope_workflows_ext_custom.tasks.results import (
-    create_geojson_layer as create_geojson_layer,
-)
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_path_layer as create_path_layer,
 )
@@ -141,6 +119,72 @@ from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
     classify_is_night as classify_is_night,
 )
 from ecoscope_workflows_ext_ste.tasks import (
+    combine_deckgl_map_layers as combine_deckgl_map_layers,
+)
+from ecoscope_workflows_ext_ste.tasks import create_column as create_column
+from ecoscope_workflows_ext_ste.tasks import extract_index_names as extract_index_names
+from ecoscope_workflows_ext_ste.tasks import (
+    filter_groups_by_value_criteria as filter_groups_by_value_criteria,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    get_split_group_column as get_split_group_column,
+)
+from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple_df
+from ecoscope_workflows_ext_ste.tasks import (
+    modify_status_colors as modify_status_colors,
+)
+from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
+from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
+
+determine_season_windows = create_task_magicmock(  # 🧪
+    anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
+    func_name="determine_season_windows",  # 🧪
+)  # 🧪
+from ecoscope_workflows_core.tasks.analysis import (
+    dataframe_column_nunique as dataframe_column_nunique,
+)
+from ecoscope_workflows_core.tasks.analysis import (
+    dataframe_column_sum as dataframe_column_sum,
+)
+from ecoscope_workflows_core.tasks.groupby import groupbykey as groupbykey
+from ecoscope_workflows_core.tasks.io import persist_text as persist_text
+from ecoscope_workflows_core.tasks.results import (
+    create_map_widget_single_view as create_map_widget_single_view,
+)
+from ecoscope_workflows_core.tasks.results import (
+    create_single_value_widget_single_view as create_single_value_widget_single_view,
+)
+from ecoscope_workflows_core.tasks.results import (
+    create_text_widget_single_view as create_text_widget_single_view,
+)
+from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
+from ecoscope_workflows_core.tasks.results import (
+    merge_widget_views as merge_widget_views,
+)
+from ecoscope_workflows_core.tasks.skip import (
+    all_keyed_iterables_are_skips as all_keyed_iterables_are_skips,
+)
+from ecoscope_workflows_core.tasks.skip import (
+    any_dependency_skipped as any_dependency_skipped,
+)
+from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
+from ecoscope_workflows_core.tasks.skip import never as never
+from ecoscope_workflows_core.tasks.transformation import (
+    map_values_with_unit as map_values_with_unit,
+)
+from ecoscope_workflows_core.tasks.transformation import sort_values as sort_values
+from ecoscope_workflows_ext_custom.tasks.io import html_to_png as html_to_png
+from ecoscope_workflows_ext_custom.tasks.results import (
+    create_geojson_layer as create_geojson_layer,
+)
+from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map
+from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
+    apply_classification as apply_classification,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
+    apply_color_map as apply_color_map,
+)
+from ecoscope_workflows_ext_ste.tasks import (
     assign_season_colors as assign_season_colors,
 )
 from ecoscope_workflows_ext_ste.tasks import (
@@ -149,7 +193,6 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import (
     combine_deckgl_map_layers as combine_deckgl_map_layers,
 )
-from ecoscope_workflows_ext_ste.tasks import create_column as create_column
 from ecoscope_workflows_ext_ste.tasks import create_context_page as create_context_page
 from ecoscope_workflows_ext_ste.tasks import create_grouper_page as create_grouper_page
 from ecoscope_workflows_ext_ste.tasks import (
@@ -162,17 +205,10 @@ from ecoscope_workflows_ext_ste.tasks import (
     create_seasonal_labels as create_seasonal_labels,
 )
 from ecoscope_workflows_ext_ste.tasks import (
-    custom_determine_season_windows as custom_determine_season_windows,
-)
-from ecoscope_workflows_ext_ste.tasks import (
     dataframe_column_first_unique_str as dataframe_column_first_unique_str,
 )
-from ecoscope_workflows_ext_ste.tasks import extract_index_names as extract_index_names
 from ecoscope_workflows_ext_ste.tasks import (
     fetch_and_persist_file as fetch_and_persist_file,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    filter_groups_by_value_criteria as filter_groups_by_value_criteria,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     generate_ecograph_raster as generate_ecograph_raster,
@@ -180,16 +216,9 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import generate_mcp_gdf as generate_mcp_gdf
 from ecoscope_workflows_ext_ste.tasks import get_duration as get_duration
 from ecoscope_workflows_ext_ste.tasks import (
-    get_split_group_column as get_split_group_column,
-)
-from ecoscope_workflows_ext_ste.tasks import (
     get_split_group_names as get_split_group_names,
 )
 from ecoscope_workflows_ext_ste.tasks import merge_mapbook_files as merge_mapbook_files
-from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple_df
-from ecoscope_workflows_ext_ste.tasks import (
-    modify_status_colors as modify_status_colors,
-)
 from ecoscope_workflows_ext_ste.tasks import (
     retrieve_feature_gdf as retrieve_feature_gdf,
 )
@@ -1906,7 +1935,7 @@ def main(params: Params):
     )
 
     determine_seasonal_windows = (
-        custom_determine_season_windows.validate()
+        determine_season_windows.validate()
         .set_task_instance_id("determine_seasonal_windows")
         .handle_errors()
         .with_tracing()
