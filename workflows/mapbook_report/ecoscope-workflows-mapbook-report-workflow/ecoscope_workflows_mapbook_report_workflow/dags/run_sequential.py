@@ -66,9 +66,6 @@ from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density as calculate_elliptical_time_density,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.io import (
-    determine_season_windows as determine_season_windows,
-)
-from ecoscope_workflows_ext_ecoscope.tasks.io import (
     get_subjectgroup_observations as get_subjectgroup_observations,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
@@ -116,6 +113,9 @@ from ecoscope_workflows_ext_ste.tasks import (
 )
 from ecoscope_workflows_ext_ste.tasks import (
     create_seasonal_labels as create_seasonal_labels,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    custom_determine_season_windows as custom_determine_season_windows,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     custom_trajectory_segment_filter as custom_trajectory_segment_filter,
@@ -1867,7 +1867,7 @@ def main(params: Params):
     )
 
     determine_seasonal_windows = (
-        determine_season_windows.validate()
+        custom_determine_season_windows.validate()
         .set_task_instance_id("determine_seasonal_windows")
         .handle_errors()
         .with_tracing()

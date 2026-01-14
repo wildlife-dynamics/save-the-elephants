@@ -13,7 +13,7 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.4.*"
+    version: "0.0.5.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
 rjsf-overrides:
@@ -910,7 +910,7 @@ workflow:
 
   - name: Determine seasonal windows 
     id: determine_seasonal_windows 
-    task: determine_season_windows
+    task: custom_determine_season_windows
     partial: 
       client: ${{ workflow.gee_project_name.return }}
       time_range: ${{ workflow.time_range.return }}
