@@ -9,7 +9,7 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.12.*"
+    version: "0.0.15.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: ecoscope-workflows-ext-ste
@@ -1617,7 +1617,7 @@ workflow:
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
-        full_page: true 
+        full_page: false
         device_scale_factor: 2.0
         wait_for_timeout: 5 # testing only -- default should be 30_000
         max_concurrent_pages: 5

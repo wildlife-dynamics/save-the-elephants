@@ -45,7 +45,7 @@ from ._mapbook_context import (
 
 from ._preprocess import custom_trajectory_segment_filter
 from ._filter import filter_groups_by_value_criteria
-from ._aerial_lines import validate_polygon_geometry, draw_survey_lines
+from ._aerial_lines import validate_polygon_geometry, draw_survey_lines, generate_survey_line_colors
 
 __all__ = [
     "add_two_thousand",
@@ -91,4 +91,5 @@ __all__ = [
     "set_custom_groupers",
     "validate_polygon_geometry",
     "draw_survey_lines",
+    "generate_survey_line_colors",
 ]
