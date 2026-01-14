@@ -1,17 +1,16 @@
-import logging
 import pandas as pd
 from pydantic import Field
 from typing import Optional, Annotated
 from pydantic.json_schema import SkipJsonSchema
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame
+from ecoscope_workflows_core.tasks.filter._filter import TimeRange
+from ecoscope_workflows_ext_ecoscope.connections import EarthEngineClient
 from ecoscope_workflows_ext_ecoscope.tasks.analysis._time_density import (
     AutoScaleGridCellSize,
     CustomGridCellSize,
     calculate_elliptical_time_density,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @task
@@ -66,7 +65,7 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
         for col in ["segment_start", "segment_end"]:
             null_count = trajectories[col].isnull().sum()
             if null_count > 0:
-                logger.warning(f"Found {null_count} NULL values in {col}. These rows will be skipped.")
+                print(f"Found {null_count} NULL values in {col}. These rows will be skipped.")
 
         seasonal_wins = seasons_df.copy()
         traj_start = trajectories["segment_start"].min()
@@ -76,11 +75,11 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
             (seasonal_wins["end"] >= traj_start) & (seasonal_wins["start"] <= traj_end)
         ].reset_index(drop=True)
 
-        logger.info(f"Filtered seasonal windows: {len(seasonal_wins)} periods")
-        logger.info(f"Seasonal Windows:\n{seasonal_wins[['start', 'end', 'season']]}")
+        print(f"Filtered seasonal windows: {len(seasonal_wins)} periods")
+        print(f"Seasonal Windows:\n{seasonal_wins[['start', 'end', 'season']]}")
 
         if seasonal_wins.empty:
-            logger.error("No seasonal windows overlap with trajectory timeframe.")
+            print("No seasonal windows overlap with trajectory timeframe.")
             trajectories["season"] = None
             return trajectories
 
@@ -88,7 +87,7 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
         seasonal_wins = seasonal_wins.sort_values("start").reset_index(drop=True)
         for i in range(len(seasonal_wins) - 1):
             if seasonal_wins.loc[i, "end"] > seasonal_wins.loc[i + 1, "start"]:
-                logger.warning(
+                print(
                     f"Overlapping seasonal windows detected: "
                     f"[{seasonal_wins.loc[i, 'start']} - {seasonal_wins.loc[i, 'end']}] and "
                     f"[{seasonal_wins.loc[i+1, 'start']} - {seasonal_wins.loc[i+1, 'end']}]"
@@ -103,76 +102,15 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
 
         null_count = trajectories["season"].isnull().sum()
         if null_count > 0:
-            logger.warning(f"{null_count} trajectory segments couldn't be assigned to any season")
+            print(f"{null_count} trajectory segments couldn't be assigned to any season")
 
         trajectories = trajectories.dropna(subset=["season"])
         return trajectories
 
     except Exception as e:
-        logger.error(f"Failed to apply seasonal label to trajectories: {e}")
+        print(f"Failed to apply seasonal label to trajectories: {e}")
         trajectories["season"] = None
         return trajectories
-
-
-@task
-def calculate_seasonal_home_ranger(
-    gdf: AnyGeoDataFrame,
-    groupby_cols: Annotated[
-        list[str],
-        Field(
-            description="List of column names to group by (e.g., ['groupby_col', 'season'])",
-            json_schema_extra={"default": ["groupby_col", "season"]},
-        ),
-    ] = None,
-    percentiles: Annotated[
-        list[float] | SkipJsonSchema[None],
-        Field(default=[25.0, 50.0, 75.0, 90.0, 95.0, 99.9]),
-    ] = [99.9],
-    auto_scale_or_custom_cell_size: Annotated[
-        AutoScaleGridCellSize | CustomGridCellSize | SkipJsonSchema[None],
-        Field(
-            json_schema_extra={
-                "title": "Auto Scale Or Custom Grid Cell Size",
-                "ecoscope:advanced": True,
-                "default": {"auto_scale_or_custom": "Auto-scale"},
-            },
-        ),
-    ] = None,
-) -> AnyDataFrame:
-    if gdf is None or gdf.empty:
-        raise ValueError("`calculate_seasonal_home_range`:gdf is empty.")
-
-    if groupby_cols is None:
-        groupby_cols = ["groupby_col", "season"]
-
-    if "season" not in gdf.columns:
-        raise ValueError("`calculate_seasonal_home_range`: gdf must have a 'season' column.")
-
-    if auto_scale_or_custom_cell_size is None:
-        auto_scale_or_custom_cell_size = AutoScaleGridCellSize()
-
-    gdf = gdf[gdf["season"].notna()].copy()
-    try:
-        season_etd = gdf.groupby(groupby_cols).apply(
-            lambda df: calculate_elliptical_time_density(
-                df,
-                auto_scale_or_custom_cell_size=auto_scale_or_custom_cell_size,
-                percentiles=percentiles,
-            )
-        )
-    except TypeError:
-        season_etd = gdf.groupby(groupby_cols).apply(
-            lambda df: calculate_elliptical_time_density(
-                df,
-                auto_scale_or_custom_cell_size=auto_scale_or_custom_cell_size,
-                percentiles=percentiles,
-            ),
-            include_groups=False,
-        )
-    # Reset index properly
-    if isinstance(season_etd.index, pd.MultiIndex):
-        season_etd = season_etd.reset_index()
-    return season_etd
 
 
 @task
@@ -216,6 +154,7 @@ def calculate_seasonal_home_range(
     if auto_scale_or_custom_cell_size is None:
         auto_scale_or_custom_cell_size = AutoScaleGridCellSize()
 
+    print("Calculating seasonal home range...")
     # Early cleaning - remove rows without season
     gdf = gdf[gdf["season"].notna()].copy()
 
@@ -232,3 +171,66 @@ def calculate_seasonal_home_range(
     )
 
     return season_etd
+
+
+@task
+def custom_determine_season_windows(
+    client: EarthEngineClient,
+    roi: AnyGeoDataFrame,
+    time_range: Annotated[TimeRange, Field(description="Time range filter")],
+):
+    import pandas as pd
+    from ecoscope.analysis.seasons import (  # type: ignore[import-untyped]
+        seasonal_windows,
+        std_ndvi_vals,
+        val_cuts,
+    )
+
+    # If there's more than one roi, merge them to one
+    merged_roi = roi.to_crs(4326).dissolve().iloc[0]["geometry"]  # type: ignore[operator]
+
+    # Calculate the number of days in the time range
+    days = (time_range.until - time_range.since).days + (time_range.until - time_range.since).seconds / 86400.0
+    print(f"Days: {days}")
+
+    # Adjust time range if necessary
+    # For seasonal analysis, we need at least 30 days of data
+    if days > 30:
+        # Use the full range if it's more than 30 days
+        since = time_range.since
+        until = time_range.until
+    else:
+        # If less than 30 days, extend backwards to get 30 days total
+        since = time_range.until - pd.Timedelta(days=30)
+        until = time_range.until
+        print(f"Warning: Time range extended backwards to {since} to ensure minimum 30 days for seasonal analysis")
+
+    # Determine wet/dry seasons
+    date_chunks = (
+        pd.date_range(start=since, end=until, periods=5, inclusive="both")
+        .to_series()
+        .apply(lambda x: x.isoformat())
+        .values
+    )
+
+    ndvi_vals = []
+    for t in range(1, len(date_chunks)):
+        ndvi_vals.append(
+            std_ndvi_vals(
+                img_coll="MODIS/061/MCD43A4",
+                nir_band="Nadir_Reflectance_Band2",
+                red_band="Nadir_Reflectance_Band1",
+                aoi=merged_roi,
+                start=date_chunks[t - 1],
+                end=date_chunks[t],
+            )
+        )
+    ndvi_vals = pd.concat(ndvi_vals)
+
+    # Calculate the seasonal transition point
+    cuts = val_cuts(ndvi_vals, 2)
+
+    # Determine the seasonal time windows
+    windows = seasonal_windows(ndvi_vals, cuts, season_labels=["dry", "wet"])
+
+    return windows
