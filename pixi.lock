@@ -509,7 +509,11 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-hb9d3cd8_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-ng-2.3.2-hceb46e0_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb78ec9c_6.conda
+<<<<<<< HEAD
       - conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.3.dev12+gbdb528950.d20260114-pyh4616a5c_0.conda
+=======
+      - conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.3.dev11+gd41f5cc25.d20260113-pyh4616a5c_0.conda
+>>>>>>> main
       osx-arm64:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/_openmp_mutex-4.5-7_kmp_llvm.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/_python_abi3_support-1.0-hd8ed1ab_2.conda
@@ -976,7 +980,11 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-1.3.1-h8359307_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-ng-2.3.2-hed4e4f5_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hbf9d68e_6.conda
+<<<<<<< HEAD
       - conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.3.dev12+gbdb528950.d20260114-pyh4616a5c_0.conda
+=======
+      - conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.3.dev11+gd41f5cc25.d20260113-pyh4616a5c_0.conda
+>>>>>>> main
       win-64:
       - conda: https://conda.anaconda.org/conda-forge/win-64/_libavif_api-1.3.0-h57928b3_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/_openmp_mutex-4.5-2_gnu.conda
@@ -1428,7 +1436,11 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/zlib-1.3.1-h2466b09_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/zlib-ng-2.3.2-h0261ad2_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-h534d264_6.conda
+<<<<<<< HEAD
       - conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.3.dev12+gbdb528950.d20260114-pyh4616a5c_0.conda
+=======
+      - conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.3.dev11+gd41f5cc25.d20260113-pyh4616a5c_0.conda
+>>>>>>> main
   default:
     channels:
     - url: file:///tmp/ecoscope-workflows-custom/release/artifacts/
@@ -4285,10 +4297,17 @@ packages:
   license: BSD-3-Clause
   size: 3085094
   timestamp: 1766623397598
+<<<<<<< HEAD
 - conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.3.dev12+gbdb528950.d20260114-pyh4616a5c_0.conda
   subdir: noarch
   sha256: 9db55dfdb8c3efc127132ea8b396f144940d9f1dd3129f69ffcf971448b54618
   md5: ece8eddca328ede35a1244c9b347ac7f
+=======
+- conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.3.dev11+gd41f5cc25.d20260113-pyh4616a5c_0.conda
+  subdir: noarch
+  sha256: 272370817807622df18f71f3f13d3a9d4f4a22584f02ae9d23e5ffda9daeeef6
+  md5: a3038864d63ba2c10c885834c67dd673
+>>>>>>> main
   depends:
   - python
   - ecoscope
@@ -4303,8 +4322,13 @@ packages:
   - playwright
   channel: file:///tmp/ecoscope-workflows-custom/release/artifacts
   license: BSD-3-Clause
+<<<<<<< HEAD
   size: 32445
   timestamp: 1768394736420
+=======
+  size: 32422
+  timestamp: 1768307339537
+>>>>>>> main
 - conda: https://conda.anaconda.org/conda-forge/noarch/editables-0.5-pyhd8ed1ab_1.conda
   sha256: 8d4f908e670be360617d418c328213bc46e7100154c3742db085148141712f60
   md5: 2cf824fe702d88e641eec9f9f653e170
@@ -6199,7 +6223,10 @@ packages:
   - backports.tarfile
   - python
   license: MIT
+<<<<<<< HEAD
   license_family: MIT
+=======
+>>>>>>> main
   size: 15566
   timestamp: 1768299702258
 - conda: https://conda.anaconda.org/conda-forge/noarch/jaraco.functools-4.4.0-pyhcf101f3_1.conda
