@@ -14,8 +14,8 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.5.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    version: "*"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
 
 task-instance-defaults:
   skipif:
@@ -111,35 +111,38 @@ workflow:
       df: ${{ workflow.survey_lines.return }}
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
-  - name: Assign survey colors 
-    id: assign_survey_colors
-    task: generate_survey_line_colors 
-    partial: 
-      df: ${{ workflow.survey_lines.return }}
-      hex_value: "#ffa500"
+  - name: Transform gdf to epsg 4326
+    id: transform_gdf
+    task: transform_gdf_crs 
+    partial:
+      gdf: ${{ workflow.survey_lines.return }}
+      crs: "EPSG:4326"
 
   - name: Create Aerial Survey Lines
     id: aerial_survey_polylines
-    task: create_path_layer
+    task: create_geojson_layer
     partial:
       layer_style: 
-        get_width: 2.25
-        get_color: [255, 265, 0]
-        opacity: 0.85
-        width_units: pixels
-        width_scale: 1
-        width_min_pixels: 2 
-        width_max_pixels: 8 
-        cap_rounded: true 
-        joint_rounded: true 
-        billboard: false
+        filled: false 
         stroked: true 
+        extruded: false 
+        wireframe: false
+        get_fill_color: [255, 265, 0]
+        get_line_color: [255, 265, 0]
+        opacity: 0.85
+        get_line_width: 1.55
+        get_elevation: 0
+        get_point_radius: 1
+        line_width_units: pixels 
+        line_width_scale: 1 
+        line_width_min_pixels: 1
+        line_width_max_pixels: 5
       legend:
         title: ""
         values:
           - label: Aerial lines
             color: "#ffa500"
-      geodataframe: ${{ workflow.survey_lines.return }}
+      geodataframe: ${{ workflow.transform_gdf.return }}
 
   - name: Zoom to gdf extent 
     id: zoom_gdf_extent

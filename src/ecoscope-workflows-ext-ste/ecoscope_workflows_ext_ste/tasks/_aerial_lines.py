@@ -1,6 +1,6 @@
 import numpy as np
 import geopandas as gpd
-from typing import Literal
+from typing import Literal, Union
 from ecoscope.base.utils import hex_to_rgba
 from ecoscope_workflows_core.decorators import task
 from shapely.geometry import LineString, MultiPolygon
@@ -75,3 +75,14 @@ def generate_survey_line_colors(df: AnyGeoDataFrame, hex_value: str) -> AnyGeoDa
     df["color"] = hex_value
     df["survey_colors"] = df["color"].apply(hex_to_rgba)
     return df
+
+
+@task
+def transform_gdf_crs(gdf: AnyGeoDataFrame, crs: Union[str, int, dict]) -> AnyGeoDataFrame:
+    if not isinstance(gdf, gpd.GeoDataFrame):
+        raise ValueError("Input must be a GeoDataFrame")
+
+    try:
+        return gdf.to_crs(crs)
+    except Exception as e:
+        raise ValueError(f"Failed to transform CRS: {str(e)}")

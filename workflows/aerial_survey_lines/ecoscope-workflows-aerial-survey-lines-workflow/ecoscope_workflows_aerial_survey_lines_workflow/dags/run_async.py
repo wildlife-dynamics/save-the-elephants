@@ -19,7 +19,7 @@ from ecoscope_workflows_core.tasks.skip import (
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
 from ecoscope_workflows_ext_custom.tasks.results import (
-    create_path_layer as create_path_layer,
+    create_geojson_layer as create_geojson_layer,
 )
 from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map
 from ecoscope_workflows_ext_custom.tasks.results import (
@@ -33,11 +33,9 @@ from ecoscope_workflows_ext_ste.tasks import (
     create_deckgl_layer_from_gdf as create_deckgl_layer_from_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import draw_survey_lines as draw_survey_lines
-from ecoscope_workflows_ext_ste.tasks import (
-    generate_survey_line_colors as generate_survey_line_colors,
-)
 from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 from ecoscope_workflows_ext_ste.tasks import get_gdf_geom_type as get_gdf_geom_type
+from ecoscope_workflows_ext_ste.tasks import transform_gdf_crs as transform_gdf_crs
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 
 from ..params import Params
@@ -58,8 +56,8 @@ def main(params: Params):
         "survey_lines": ["load_gdf"],
         "persist_aerial_gdf": ["survey_lines"],
         "persist_aerial_gpq": ["survey_lines"],
-        "assign_survey_colors": ["survey_lines"],
-        "aerial_survey_polylines": ["survey_lines"],
+        "transform_gdf": ["survey_lines"],
+        "aerial_survey_polylines": ["transform_gdf"],
         "zoom_gdf_extent": ["load_gdf"],
         "combine_map_layers": ["generate_layers_map", "aerial_survey_polylines"],
         "draw_aerial_survey_lines_ecomap": [
@@ -305,9 +303,9 @@ def main(params: Params):
             | (params_dict.get("persist_aerial_gpq") or {}),
             method="call",
         ),
-        "assign_survey_colors": Node(
-            async_task=generate_survey_line_colors.validate()
-            .set_task_instance_id("assign_survey_colors")
+        "transform_gdf": Node(
+            async_task=transform_gdf_crs.validate()
+            .set_task_instance_id("transform_gdf")
             .handle_errors()
             .with_tracing()
             .skipif(
@@ -319,14 +317,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "df": DependsOn("survey_lines"),
-                "hex_value": "#ffa500",
+                "gdf": DependsOn("survey_lines"),
+                "crs": "EPSG:4326",
             }
-            | (params_dict.get("assign_survey_colors") or {}),
+            | (params_dict.get("transform_gdf") or {}),
             method="call",
         ),
         "aerial_survey_polylines": Node(
-            async_task=create_path_layer.validate()
+            async_task=create_geojson_layer.validate()
             .set_task_instance_id("aerial_survey_polylines")
             .handle_errors()
             .with_tracing()
@@ -340,23 +338,26 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "layer_style": {
-                    "get_width": 2.25,
-                    "get_color": [255, 265, 0],
-                    "opacity": 0.85,
-                    "width_units": "pixels",
-                    "width_scale": 1,
-                    "width_min_pixels": 2,
-                    "width_max_pixels": 8,
-                    "cap_rounded": True,
-                    "joint_rounded": True,
-                    "billboard": False,
+                    "filled": False,
                     "stroked": True,
+                    "extruded": False,
+                    "wireframe": False,
+                    "get_fill_color": [255, 265, 0],
+                    "get_line_color": [255, 265, 0],
+                    "opacity": 0.85,
+                    "get_line_width": 1.55,
+                    "get_elevation": 0,
+                    "get_point_radius": 1,
+                    "line_width_units": "pixels",
+                    "line_width_scale": 1,
+                    "line_width_min_pixels": 1,
+                    "line_width_max_pixels": 5,
                 },
                 "legend": {
                     "title": "",
                     "values": [{"label": "Aerial lines", "color": "#ffa500"}],
                 },
-                "geodataframe": DependsOn("survey_lines"),
+                "geodataframe": DependsOn("transform_gdf"),
             }
             | (params_dict.get("aerial_survey_polylines") or {}),
             method="call",

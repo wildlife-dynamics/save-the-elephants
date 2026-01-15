@@ -28,7 +28,7 @@ from ecoscope_workflows_core.tasks.skip import (
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
 from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
 from ecoscope_workflows_ext_custom.tasks.results import (
-    create_path_layer as create_path_layer,
+    create_geojson_layer as create_geojson_layer,
 )
 from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map
 from ecoscope_workflows_ext_custom.tasks.results import (
@@ -42,11 +42,9 @@ from ecoscope_workflows_ext_ste.tasks import (
     create_deckgl_layer_from_gdf as create_deckgl_layer_from_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import draw_survey_lines as draw_survey_lines
-from ecoscope_workflows_ext_ste.tasks import (
-    generate_survey_line_colors as generate_survey_line_colors,
-)
 from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 from ecoscope_workflows_ext_ste.tasks import get_gdf_geom_type as get_gdf_geom_type
+from ecoscope_workflows_ext_ste.tasks import transform_gdf_crs as transform_gdf_crs
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 
 # %% [markdown]
@@ -416,19 +414,19 @@ persist_aerial_gpq = (
 
 
 # %% [markdown]
-# ## Assign survey colors
+# ## Transform gdf to epsg 4326
 
 # %%
 # parameters
 
-assign_survey_colors_params = dict()
+transform_gdf_params = dict()
 
 # %%
 # call the task
 
 
-assign_survey_colors = (
-    generate_survey_line_colors.set_task_instance_id("assign_survey_colors")
+transform_gdf = (
+    transform_gdf_crs.set_task_instance_id("transform_gdf")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -438,7 +436,7 @@ assign_survey_colors = (
         ],
         unpack_depth=1,
     )
-    .partial(df=survey_lines, hex_value="#ffa500", **assign_survey_colors_params)
+    .partial(gdf=survey_lines, crs="EPSG:4326", **transform_gdf_params)
     .call()
 )
 
@@ -456,7 +454,7 @@ aerial_survey_polylines_params = dict()
 
 
 aerial_survey_polylines = (
-    create_path_layer.set_task_instance_id("aerial_survey_polylines")
+    create_geojson_layer.set_task_instance_id("aerial_survey_polylines")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -468,20 +466,23 @@ aerial_survey_polylines = (
     )
     .partial(
         layer_style={
-            "get_width": 2.25,
-            "get_color": [255, 265, 0],
-            "opacity": 0.85,
-            "width_units": "pixels",
-            "width_scale": 1,
-            "width_min_pixels": 2,
-            "width_max_pixels": 8,
-            "cap_rounded": True,
-            "joint_rounded": True,
-            "billboard": False,
+            "filled": False,
             "stroked": True,
+            "extruded": False,
+            "wireframe": False,
+            "get_fill_color": [255, 265, 0],
+            "get_line_color": [255, 265, 0],
+            "opacity": 0.85,
+            "get_line_width": 1.55,
+            "get_elevation": 0,
+            "get_point_radius": 1,
+            "line_width_units": "pixels",
+            "line_width_scale": 1,
+            "line_width_min_pixels": 1,
+            "line_width_max_pixels": 5,
         },
         legend={"title": "", "values": [{"label": "Aerial lines", "color": "#ffa500"}]},
-        geodataframe=survey_lines,
+        geodataframe=transform_gdf,
         **aerial_survey_polylines_params,
     )
     .call()
