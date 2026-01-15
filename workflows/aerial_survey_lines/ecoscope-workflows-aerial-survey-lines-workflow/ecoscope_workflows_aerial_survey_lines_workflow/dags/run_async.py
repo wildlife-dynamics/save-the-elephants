@@ -59,7 +59,7 @@ def main(params: Params):
         "persist_aerial_gdf": ["survey_lines"],
         "persist_aerial_gpq": ["survey_lines"],
         "assign_survey_colors": ["survey_lines"],
-        "aerial_survey_polylines": ["assign_survey_colors"],
+        "aerial_survey_polylines": ["survey_lines"],
         "zoom_gdf_extent": ["load_gdf"],
         "combine_map_layers": ["generate_layers_map", "aerial_survey_polylines"],
         "draw_aerial_survey_lines_ecomap": [
@@ -320,7 +320,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "df": DependsOn("survey_lines"),
-                "value": "#ffa500",
+                "hex_value": "#ffa500",
             }
             | (params_dict.get("assign_survey_colors") or {}),
             method="call",
@@ -341,7 +341,7 @@ def main(params: Params):
             partial={
                 "layer_style": {
                     "get_width": 2.25,
-                    "get_color": "survey_colors",
+                    "get_color": [255, 265, 0],
                     "opacity": 0.85,
                     "width_units": "pixels",
                     "width_scale": 1,
@@ -356,7 +356,7 @@ def main(params: Params):
                     "title": "",
                     "values": [{"label": "Aerial lines", "color": "#ffa500"}],
                 },
-                "geodataframe": DependsOn("assign_survey_colors"),
+                "geodataframe": DependsOn("survey_lines"),
             }
             | (params_dict.get("aerial_survey_polylines") or {}),
             method="call",
@@ -419,7 +419,7 @@ def main(params: Params):
                 "tile_layers": DependsOn("configure_base_maps"),
                 "static": False,
                 "title": None,
-                "max_zoom": 12,
+                "max_zoom": 10,
                 "legend_style": {"placement": "bottom-right"},
                 "geo_layers": DependsOn("combine_map_layers"),
                 "view_state": DependsOn("zoom_gdf_extent"),

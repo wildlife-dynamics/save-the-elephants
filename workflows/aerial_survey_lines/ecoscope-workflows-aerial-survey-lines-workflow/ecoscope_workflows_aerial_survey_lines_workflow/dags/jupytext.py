@@ -438,7 +438,7 @@ assign_survey_colors = (
         ],
         unpack_depth=1,
     )
-    .partial(df=survey_lines, value="#ffa500", **assign_survey_colors_params)
+    .partial(df=survey_lines, hex_value="#ffa500", **assign_survey_colors_params)
     .call()
 )
 
@@ -469,7 +469,7 @@ aerial_survey_polylines = (
     .partial(
         layer_style={
             "get_width": 2.25,
-            "get_color": "survey_colors",
+            "get_color": [255, 265, 0],
             "opacity": 0.85,
             "width_units": "pixels",
             "width_scale": 1,
@@ -481,7 +481,7 @@ aerial_survey_polylines = (
             "stroked": True,
         },
         legend={"title": "", "values": [{"label": "Aerial lines", "color": "#ffa500"}]},
-        geodataframe=assign_survey_colors,
+        geodataframe=survey_lines,
         **aerial_survey_polylines_params,
     )
     .call()
@@ -577,7 +577,7 @@ draw_aerial_survey_lines_ecomap = (
         tile_layers=configure_base_maps,
         static=False,
         title=None,
-        max_zoom=12,
+        max_zoom=10,
         legend_style={"placement": "bottom-right"},
         geo_layers=combine_map_layers,
         view_state=zoom_gdf_extent,
