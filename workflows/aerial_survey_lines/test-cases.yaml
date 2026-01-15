@@ -1,0 +1,50 @@
+all-grouper:
+  name: All Grouper
+  description: A demonstration of a workflow with no grouping.
+  params:
+    workflow_details:
+      description: testing local shape file
+      name: Local workflow
+    groupers:
+      groupers: []
+    configure_base_maps:
+      base_maps:
+        - url: >-
+            https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}
+          opacity: 0.75
+        - url: >-
+            https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}
+          opacity: 0.1
+    retrieve_file_params:
+      input_method:
+        url: >-
+          https://www.dropbox.com/scl/fi/14rcy4lkwp7xgewj3xf7k/mnc_conservancy.gpkg?rlkey=mtqo7ivxrnvjonm2z1zez6h6f&st=55vxskq6&dl=0
+    survey_lines:
+      direction: North South
+      spacing: 600
+
+month-grouper:
+  name: Month Grouper
+  description: A demonstration of a workflow with monthly grouping.
+  params:
+    workflow_details:
+      description: testing local shape file
+      name: Local workflow
+    groupers:
+      groupers: 
+        - "%B"
+    configure_base_maps:
+      base_maps:
+        - url: >-
+            https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}
+          opacity: 0.75
+        - url: >-
+            https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}
+          opacity: 0.1
+    retrieve_file_params:
+      input_method:
+        url: >-
+          https://www.dropbox.com/scl/fi/14rcy4lkwp7xgewj3xf7k/mnc_conservancy.gpkg?rlkey=mtqo7ivxrnvjonm2z1zez6h6f&st=55vxskq6&dl=0
+    survey_lines:
+      direction: North South
+      spacing: 600

@@ -3,7 +3,7 @@ name = "save-the-elephants"
 channels = [
     # Uncomment the following lines to use local channels for development.
     # "file:///tmp/ecoscope-workflows/release/artifacts/",
-    #"file:///tmp/ecoscope-workflows-custom/release/artifacts/",
+    "file:///tmp/ecoscope-workflows-custom/release/artifacts/",
     'https://repo.prefix.dev/ecoscope-workflows/',
     'https://repo.prefix.dev/ecoscope-workflows-custom/',
     'conda-forge',
@@ -20,7 +20,7 @@ hatch-vcs = "*"
 
 [feature.compile.dependencies]
 # Include this if you add new tasks and the package has been built
-ecoscope-workflows-ext-ste = "0.0.5.*"
+ecoscope-workflows-ext-ste = "*"
 ecoscope-workflows-core = "0.19.4.*"
 ecoscope-workflows-ext-custom = "0.0.17.*"
 
@@ -48,10 +48,10 @@ cmd = './dev/pytest-task.sh 311'
 [tasks.pytest-312]
 cmd = './dev/pytest-task.sh 312'
 
-[feature.compile.tasks.compile-mapbook_report]
-cmd = './dev/recompile.sh mapbook_report --install'
+[feature.compile.tasks.compile-aerial_survey_lines]
+cmd = './dev/recompile.sh aerial_survey_lines --install'
 depends-on = ["build-release"]
 
-[feature.compile.tasks.recompile-mapbook_report]
-cmd = './dev/recompile.sh mapbook_report --no-install'
+[feature.compile.tasks.recompile-aerial_survey_lines]
+cmd = './dev/recompile.sh aerial_survey_lines --no-install'
 depends-on = ["build-release"]
