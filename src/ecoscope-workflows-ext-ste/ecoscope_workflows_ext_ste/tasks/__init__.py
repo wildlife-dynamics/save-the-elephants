@@ -2,7 +2,7 @@ from ._example import add_two_thousand
 from ._downloader import fetch_and_persist_file, get_file_path
 from ._ecograph import generate_ecograph_raster, retrieve_feature_gdf
 from ._path_utils import get_local_geo_path
-from ._seasons import create_seasonal_labels, calculate_seasonal_home_range
+from ._seasons import create_seasonal_labels, calculate_seasonal_home_range, custom_determine_season_windows
 from ._tabular import (
     split_gdf_by_column,
     generate_mcp_gdf,
@@ -92,4 +92,5 @@ __all__ = [
     "validate_polygon_geometry",
     "draw_survey_lines",
     "generate_survey_line_colors",
+    "custom_determine_season_windows",
 ]

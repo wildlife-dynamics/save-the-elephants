@@ -65,7 +65,7 @@ ecoscope-workflows-core = ">=0.19.4"
 geopandas="*"
 shapely = "*"
 ecoscope-workflows-ext-ecoscope=">=0.19.4"
-ecoscope-workflows-ext-custom = "0.0.15.*"
+ecoscope-workflows-ext-custom = "0.0.17.*"
 #ecoscope = { extras = ["analysis"], version = "*" }
 earthengine-api ="*"
 docxtpl="*"
