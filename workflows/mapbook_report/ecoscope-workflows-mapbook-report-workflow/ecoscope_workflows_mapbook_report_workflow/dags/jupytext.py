@@ -235,7 +235,7 @@ time_range = (
             "label": "UTC",
             "tzCode": "UTC",
             "name": "UTC",
-            "utc_offset": "+00:00",
+            "utc_offset": "+03:00",
         },
         **time_range_params,
     )

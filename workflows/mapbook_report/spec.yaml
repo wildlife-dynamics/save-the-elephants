@@ -53,7 +53,7 @@ workflow:
         label: UTC 
         tzCode: UTC 
         name: UTC 
-        utc_offset: "+00:00"
+        utc_offset: "+03:00"
 
   - name: Configure grouping strategy 
     id: groupers 

@@ -453,7 +453,7 @@ def main(params: Params):
                     "label": "UTC",
                     "tzCode": "UTC",
                     "name": "UTC",
-                    "utc_offset": "+00:00",
+                    "utc_offset": "+03:00",
                 },
             }
             | (params_dict.get("time_range") or {}),
