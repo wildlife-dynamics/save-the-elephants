@@ -20,31 +20,6 @@
       "description": "Add information that will help to differentiate this workflow from another.",
       "title": "Set workflow details"
     },
-    "groupers": {
-      "additionalProperties": false,
-      "properties": {
-        "groupers": {
-          "default": null,
-          "items": {
-            "anyOf": [
-              {
-                "$ref": "#/$defs/ValueGrouper"
-              },
-              {
-                "$ref": "#/$defs/TemporalGrouper"
-              }
-            ],
-            "title": "Group by"
-          },
-          "title": " ",
-          "type": "array",
-          "description": "            Specify how the data should be grouped to create the views for your dashboard.\n            This field is optional; if left blank, all the data will appear in a single view.\n            "
-        }
-      },
-      "type": "object",
-      "required": [],
-      "title": "Set groupers"
-    },
     "configure_base_maps": {
       "additionalProperties": false,
       "properties": {
@@ -292,49 +267,6 @@
     }
   },
   "$defs": {
-    "TemporalGrouper": {
-      "oneOf": [
-        {
-          "const": "%Y",
-          "title": "Year (example: 2024)"
-        },
-        {
-          "const": "%B",
-          "title": "Month (example: September)"
-        },
-        {
-          "const": "%Y-%m",
-          "title": "Year and Month (example: 2023-01)"
-        },
-        {
-          "const": "%j",
-          "title": "Day of the year as a number (example: 365)"
-        },
-        {
-          "const": "%d",
-          "title": "Day of the month as a number (example: 31)"
-        },
-        {
-          "const": "%A",
-          "title": "Day of the week (example: Sunday)"
-        },
-        {
-          "const": "%H",
-          "title": "Hour (24-hour clock) as number (example: 22)"
-        },
-        {
-          "const": "%Y-%m-%d",
-          "title": "Date (example: 2025-01-31)"
-        }
-      ],
-      "title": "Time",
-      "type": "string"
-    },
-    "ValueGrouper": {
-      "oneOf": [],
-      "title": "Category",
-      "type": "string"
-    },
     "DownloadFile": {
       "properties": {
         "url": {
@@ -379,7 +311,6 @@
     },
     "ui:order": [
       "workflow_details",
-      "groupers",
       "configure_base_maps",
       "retrieve_file_params",
       "survey_lines"

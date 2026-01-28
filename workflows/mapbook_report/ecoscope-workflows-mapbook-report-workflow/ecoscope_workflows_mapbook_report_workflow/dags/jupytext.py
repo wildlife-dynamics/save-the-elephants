@@ -109,6 +109,7 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import (
     combine_deckgl_map_layers as combine_deckgl_map_layers,
 )
+from ecoscope_workflows_ext_ste.tasks import convert_to_str as convert_to_str
 from ecoscope_workflows_ext_ste.tasks import create_column as create_column
 from ecoscope_workflows_ext_ste.tasks import create_context_page as create_context_page
 from ecoscope_workflows_ext_ste.tasks import (
@@ -1848,6 +1849,44 @@ format_speed_values = (
 
 
 # %% [markdown]
+# ## Exclude unnecessary columns from speedmap gdf
+
+# %%
+# parameters
+
+filter_speed_cols_params = dict()
+
+# %%
+# call the task
+
+
+filter_speed_cols = (
+    filter_df_cols.set_task_instance_id("filter_speed_cols")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        columns=[
+            "dist_meters",
+            "speed_bins_colormap",
+            "geometry",
+            "speed_kmhr",
+            "hex_color",
+            "speed_bins_formatted",
+        ],
+        **filter_speed_cols_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=format_speed_values)
+)
+
+
+# %% [markdown]
 # ## Generate speedmap layers
 
 # %%
@@ -1893,7 +1932,7 @@ generate_speedmap_layers = (
         },
         **generate_speedmap_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=format_speed_values)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_speed_cols)
 )
 
 
@@ -1921,7 +1960,7 @@ zoom_speed_gdf_extent = (
         unpack_depth=1,
     )
     .partial(pitch=0, bearing=0, **zoom_speed_gdf_extent_params)
-    .mapvalues(argnames=["gdf"], argvalues=format_speed_values)
+    .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
 )
 
 
@@ -2183,6 +2222,37 @@ apply_day_night_colormap = (
 
 
 # %% [markdown]
+# ## Exclude unnecessary columns from day/night gdf
+
+# %%
+# parameters
+
+filter_day_night_cols_params = dict()
+
+# %%
+# call the task
+
+
+filter_day_night_cols = (
+    filter_df_cols.set_task_instance_id("filter_day_night_cols")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        columns=["dist_meters", "is_night", "day_night_colors", "geometry"],
+        **filter_day_night_cols_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=apply_day_night_colormap)
+)
+
+
+# %% [markdown]
 # ## Create day/night map layers
 
 # %%
@@ -2228,7 +2298,7 @@ generate_day_night_layers = (
         },
         **generate_day_night_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=apply_day_night_colormap)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_day_night_cols)
 )
 
 
@@ -2485,6 +2555,37 @@ sort_trajs_by_status = (
 
 
 # %% [markdown]
+# ## Exclude unnecessary columns from movement gdf
+
+# %%
+# parameters
+
+filter_movement_cols_params = dict()
+
+# %%
+# call the task
+
+
+filter_movement_cols = (
+    filter_df_cols.set_task_instance_id("filter_movement_cols")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        columns=["duration_status", "duration_status_colors", "is_night", "geometry"],
+        **filter_movement_cols_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=sort_trajs_by_status)
+)
+
+
+# %% [markdown]
 # ## Create movement track layers
 
 # %%
@@ -2530,7 +2631,7 @@ generate_track_layers = (
         },
         **generate_track_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=sort_trajs_by_status)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_movement_cols)
 )
 
 
@@ -2948,6 +3049,37 @@ apply_etd_colormap = (
 
 
 # %% [markdown]
+# ## Exclude unnecessary columns from etd gdf
+
+# %%
+# parameters
+
+filter_etd_cols_params = dict()
+
+# %%
+# call the task
+
+
+filter_etd_cols = (
+    filter_df_cols.set_task_instance_id("filter_etd_cols")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        columns=["etd_percentile_colors", "percentile", "area_sqkm", "geometry"],
+        **filter_etd_cols_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=apply_etd_colormap)
+)
+
+
+# %% [markdown]
 # ## Create home range layers
 
 # %%
@@ -2996,7 +3128,35 @@ generate_home_range_layers = (
         },
         **generate_home_range_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=apply_etd_colormap)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_etd_cols)
+)
+
+
+# %% [markdown]
+# ## Exclude unnecessary columns from mcp gdf
+
+# %%
+# parameters
+
+filter_mcp_cols_params = dict()
+
+# %%
+# call the task
+
+
+filter_mcp_cols = (
+    filter_df_cols.set_task_instance_id("filter_mcp_cols")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(columns=["area_km2", "geometry"], **filter_mcp_cols_params)
+    .mapvalues(argnames=["df"], argvalues=generate_mcp)
 )
 
 
@@ -3046,7 +3206,7 @@ create_mcp_polygon_layer = (
         },
         **create_mcp_polygon_layer_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=generate_mcp)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_mcp_cols)
 )
 
 
@@ -3503,6 +3663,37 @@ format_speed_raster_labels = (
 
 
 # %% [markdown]
+# ## Exclude unnecessary columns from mean speed raster gdf
+
+# %%
+# parameters
+
+filter_mean_speed_cols_params = dict()
+
+# %%
+# call the task
+
+
+filter_mean_speed_cols = (
+    filter_df_cols.set_task_instance_id("filter_mean_speed_cols")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        columns=["bins_formatted", "speedraster_bins_colormap", "geometry"],
+        **filter_mean_speed_cols_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=format_speed_raster_labels)
+)
+
+
+# %% [markdown]
 # ## Create mean speed raster layer
 
 # %%
@@ -3551,7 +3742,7 @@ create_mean_speed_raster_layer = (
         },
         **create_mean_speed_raster_layer_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=format_speed_raster_labels)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_mean_speed_cols)
 )
 
 
@@ -3813,6 +4004,34 @@ seasonal_home_range = (
 
 
 # %% [markdown]
+# ## Convert season column to string
+
+# %%
+# parameters
+
+convert_season_to_string_params = dict()
+
+# %%
+# call the task
+
+
+convert_season_to_string = (
+    convert_to_str.set_task_instance_id("convert_season_to_string")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(columns=["season"], **convert_season_to_string_params)
+    .mapvalues(argnames=["df"], argvalues=seasonal_home_range)
+)
+
+
+# %% [markdown]
 # ## Assign season colors to dataframe
 
 # %%
@@ -3836,7 +4055,37 @@ assign_season_df = (
         unpack_depth=1,
     )
     .partial(seasons_column="season", **assign_season_df_params)
-    .mapvalues(argnames=["gdf"], argvalues=seasonal_home_range)
+    .mapvalues(argnames=["gdf"], argvalues=convert_season_to_string)
+)
+
+
+# %% [markdown]
+# ## Exclude unnecessary columns from mean speed raster gdf
+
+# %%
+# parameters
+
+filter_season_cols_params = dict()
+
+# %%
+# call the task
+
+
+filter_season_cols = (
+    filter_df_cols.set_task_instance_id("filter_season_cols")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        columns=["season_colors", "season", "geometry"], **filter_season_cols_params
+    )
+    .mapvalues(argnames=["df"], argvalues=assign_season_df)
 )
 
 
@@ -3889,7 +4138,7 @@ generate_season_layers = (
         },
         **generate_season_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=assign_season_df)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_season_cols)
 )
 
 
@@ -4773,7 +5022,7 @@ get_split_names = (
         ],
         unpack_depth=1,
     )
-    .partial(split_data=split_traj_by_group, **get_split_names_params)
+    .partial(split_data=[split_traj_by_group], **get_split_names_params)
     .call()
 )
 

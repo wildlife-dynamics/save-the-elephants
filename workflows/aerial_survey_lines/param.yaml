@@ -1,8 +1,6 @@
 workflow_details:
   description: testing local shape file
   name: Local workflow
-groupers:
-  groupers: []
 configure_base_maps:
   base_maps:
     - url: >-
@@ -11,10 +9,10 @@ configure_base_maps:
     - url: >-
         https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}
       opacity: 0.1
-retrieve_file_params:
-  input_method:
-    file_path: >-
-      /Users/tevintemu/Desktop/Ecoscope/shapefiles/big-life/national_parks_and_reserves.gpkg
+  retrieve_file_params:
+    input_method:
+      url: >-
+        https://www.dropbox.com/scl/fi/14rcy4lkwp7xgewj3xf7k/mnc_conservancy.gpkg?rlkey=mtqo7ivxrnvjonm2z1zez6h6f&st=55vxskq6&dl=0
 survey_lines:
   direction: North South
   spacing: 600

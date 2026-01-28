@@ -77,7 +77,7 @@ def main(params: Params):
                 "label": "UTC",
                 "tzCode": "UTC",
                 "name": "UTC",
-                "utc_offset": "+00:00",
+                "utc_offset": "+03:00",
             },
             since="2026-01-01T00:00:00Z",
             until="2026-02-28T23:59:59Z",
@@ -98,7 +98,7 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("groupers") or {}))
+        .partial(groupers=[], **(params_dict.get("groupers") or {}))
         .call()
     )
 
@@ -357,8 +357,8 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            static_layers=generate_layers_map,
-            grouped_layers=aerial_survey_polylines,
+            static_layers=[generate_layers_map],
+            grouped_layers=[aerial_survey_polylines],
             **(params_dict.get("combine_map_layers") or {}),
         )
         .call()

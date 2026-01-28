@@ -25,7 +25,6 @@ from ecoscope_workflows_core.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
 )
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
-from ecoscope_workflows_core.testing import create_task_magicmock  # 🧪
 from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_geojson_layer as create_geojson_layer,
@@ -89,7 +88,7 @@ def main(params: Params):
                 "label": "UTC",
                 "tzCode": "UTC",
                 "name": "UTC",
-                "utc_offset": "+00:00",
+                "utc_offset": "+03:00",
             },
             since="2026-01-01T00:00:00Z",
             until="2026-02-28T23:59:59Z",
@@ -110,7 +109,7 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("groupers") or {}))
+        .partial(groupers=[], **(params_dict.get("groupers") or {}))
         .call()
     )
 
@@ -369,8 +368,8 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            static_layers=generate_layers_map,
-            grouped_layers=aerial_survey_polylines,
+            static_layers=[generate_layers_map],
+            grouped_layers=[aerial_survey_polylines],
             **(params_dict.get("combine_map_layers") or {}),
         )
         .call()

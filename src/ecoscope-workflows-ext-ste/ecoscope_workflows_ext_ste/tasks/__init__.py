@@ -11,6 +11,7 @@ from ._tabular import (
     get_duration,
     filter_df_cols,
     create_column,
+    convert_to_str,
 )
 from ._zip import zip_groupbykey
 from ._time_comparison import determine_previous_period
@@ -63,6 +64,7 @@ __all__ = [
     "get_duration",
     "filter_df_cols",
     "create_column",
+    "convert_to_str",
     "zip_groupbykey",
     "determine_previous_period",
     "view_state_deck_gdf",

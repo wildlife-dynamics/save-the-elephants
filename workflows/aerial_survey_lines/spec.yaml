@@ -2,20 +2,20 @@ id: aerial_survey_lines
 
 requirements:
   - name: ecoscope-workflows-core
-    version: "0.19.4.*"
+    version: "0.21.2.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-ecoscope
-    version: "0.19.4.*"
+    version: "0.21.2.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.17.*"
+    version: "0.0.20.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.6.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    version: "*"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
 
 task-instance-defaults:
   skipif:
@@ -38,14 +38,16 @@ workflow:
         label: UTC 
         tzCode: UTC 
         name: UTC 
-        utc_offset: "+00:00"
+        utc_offset: "+03:00"
       since: "2026-01-01T00:00:00Z"
       until: "2026-02-28T23:59:59Z"
 
   - name: Set groupers
     id: groupers
     task: set_groupers
-
+    partial:
+      groupers: []
+      
   - name: Configure base map layers
     id: configure_base_maps
     task: set_base_maps_pydeck

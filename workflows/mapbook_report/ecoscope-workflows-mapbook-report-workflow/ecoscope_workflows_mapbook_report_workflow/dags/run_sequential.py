@@ -99,6 +99,7 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import (
     combine_deckgl_map_layers as combine_deckgl_map_layers,
 )
+from ecoscope_workflows_ext_ste.tasks import convert_to_str as convert_to_str
 from ecoscope_workflows_ext_ste.tasks import create_column as create_column
 from ecoscope_workflows_ext_ste.tasks import create_context_page as create_context_page
 from ecoscope_workflows_ext_ste.tasks import (
@@ -1250,6 +1251,32 @@ def main(params: Params):
         .mapvalues(argnames=["df"], argvalues=format_speed_bin_labels)
     )
 
+    filter_speed_cols = (
+        filter_df_cols.validate()
+        .set_task_instance_id("filter_speed_cols")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            columns=[
+                "dist_meters",
+                "speed_bins_colormap",
+                "geometry",
+                "speed_kmhr",
+                "hex_color",
+                "speed_bins_formatted",
+            ],
+            **(params_dict.get("filter_speed_cols") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=format_speed_values)
+    )
+
     generate_speedmap_layers = (
         create_path_layer.validate()
         .set_task_instance_id("generate_speedmap_layers")
@@ -1285,7 +1312,7 @@ def main(params: Params):
             },
             **(params_dict.get("generate_speedmap_layers") or {}),
         )
-        .mapvalues(argnames=["geodataframe"], argvalues=format_speed_values)
+        .mapvalues(argnames=["geodataframe"], argvalues=filter_speed_cols)
     )
 
     zoom_speed_gdf_extent = (
@@ -1301,7 +1328,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(pitch=0, bearing=0, **(params_dict.get("zoom_speed_gdf_extent") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=format_speed_values)
+        .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
     )
 
     combined_ldx_speed_layers = (
@@ -1466,6 +1493,25 @@ def main(params: Params):
         .mapvalues(argnames=["df"], argvalues=sort_trajs_by_day_night)
     )
 
+    filter_day_night_cols = (
+        filter_df_cols.validate()
+        .set_task_instance_id("filter_day_night_cols")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            columns=["dist_meters", "is_night", "day_night_colors", "geometry"],
+            **(params_dict.get("filter_day_night_cols") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=apply_day_night_colormap)
+    )
+
     generate_day_night_layers = (
         create_path_layer.validate()
         .set_task_instance_id("generate_day_night_layers")
@@ -1501,7 +1547,7 @@ def main(params: Params):
             },
             **(params_dict.get("generate_day_night_layers") or {}),
         )
-        .mapvalues(argnames=["geodataframe"], argvalues=apply_day_night_colormap)
+        .mapvalues(argnames=["geodataframe"], argvalues=filter_day_night_cols)
     )
 
     combined_ldx_daynight_layers = (
@@ -1663,6 +1709,30 @@ def main(params: Params):
         .mapvalues(argnames=["df"], argvalues=assign_duration_colors)
     )
 
+    filter_movement_cols = (
+        filter_df_cols.validate()
+        .set_task_instance_id("filter_movement_cols")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            columns=[
+                "duration_status",
+                "duration_status_colors",
+                "is_night",
+                "geometry",
+            ],
+            **(params_dict.get("filter_movement_cols") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=sort_trajs_by_status)
+    )
+
     generate_track_layers = (
         create_path_layer.validate()
         .set_task_instance_id("generate_track_layers")
@@ -1698,7 +1768,7 @@ def main(params: Params):
             },
             **(params_dict.get("generate_track_layers") or {}),
         )
-        .mapvalues(argnames=["geodataframe"], argvalues=sort_trajs_by_status)
+        .mapvalues(argnames=["geodataframe"], argvalues=filter_movement_cols)
     )
 
     combined_ldx_movement_layers = (
@@ -1958,6 +2028,25 @@ def main(params: Params):
         .mapvalues(argnames=["df"], argvalues=generate_etd)
     )
 
+    filter_etd_cols = (
+        filter_df_cols.validate()
+        .set_task_instance_id("filter_etd_cols")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            columns=["etd_percentile_colors", "percentile", "area_sqkm", "geometry"],
+            **(params_dict.get("filter_etd_cols") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=apply_etd_colormap)
+    )
+
     generate_home_range_layers = (
         create_geojson_layer.validate()
         .set_task_instance_id("generate_home_range_layers")
@@ -1996,7 +2085,26 @@ def main(params: Params):
             },
             **(params_dict.get("generate_home_range_layers") or {}),
         )
-        .mapvalues(argnames=["geodataframe"], argvalues=apply_etd_colormap)
+        .mapvalues(argnames=["geodataframe"], argvalues=filter_etd_cols)
+    )
+
+    filter_mcp_cols = (
+        filter_df_cols.validate()
+        .set_task_instance_id("filter_mcp_cols")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            columns=["area_km2", "geometry"],
+            **(params_dict.get("filter_mcp_cols") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=generate_mcp)
     )
 
     create_mcp_polygon_layer = (
@@ -2034,7 +2142,7 @@ def main(params: Params):
             },
             **(params_dict.get("create_mcp_polygon_layer") or {}),
         )
-        .mapvalues(argnames=["geodataframe"], argvalues=generate_mcp)
+        .mapvalues(argnames=["geodataframe"], argvalues=filter_mcp_cols)
     )
 
     zip_home_range_with_mcp_layer = (
@@ -2324,6 +2432,25 @@ def main(params: Params):
         .mapvalues(argnames=["df"], argvalues=apply_speed_raster_colormap)
     )
 
+    filter_mean_speed_cols = (
+        filter_df_cols.validate()
+        .set_task_instance_id("filter_mean_speed_cols")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            columns=["bins_formatted", "speedraster_bins_colormap", "geometry"],
+            **(params_dict.get("filter_mean_speed_cols") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=format_speed_raster_labels)
+    )
+
     create_mean_speed_raster_layer = (
         create_geojson_layer.validate()
         .set_task_instance_id("create_mean_speed_raster_layer")
@@ -2362,7 +2489,7 @@ def main(params: Params):
             },
             **(params_dict.get("create_mean_speed_raster_layer") or {}),
         )
-        .mapvalues(argnames=["geodataframe"], argvalues=format_speed_raster_labels)
+        .mapvalues(argnames=["geodataframe"], argvalues=filter_mean_speed_cols)
     )
 
     combined_ldx_speed_raster = (
@@ -2527,6 +2654,24 @@ def main(params: Params):
         .mapvalues(argnames=["gdf"], argvalues=add_season_labels)
     )
 
+    convert_season_to_string = (
+        convert_to_str.validate()
+        .set_task_instance_id("convert_season_to_string")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            columns=["season"], **(params_dict.get("convert_season_to_string") or {})
+        )
+        .mapvalues(argnames=["df"], argvalues=seasonal_home_range)
+    )
+
     assign_season_df = (
         assign_season_colors.validate()
         .set_task_instance_id("assign_season_df")
@@ -2540,7 +2685,26 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(seasons_column="season", **(params_dict.get("assign_season_df") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=seasonal_home_range)
+        .mapvalues(argnames=["gdf"], argvalues=convert_season_to_string)
+    )
+
+    filter_season_cols = (
+        filter_df_cols.validate()
+        .set_task_instance_id("filter_season_cols")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            columns=["season_colors", "season", "geometry"],
+            **(params_dict.get("filter_season_cols") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=assign_season_df)
     )
 
     generate_season_layers = (
@@ -2581,7 +2745,7 @@ def main(params: Params):
             },
             **(params_dict.get("generate_season_layers") or {}),
         )
-        .mapvalues(argnames=["geodataframe"], argvalues=assign_season_df)
+        .mapvalues(argnames=["geodataframe"], argvalues=filter_season_cols)
     )
 
     combined_ldx_seasonal_hr_layers = (
@@ -3149,7 +3313,8 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            split_data=split_traj_by_group, **(params_dict.get("get_split_names") or {})
+            split_data=[split_traj_by_group],
+            **(params_dict.get("get_split_names") or {}),
         )
         .call()
     )
