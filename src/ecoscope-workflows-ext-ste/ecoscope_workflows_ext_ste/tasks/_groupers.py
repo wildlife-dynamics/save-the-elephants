@@ -1,3 +1,4 @@
+import logging
 from pydantic import Field
 from typing import Annotated, Any, Union, List
 from ecoscope_workflows_core.decorators import task
@@ -11,6 +12,8 @@ from ecoscope_workflows_core.indexes import (
     ValueGrouper,
 )
 from ecoscope_workflows_core.tasks.groupby._groupby import _groupers_field_json_schema_extra
+
+logger = logging.getLogger(__name__)
 
 
 @task
@@ -40,7 +43,7 @@ def get_split_group_column(
         # Extract column name from the first filter tuple
         column_name, _, _ = composite_filter[0]
         return column_name
-    print(f"column name: {column_name}")
+    logging.info(f"column name: {column_name}")
     return None
 
 
@@ -67,7 +70,7 @@ def get_split_group_values(
         for index_name, _, value in composite_filter:
             group_values[index_name] = value
         values_list.append(group_values)
-        print(f"values list: {values_list}")
+        logging.info(f"values list: {values_list}")
     return values_list
 
 
@@ -96,7 +99,6 @@ def get_split_group_names(
             names.append(str(value))
         else:
             names.append("Unknown")
-    print(f"grouper names==> {names}")
     return names
 
 

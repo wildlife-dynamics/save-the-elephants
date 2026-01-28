@@ -1,9 +1,12 @@
+import logging
 import geopandas as gpd
 from pydantic import Field
 from ecoscope_workflows_core.decorators import task
 from typing import Annotated, Dict, Literal, Union, List
 from ecoscope_workflows_core.tasks.filter._filter import TimeRange
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame
+
+logger = logging.getLogger(__name__)
 
 
 @task
@@ -55,7 +58,7 @@ def generate_mcp_gdf(
     convex_hull_original_crs = gpd.GeoSeries([convex_hull], crs=planar_crs).to_crs(original_crs).iloc[0]
 
     result_gdf = gpd.GeoDataFrame(
-        {"area_m2": [area_sq_meters], "area_km2": [area_sq_km], "mcp": "mcp"},
+        {"area_m2": [area_sq_meters], "area_km2": [area_sq_km]},
         geometry=[convex_hull_original_crs],
         crs=original_crs,
     )
@@ -177,4 +180,25 @@ def create_column(df: AnyDataFrame, col_name: str, value: int | float | str) -> 
     df = df.copy()
     if col_name not in df.columns:
         df[col_name] = value
+    return df
+
+
+@task
+def convert_to_str(
+    df: AnyDataFrame,
+    columns: Union[str, List[str]],
+) -> AnyDataFrame:
+    if isinstance(columns, str):
+        columns = [columns]
+
+    for column in columns:
+        if column not in df.columns:
+            logger.info(f"Warning: Column '{column}' not found in DataFrame. Skipping.")
+            continue
+
+        try:
+            df[column] = df[column].astype(str)
+        except Exception as e:
+            logger.info(f"Error converting column '{column}' to int: {e}")
+
     return df

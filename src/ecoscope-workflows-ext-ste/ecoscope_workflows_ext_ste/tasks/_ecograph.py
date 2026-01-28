@@ -1,4 +1,5 @@
 import os
+import logging
 import hashlib
 import pandas as pd
 from pydantic import Field
@@ -8,6 +9,8 @@ from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame
 from ecoscope.analysis.ecograph import Ecograph, get_feature_gdf
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
+
+logger = logging.getLogger(__name__)
 
 
 @task
@@ -36,6 +39,7 @@ def generate_ecograph_raster(
     ] = None,
     network_metric: Optional[Literal["weight", "betweenness", "degree", "collective_influence"]] = None,
 ) -> str:
+    logger.info("Starting generate_ecograph_raster task.")
     if gdf is None or gdf.empty:
         raise ValueError("`generate_ecograph_raster`:Trajectory gdf is empty.")
 
@@ -79,6 +83,7 @@ def generate_ecograph_raster(
 
     covariate = movement_covariate if movement_covariate is not None else network_metric
     ecograph.to_geotiff(covariate, raster_path, interpolation=interpolation)
+    logger.info(f"Ecograph raster generated at: {raster_path}")
     return raster_path
 
 
@@ -89,6 +94,7 @@ def retrieve_feature_gdf(
     if not isinstance(file_path, str) or not file_path:
         raise ValueError("retrieve_feature_gdf: 'file_path' must be a non-empty string.")
 
+    logger.info(f"Retrieving feature GeoDataFrame from: {file_path}")
     file_path = remove_file_scheme(file_path)
     gdf = get_feature_gdf(file_path)
     return gdf

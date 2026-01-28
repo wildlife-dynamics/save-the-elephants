@@ -59,6 +59,7 @@ def fetch_and_persist_file(
     If output_path is not specified, saves to the current working directory.
     Returns the full path to the downloaded file, or if unzipped, the path to the extracted directory.
     """
+    logger.info(f"Downloading file from URL: {url}")
     if output_path is None or str(output_path).strip() == "":
         output_path = os.getcwd()
     else:
@@ -96,14 +97,12 @@ def fetch_and_persist_file(
     if not target_path or str(target_path).strip() == "":
         raise ValueError("Computed download target path is empty. Check 'output_path' argument.")
 
-    # Store the parent directory to check for extracted content
     parent_dir = os.path.dirname(target_path)
     before_extraction = set()
     if unzip:
         if os.path.exists(parent_dir):
             before_extraction = set(os.listdir(parent_dir))
 
-    # Do the download and bubble up useful context on failure
     try:
         download_file(
             url=url,
@@ -113,7 +112,6 @@ def fetch_and_persist_file(
             unzip=unzip,
         )
     except Exception as e:
-        # include debug info so callers can see what was attempted
         raise RuntimeError(
             f"download_file failed for url={url!r} path={target_path!r} retries={retries}. " f"Original error: {e}"
         ) from e
@@ -152,6 +150,7 @@ def fetch_and_persist_file(
             )
         else:
             raise FileNotFoundError(f"Download failed — {persisted_path}. Parent dir missing: {parent}")
+    logger.info(f"File downloaded and persisted at: {persisted_path}")
     return persisted_path
 
 

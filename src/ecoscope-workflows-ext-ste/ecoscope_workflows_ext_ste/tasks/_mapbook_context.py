@@ -1,5 +1,6 @@
 import os
 import uuid
+import logging
 from pathlib import Path
 from pydantic import Field
 from docx.shared import Cm
@@ -11,6 +12,8 @@ from ecoscope_workflows_core.tasks.filter._filter import TimeRange
 from ecoscope_workflows_core.tasks.transformation._unit import Quantity
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
 from ecoscope_workflows_core.annotations import AnyDataFrame
+
+logger = logging.getLogger(__name__)
 
 
 @task
@@ -73,6 +76,7 @@ def create_context_page(
     Returns:
         str: Full path to the generated .docx file.
     """
+    logger.info("Starting create_context_page task.")
     # Normalize paths
     template_path = remove_file_scheme(template_path)
     output_dir = remove_file_scheme(output_dir)
@@ -102,6 +106,7 @@ def create_context_page(
         )
     doc.render(context)
     doc.save(output_path)
+    logger.info(f"Context page document created at: {output_path}")
     return str(output_path)
 
 
@@ -157,7 +162,7 @@ def validate_image_path(field_name: str, path: str) -> None:
             f"Expected one of {valid_extensions}"
         )
 
-    print(f" Validated image for '{field_name}': {normalized_path}")
+    logging.info(f" Validated image for '{field_name}': {normalized_path}")
 
 
 @task
@@ -199,11 +204,11 @@ def create_mapbook_grouper_ctx(
     if mcp_area and mcp_area.value is not None:
         mcp_area_str = f"{mcp_area.value:.1f} {mcp_area.unit}"
 
-    print(f"grid area: {grid_area_str} || mcp area: {mcp_area_str}")
+    logging.info(f"grid area: {grid_area_str} || mcp area: {mcp_area_str}")
 
     # Extract grouper value dynamically
     grouper_value = "All"
-    print(f"grouper name raw: {grouper_name} (type: {type(grouper_name)})")
+    logging.info(f"grouper name raw: {grouper_name} (type: {type(grouper_name)})")
 
     if grouper_name:
         if isinstance(grouper_name, str):
@@ -219,12 +224,12 @@ def create_mapbook_grouper_ctx(
                     grouper_value = "All"
                 else:
                     grouper_value = str(value)
-                print(f"Extracted from tuple structure: {grouper_value}")
+                logging.info(f"Extracted from tuple structure: {grouper_value}")
             # Handle grouper objects
             elif hasattr(first_item, "__class__"):
                 grouper = first_item
                 grouper_type = grouper.__class__.__name__
-                print(f"grouper_type: {grouper_type}")
+                logging.info(f"grouper_type: {grouper_type}")
 
                 if grouper_type == "ValueGrouper":
                     index_name = getattr(grouper, "index_name", None)
@@ -249,7 +254,7 @@ def create_mapbook_grouper_ctx(
         else:
             grouper_value = str(grouper_name)
 
-    print(f"grouper_value: {grouper_value}")
+    logging.info(f"grouper_value: {grouper_value}")
 
     # Map parsing with None handling
     map_suffixes = {
@@ -281,7 +286,7 @@ def create_mapbook_grouper_ctx(
         **mapbook_png_paths,
     }
 
-    print(f"Context: {ctx}")
+    logging.info(f"Context: {ctx}")
     return ctx
 
 
@@ -370,7 +375,7 @@ def _format_temporal_grouper(grouper: Any, df: AnyDataFrame) -> str:
                             return f"{formatted[0]} - {formatted[-1]}"
 
             except Exception as e:
-                print(f"Error extracting temporal value from segment_start: {e}")
+                logging.info(f"Error extracting temporal value from segment_start: {e}")
 
         # Fallback: Use directive mapping
         directive_mapping = {
@@ -432,7 +437,7 @@ def _format_temporal_value(value: Any, frequency: str | None) -> str:
             try:
                 return value.strftime("%B %Y")
             except Exception as e:
-                print(f"{e}")
+                logging.info(f"{e}")
                 pass
 
     # Handle day of week
@@ -627,20 +632,20 @@ def merge_mapbook_files(
 
     # Normalize paths - filter out None and SkipSentinel
     normalized_paths = []
-    print(f"Context page items: {context_page_items}")
+    logging.info(f"Context page items: {context_page_items}")
     for idx, item in enumerate(context_page_items):
         if item is None or is_skip_sentinel(item):
-            print(f"Skipping item {idx}: None or SkipSentinel")
+            logging.info(f"Skipping item {idx}: None or SkipSentinel")
             continue
 
         path = extract_path(item)
         if path is not None:
             normalized_paths.append(path)
         else:
-            print(f"Skipping item {idx}: Could not extract valid path")
+            logging.error(f"Skipping item {idx}: Could not extract valid path")
 
     if not normalized_paths:
-        print("Warning: No valid context pages to merge, returning cover page only")
+        logging.info("Warning: No valid context pages to merge, returning cover page only")
         # Just save cover page as output
         output_dir = remove_file_scheme(output_dir)
         os.makedirs(output_dir, exist_ok=True)

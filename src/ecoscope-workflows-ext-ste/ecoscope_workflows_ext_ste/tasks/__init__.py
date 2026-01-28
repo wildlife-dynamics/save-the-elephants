@@ -1,4 +1,3 @@
-from ._example import add_two_thousand
 from ._downloader import fetch_and_persist_file, get_file_path
 from ._ecograph import generate_ecograph_raster, retrieve_feature_gdf
 from ._path_utils import get_local_geo_path
@@ -11,6 +10,7 @@ from ._tabular import (
     get_duration,
     filter_df_cols,
     create_column,
+    convert_to_str,
 )
 from ._zip import zip_groupbykey
 from ._time_comparison import determine_previous_period
@@ -48,7 +48,6 @@ from ._filter import filter_groups_by_value_criteria
 from ._aerial_lines import validate_polygon_geometry, draw_survey_lines, generate_survey_line_colors, transform_gdf_crs
 
 __all__ = [
-    "add_two_thousand",
     "fetch_and_persist_file",
     "get_file_path",
     "generate_ecograph_raster",
@@ -63,6 +62,7 @@ __all__ = [
     "get_duration",
     "filter_df_cols",
     "create_column",
+    "convert_to_str",
     "zip_groupbykey",
     "determine_previous_period",
     "view_state_deck_gdf",

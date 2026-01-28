@@ -108,7 +108,7 @@ time_range = (
             "label": "UTC",
             "tzCode": "UTC",
             "name": "UTC",
-            "utc_offset": "+00:00",
+            "utc_offset": "+03:00",
         },
         since="2026-01-01T00:00:00Z",
         until="2026-02-28T23:59:59Z",
@@ -124,9 +124,7 @@ time_range = (
 # %%
 # parameters
 
-groupers_params = dict(
-    groupers=...,
-)
+groupers_params = dict()
 
 # %%
 # call the task
@@ -143,7 +141,7 @@ groupers = (
         ],
         unpack_depth=1,
     )
-    .partial(**groupers_params)
+    .partial(groupers=[], **groupers_params)
     .call()
 )
 
@@ -541,8 +539,8 @@ combine_map_layers = (
         unpack_depth=1,
     )
     .partial(
-        static_layers=generate_layers_map,
-        grouped_layers=aerial_survey_polylines,
+        static_layers=[generate_layers_map],
+        grouped_layers=[aerial_survey_polylines],
         **combine_map_layers_params,
     )
     .call()

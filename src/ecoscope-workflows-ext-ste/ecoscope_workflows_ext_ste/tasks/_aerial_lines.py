@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import geopandas as gpd
 from typing import Literal, Union
@@ -8,12 +9,13 @@ from ecoscope_workflows_core.annotations import AnyGeoDataFrame
 from ecoscope_workflows_ext_custom.tasks.transformation._data_cleanup import drop_null_geometry
 
 
+logger = logging.getLogger(__name__)
+
+
 @task
 def validate_polygon_geometry(gdf: AnyGeoDataFrame) -> AnyGeoDataFrame:
-    # Drop null geometries first, before validation
+    logger.info("Validating polygon geometries in GeoDataFrame.")
     gdf = drop_null_geometry(gdf)
-
-    # Handle empty GeoDataFrame
     if len(gdf) == 0:
         return gdf
 
@@ -26,7 +28,6 @@ def validate_polygon_geometry(gdf: AnyGeoDataFrame) -> AnyGeoDataFrame:
             f"Invalid geometry types found: {invalid_types}. "
             f"Only Polygon and MultiPolygon are supported for aerial survey lines."
         )
-
     return gdf
 
 
@@ -47,6 +48,7 @@ def draw_survey_lines(
     Returns:
         GeoDataFrame: GeoDataFrame of clipped survey lines.
     """
+    logger.info(f"Generating {direction} survey lines with {spacing}m spacing.")
     gdf = gdf.to_crs(epsg=3857)
 
     if any(isinstance(geom, MultiPolygon) for geom in gdf.geometry):

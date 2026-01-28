@@ -11,7 +11,7 @@ import json
 import os
 import warnings  # 🧪
 
-from ecoscope_workflows_core.graph import DependsOn, DependsOnSequence, Graph, Node
+from ecoscope_workflows_core.graph import DependsOn, Graph, Node
 from ecoscope_workflows_core.tasks.config import (
     set_workflow_details as set_workflow_details,
 )
@@ -26,7 +26,6 @@ from ecoscope_workflows_core.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
 )
 from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
-from ecoscope_workflows_core.testing import create_task_magicmock  # 🧪
 from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_geojson_layer as create_geojson_layer,
@@ -123,7 +122,7 @@ def main(params: Params):
                     "label": "UTC",
                     "tzCode": "UTC",
                     "name": "UTC",
-                    "utc_offset": "+00:00",
+                    "utc_offset": "+03:00",
                 },
                 "since": "2026-01-01T00:00:00Z",
                 "until": "2026-02-28T23:59:59Z",
@@ -144,7 +143,7 @@ def main(params: Params):
                 unpack_depth=1,
             )
             .set_executor("lithops"),
-            partial=(params_dict.get("groupers") or {}),
+            partial={} | (params_dict.get("groupers") or {}),
             method="call",
         ),
         "configure_base_maps": Node(
@@ -238,15 +237,28 @@ def main(params: Params):
             partial={
                 "gdf": DependsOn("assign_geom_type"),
                 "style": {
-                    "get_fill_color": [85, 107, 47],
-                    "get_line_color": [85, 107, 47],
+                    "get_fill_color": [
+                        85,
+                        107,
+                        47,
+                    ],
+                    "get_line_color": [
+                        85,
+                        107,
+                        47,
+                    ],
                     "opacity": 0.15,
                     "stroked": True,
                     "get_line_width": 1.25,
                 },
                 "legend": {
                     "title": "Legend",
-                    "values": [{"label": "Area of Interest", "color": "#556b2f"}],
+                    "values": [
+                        {
+                            "label": "Area of Interest",
+                            "color": "#556b2f",
+                        },
+                    ],
                 },
             }
             | (params_dict.get("generate_layers_map") or {}),
@@ -354,8 +366,16 @@ def main(params: Params):
                     "stroked": True,
                     "extruded": False,
                     "wireframe": False,
-                    "get_fill_color": [255, 265, 0],
-                    "get_line_color": [255, 265, 0],
+                    "get_fill_color": [
+                        255,
+                        265,
+                        0,
+                    ],
+                    "get_line_color": [
+                        255,
+                        265,
+                        0,
+                    ],
                     "opacity": 0.85,
                     "get_line_width": 1.55,
                     "get_elevation": 0,
@@ -367,7 +387,12 @@ def main(params: Params):
                 },
                 "legend": {
                     "title": "",
-                    "values": [{"label": "Aerial lines", "color": "#ffa500"}],
+                    "values": [
+                        {
+                            "label": "Aerial lines",
+                            "color": "#ffa500",
+                        },
+                    ],
                 },
                 "geodataframe": DependsOn("transform_gdf"),
             }
@@ -409,8 +434,12 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "static_layers": DependsOn("generate_layers_map"),
-                "grouped_layers": DependsOn("aerial_survey_polylines"),
+                "static_layers": [
+                    DependsOn("generate_layers_map"),
+                ],
+                "grouped_layers": [
+                    DependsOn("aerial_survey_polylines"),
+                ],
             }
             | (params_dict.get("combine_map_layers") or {}),
             method="call",
@@ -433,7 +462,9 @@ def main(params: Params):
                 "static": False,
                 "title": None,
                 "max_zoom": 10,
-                "legend_style": {"placement": "bottom-right"},
+                "legend_style": {
+                    "placement": "bottom-right",
+                },
                 "geo_layers": DependsOn("combine_map_layers"),
                 "view_state": DependsOn("zoom_gdf_extent"),
             }

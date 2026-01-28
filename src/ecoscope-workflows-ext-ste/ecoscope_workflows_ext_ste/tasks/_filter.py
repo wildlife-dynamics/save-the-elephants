@@ -1,8 +1,11 @@
+import logging
 from pydantic import Field
 from typing import Literal
 from typing import Annotated
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.annotations import AnyDataFrame
+
+logger = logging.getLogger(__name__)
 
 
 @task
@@ -62,12 +65,12 @@ def filter_groups_by_value_criteria(
             min_count=10
         )
     """
-
+    logger.info(f"Starting filter_groups_by_value_criteria with criteria='{criteria}'")
     if df is None or df.empty:
         raise ValueError("filter_groups_by_value_criteria: Input DataFrame is empty")
 
     if groupby_col not in df.columns:
-        print(f"Column '{groupby_col}' not found in DataFrame. Returning original DataFrame.")
+        logger.info(f"Column '{groupby_col}' not found in DataFrame. Returning original DataFrame.")
         return df
 
     if filter_col not in df.columns:
@@ -76,7 +79,7 @@ def filter_groups_by_value_criteria(
     if criteria in ["all", "any", "none", "exactly"] and not required_values:
         raise ValueError(f"filter_groups_by_value_criteria: required_values needed for '{criteria}' criteria")
 
-    print(f"Filtering groups by {groupby_col} using criteria '{criteria}' on {filter_col}")
+    logger.info(f"Filtering groups by {groupby_col} using criteria '{criteria}' on {filter_col}")
 
     # Get unique values in filter_col for each group
     group_values = df.groupby(groupby_col)[filter_col].apply(lambda x: set(x.unique()))
@@ -108,19 +111,19 @@ def filter_groups_by_value_criteria(
     if min_count is not None:
         count_mask = group_counts >= min_count
         keep_mask = keep_mask & count_mask
-        print(f"Also applying min_count filter: {min_count}")
+        logger.info(f"Also applying min_count filter: {min_count}")
 
     complete_groups = group_values[keep_mask]
 
-    print(f"Groups before filtering: {df[groupby_col].nunique()}")
-    print(f"Groups matching criteria: {len(complete_groups)}")
+    logger.info(f"Groups before filtering: {df[groupby_col].nunique()}")
+    logger.info(f"Groups matching criteria: {len(complete_groups)}")
 
     if len(complete_groups) == 0:
-        print("WARNING: No groups match the criteria")
-        print("Value combinations per group:")
+        logger.info("WARNING: No groups match the criteria")
+        logger.info("Value combinations per group:")
         for group_name, values in group_values.items():
             count = group_counts[group_name]
-            print(f"  {group_name}: {values} (n={count})")
+            logger.info(f"  {group_name}: {values} (n={count})")
         return df.iloc[:0].copy()
 
     # Filter DataFrame
@@ -132,14 +135,14 @@ def filter_groups_by_value_criteria(
     dropped_groups = all_groups - kept_groups
 
     if kept_groups:
-        print(f"Kept groups ({len(kept_groups)}): {sorted(kept_groups)}")
+        logger.info(f"Kept groups ({len(kept_groups)}): {sorted(kept_groups)}")
     if dropped_groups:
-        print(f"Dropped groups ({len(dropped_groups)}): {sorted(dropped_groups)}")
+        logger.info(f"Dropped groups ({len(dropped_groups)}): {sorted(dropped_groups)}")
         for group in sorted(dropped_groups):
             group_vals = group_values[group]
             count = group_counts[group]
-            print(f"  {group}: {group_vals} (n={count})")
+            logger.info(f"  {group}: {group_vals} (n={count})")
 
-    print(f"Rows: {len(df)}: {len(filtered_df)}")
+    logger.info(f"Rows: {len(df)}: {len(filtered_df)}")
 
     return filtered_df

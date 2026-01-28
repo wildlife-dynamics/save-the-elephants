@@ -187,19 +187,6 @@ def test_split_none_gdf():
 
 
 # generate_mcp_gdf
-def test_generate_mcp_from_points(sample_point_gdf):
-    """Test MCP generation from point geometries."""
-    result = generate_mcp_gdf(sample_point_gdf)
-
-    assert isinstance(result, gpd.GeoDataFrame)
-    assert len(result) == 1
-    assert "area_m2" in result.columns
-    assert "area_km2" in result.columns
-    assert "mcp" in result.columns
-    assert result["area_m2"].iloc[0] > 0
-    assert result["area_km2"].iloc[0] > 0
-
-
 def test_mcp_area_conversion(sample_point_gdf):
     """Test that area conversion from m2 to km2 is correct."""
     result = generate_mcp_gdf(sample_point_gdf)

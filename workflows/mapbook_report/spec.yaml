@@ -1,20 +1,20 @@
 id: mapbook_report
 requirements:
   - name: ecoscope-workflows-core
-    version: "0.19.4.*"
+    version: "0.21.2.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-ecoscope
-    version: "0.19.4.*"
+    version: "0.21.2.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.17.*"
+    version: "0.0.20.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.6.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    version: "*"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
 
 rjsf-overrides:
   properties: 
@@ -548,6 +548,21 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.format_speed_bin_labels.return }}
   
+  - name: Exclude unnecessary columns from speedmap gdf 
+    id: filter_speed_cols 
+    task: filter_df_cols 
+    partial: 
+      columns: 
+        - dist_meters
+        - speed_bins_colormap
+        - geometry
+        - speed_kmhr
+        - hex_color
+        - speed_bins_formatted
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.format_speed_values.return }}
+
   - name: Generate speedmap layers 
     id: generate_speedmap_layers 
     task: create_path_layer 
@@ -572,7 +587,7 @@ workflow:
         label_suffix: null
     mapvalues:
       argnames: geodataframe
-      argvalues: ${{ workflow.format_speed_values.return }}
+      argvalues: ${{ workflow.filter_speed_cols.return }}
   
   # # should be used globally 
   - name: Zoom to gdf extent 
@@ -583,7 +598,7 @@ workflow:
       bearing: 0
     mapvalues:
       argnames: gdf
-      argvalues: ${{ workflow.format_speed_values.return }}
+      argvalues: ${{ workflow.filter_speed_cols.return }}
     
   - name: Combine ldx layers and speedmap layers 
     id: combined_ldx_speed_layers 
@@ -672,6 +687,19 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.sort_trajs_by_day_night.return }}
 
+  - name: Exclude unnecessary columns from day/night gdf 
+    id: filter_day_night_cols 
+    task: filter_df_cols 
+    partial: 
+      columns: 
+        - dist_meters
+        - is_night
+        - day_night_colors
+        - geometry
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.apply_day_night_colormap.return }}
+
   - name: Create day/night map layers 
     id: generate_day_night_layers 
     task: create_path_layer
@@ -698,7 +726,7 @@ workflow:
 
     mapvalues:
       argnames: geodataframe
-      argvalues: ${{ workflow.apply_day_night_colormap.return }}
+      argvalues: ${{ workflow.filter_day_night_cols.return }}
 
   - name: Combine ldx layers and day/night layers 
     id: combined_ldx_daynight_layers 
@@ -784,6 +812,19 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.assign_duration_colors.return }}
 
+  - name: Exclude unnecessary columns from movement gdf 
+    id: filter_movement_cols 
+    task: filter_df_cols 
+    partial: 
+      columns: 
+        - duration_status
+        - duration_status_colors
+        - is_night
+        - geometry
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.sort_trajs_by_status.return }}
+
   - name: Create movement track layers
     id: generate_track_layers
     task: create_path_layer
@@ -808,7 +849,7 @@ workflow:
         label_suffix: null
     mapvalues:
       argnames: geodataframe
-      argvalues: ${{ workflow.sort_trajs_by_status.return }}
+      argvalues: ${{ workflow.filter_movement_cols.return }}
 
   - name: Combine ldx layers and movement track layers
     id: combined_ldx_movement_layers
@@ -955,6 +996,19 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.generate_etd.return }}
 
+  - name: Exclude unnecessary columns from etd gdf  
+    id: filter_etd_cols 
+    task: filter_df_cols 
+    partial: 
+      columns: 
+        - etd_percentile_colors
+        - percentile
+        - area_sqkm
+        - geometry
+    mapvalues: 
+      argnames: df
+      argvalues: ${{ workflow.apply_etd_colormap.return }}
+
   - name: Create home range layers 
     id: generate_home_range_layers 
     task: create_geojson_layer
@@ -983,7 +1037,18 @@ workflow:
         label_suffix: null
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.apply_etd_colormap.return }}
+      argvalues: ${{ workflow.filter_etd_cols.return }}
+
+  - name: Exclude unnecessary columns from mcp gdf  
+    id: filter_mcp_cols 
+    task: filter_df_cols 
+    partial: 
+      columns: 
+        - area_km2
+        - geometry
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.generate_mcp.return }}
 
   - name: Create mcp polygon layer 
     id: create_mcp_polygon_layer 
@@ -1012,7 +1077,7 @@ workflow:
               color: "#ff1493"
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.generate_mcp.return }}
+      argvalues: ${{ workflow.filter_mcp_cols.return }}
 
   - name: Combine home range layer and mcp layer 
     id: zip_home_range_with_mcp_layer
@@ -1178,6 +1243,18 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.apply_speed_raster_colormap.return }}
 
+  - name: Exclude unnecessary columns from mean speed raster gdf
+    id: filter_mean_speed_cols 
+    task: filter_df_cols 
+    partial: 
+      columns: 
+        - bins_formatted
+        - speedraster_bins_colormap
+        - geometry
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.format_speed_raster_labels.return }}
+
   - name: Create mean speed raster layer
     id: create_mean_speed_raster_layer 
     task: create_geojson_layer 
@@ -1206,7 +1283,7 @@ workflow:
         label_suffix: null
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.format_speed_raster_labels.return }}
+      argvalues: ${{ workflow.filter_mean_speed_cols.return }}
 
   - name: Combine ldx layers and mean speed raster layer
     id: combined_ldx_speed_raster
@@ -1300,6 +1377,16 @@ workflow:
       argnames: gdf
       argvalues: ${{ workflow.add_season_labels.return }}
 
+  - name: Convert season column to string 
+    id: convert_season_to_string 
+    task: convert_to_str
+    partial: 
+      columns: 
+        - season 
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.seasonal_home_range.return }}
+      
   - name: Assign season colors to dataframe 
     id: assign_season_df
     task: assign_season_colors
@@ -1307,7 +1394,19 @@ workflow:
       seasons_column: season
     mapvalues:
       argnames: gdf
-      argvalues: ${{ workflow.seasonal_home_range.return }}
+      argvalues: ${{ workflow.convert_season_to_string.return }}
+
+  - name: Exclude unnecessary columns from mean speed raster gdf
+    id: filter_season_cols 
+    task: filter_df_cols 
+    partial: 
+      columns: 
+        - season_colors
+        - season
+        - geometry
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.assign_season_df.return }}
 
   - name: Create seasonal home range layers
     id: generate_season_layers 
@@ -1337,7 +1436,7 @@ workflow:
           label_suffix: null
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.assign_season_df.return }}
+      argvalues: ${{ workflow.filter_season_cols.return }}
     
   - name: Combine ldx layers and seasonal home range layers
     id: combined_ldx_seasonal_hr_layers
@@ -1625,13 +1724,6 @@ workflow:
     mapvalues:
       argnames: html_path
       argvalues: ${{ workflow.group_mapbook_maps.return }}
-
-  - name: Get split group names 
-    id: get_split_names
-    task: get_split_group_names
-    partial:
-      split_data: 
-        - ${{ workflow.split_traj_by_group.return }}
 
   # Create mapbook context 
   - name: Group grouper context values together 
