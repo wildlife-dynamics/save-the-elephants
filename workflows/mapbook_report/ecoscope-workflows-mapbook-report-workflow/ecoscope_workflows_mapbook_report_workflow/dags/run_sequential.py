@@ -144,9 +144,6 @@ from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 from ecoscope_workflows_ext_ste.tasks import (
     get_split_group_column as get_split_group_column,
 )
-from ecoscope_workflows_ext_ste.tasks import (
-    get_split_group_names as get_split_group_names,
-)
 from ecoscope_workflows_ext_ste.tasks import merge_mapbook_files as merge_mapbook_files
 from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple_df
 from ecoscope_workflows_ext_ste.tasks import (
@@ -3298,25 +3295,6 @@ def main(params: Params):
             **(params_dict.get("generate_map_png") or {}),
         )
         .mapvalues(argnames=["html_path"], argvalues=group_mapbook_maps)
-    )
-
-    get_split_names = (
-        get_split_group_names.validate()
-        .set_task_instance_id("get_split_names")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            split_data=[split_traj_by_group],
-            **(params_dict.get("get_split_names") or {}),
-        )
-        .call()
     )
 
     group_context_values = (

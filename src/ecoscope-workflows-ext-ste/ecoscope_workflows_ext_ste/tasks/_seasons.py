@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 from pydantic import Field
 from typing import Optional, Annotated
@@ -11,6 +12,8 @@ from ecoscope_workflows_ext_ecoscope.tasks.analysis._time_density import (
     CustomGridCellSize,
     calculate_elliptical_time_density,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @task
@@ -65,7 +68,7 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
         for col in ["segment_start", "segment_end"]:
             null_count = trajectories[col].isnull().sum()
             if null_count > 0:
-                print(f"Found {null_count} NULL values in {col}. These rows will be skipped.")
+                logger.info(f"Found {null_count} NULL values in {col}. These rows will be skipped.")
 
         seasonal_wins = seasons_df.copy()
         traj_start = trajectories["segment_start"].min()
@@ -75,11 +78,11 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
             (seasonal_wins["end"] >= traj_start) & (seasonal_wins["start"] <= traj_end)
         ].reset_index(drop=True)
 
-        print(f"Filtered seasonal windows: {len(seasonal_wins)} periods")
-        print(f"Seasonal Windows:\n{seasonal_wins[['start', 'end', 'season']]}")
+        logger.info(f"Filtered seasonal windows: {len(seasonal_wins)} periods")
+        logger.info(f"Seasonal Windows:\n{seasonal_wins[['start', 'end', 'season']]}")
 
         if seasonal_wins.empty:
-            print("No seasonal windows overlap with trajectory timeframe.")
+            logger.info("No seasonal windows overlap with trajectory timeframe.")
             trajectories["season"] = None
             return trajectories
 
@@ -87,7 +90,7 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
         seasonal_wins = seasonal_wins.sort_values("start").reset_index(drop=True)
         for i in range(len(seasonal_wins) - 1):
             if seasonal_wins.loc[i, "end"] > seasonal_wins.loc[i + 1, "start"]:
-                print(
+                logger.info(
                     f"Overlapping seasonal windows detected: "
                     f"[{seasonal_wins.loc[i, 'start']} - {seasonal_wins.loc[i, 'end']}] and "
                     f"[{seasonal_wins.loc[i+1, 'start']} - {seasonal_wins.loc[i+1, 'end']}]"
@@ -102,13 +105,13 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
 
         null_count = trajectories["season"].isnull().sum()
         if null_count > 0:
-            print(f"{null_count} trajectory segments couldn't be assigned to any season")
+            logger.info(f"{null_count} trajectory segments couldn't be assigned to any season")
 
         trajectories = trajectories.dropna(subset=["season"])
         return trajectories
 
     except Exception as e:
-        print(f"Failed to apply seasonal label to trajectories: {e}")
+        logger.info(f"Failed to apply seasonal label to trajectories: {e}")
         trajectories["season"] = None
         return trajectories
 
@@ -154,7 +157,7 @@ def calculate_seasonal_home_range(
     if auto_scale_or_custom_cell_size is None:
         auto_scale_or_custom_cell_size = AutoScaleGridCellSize()
 
-    print("Calculating seasonal home range...")
+    logger.info("Calculating seasonal home range...")
     # Early cleaning - remove rows without season
     gdf = gdf[gdf["season"].notna()].copy()
 
@@ -191,7 +194,7 @@ def custom_determine_season_windows(
 
     # Calculate the number of days in the time range
     days = (time_range.until - time_range.since).days + (time_range.until - time_range.since).seconds / 86400.0
-    print(f"Days: {days}")
+    logger.info(f"Days: {days}")
 
     # Adjust time range if necessary
     # For seasonal analysis, we need at least 30 days of data
@@ -203,7 +206,9 @@ def custom_determine_season_windows(
         # If less than 30 days, extend backwards to get 30 days total
         since = time_range.until - pd.Timedelta(days=30)
         until = time_range.until
-        print(f"Warning: Time range extended backwards to {since} to ensure minimum 30 days for seasonal analysis")
+        logger.info(
+            f"Warning: Time range extended backwards to {since} to ensure minimum 30 days for seasonal analysis"
+        )
 
     # Determine wet/dry seasons
     date_chunks = (

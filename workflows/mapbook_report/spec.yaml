@@ -1725,13 +1725,6 @@ workflow:
       argnames: html_path
       argvalues: ${{ workflow.group_mapbook_maps.return }}
 
-  - name: Get split group names 
-    id: get_split_names
-    task: get_split_group_names
-    partial:
-      split_data: 
-        - ${{ workflow.split_traj_by_group.return }}
-
   # Create mapbook context 
   - name: Group grouper context values together 
     id: group_context_values 

@@ -1,6 +1,9 @@
+import logging
 from ecoscope_workflows_core.decorators import task
 from typing import Tuple, List, Dict, Any
 from collections import defaultdict
+
+logger = logging.getLogger(__name__)
 
 
 @task
@@ -10,7 +13,7 @@ def zip_groupbykey(sequences: List[Any]) -> List[Tuple[Any, Tuple[Any, ...]]]:
     - Handles mixed input types safely (grouped tuples, dict, broadcast single value)
     - Compatible with the stricter zip_grouped_by_key style
     """
-    print(f"DEBUG: Received {len(sequences)} sequences")
+    logger.info(f"DEBUG: Received {len(sequences)} sequences")
 
     if not sequences:
         return []
@@ -48,7 +51,7 @@ def zip_groupbykey(sequences: List[Any]) -> List[Tuple[Any, Tuple[Any, ...]]]:
 
     # Ordered keys from the first grouped sequence
     common_keys_in_order = list(key_source.keys())
-    print(f"DEBUG: Common keys: {common_keys_in_order}")
+    logger.info(f"DEBUG: Common keys: {common_keys_in_order}")
 
     # Build result: include the key in each tuple
     result: List[Tuple[Any, Tuple[Any, ...]]] = []
@@ -71,5 +74,5 @@ def zip_groupbykey(sequences: List[Any]) -> List[Tuple[Any, Tuple[Any, ...]]]:
                 values.append(broadcast_values[i])  # broadcast value
         result.append((k, tuple(values)))
 
-    print(f"DEBUG: Returning {len(result)} tuples with keys")
+    logger.info(f"DEBUG: Returning {len(result)} tuples with keys")
     return result

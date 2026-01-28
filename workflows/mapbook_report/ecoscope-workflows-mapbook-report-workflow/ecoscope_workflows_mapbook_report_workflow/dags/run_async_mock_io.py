@@ -172,9 +172,6 @@ from ecoscope_workflows_ext_ste.tasks import (
 )
 from ecoscope_workflows_ext_ste.tasks import generate_mcp_gdf as generate_mcp_gdf
 from ecoscope_workflows_ext_ste.tasks import get_duration as get_duration
-from ecoscope_workflows_ext_ste.tasks import (
-    get_split_group_names as get_split_group_names,
-)
 from ecoscope_workflows_ext_ste.tasks import merge_mapbook_files as merge_mapbook_files
 from ecoscope_workflows_ext_ste.tasks import (
     retrieve_feature_gdf as retrieve_feature_gdf,
@@ -415,7 +412,6 @@ def main(params: Params):
             "persist_seasonal_home_range_html",
         ],
         "generate_map_png": ["group_mapbook_maps"],
-        "get_split_names": ["split_traj_by_group"],
         "group_context_values": [
             "apply_speed_colormap",
             "coverage_grid_quantity",
@@ -4134,27 +4130,6 @@ def main(params: Params):
                 "argnames": ["html_path"],
                 "argvalues": DependsOn("group_mapbook_maps"),
             },
-        ),
-        "get_split_names": Node(
-            async_task=get_split_group_names.validate()
-            .set_task_instance_id("get_split_names")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "split_data": [
-                    DependsOn("split_traj_by_group"),
-                ],
-            }
-            | (params_dict.get("get_split_names") or {}),
-            method="call",
         ),
         "group_context_values": Node(
             async_task=zip_groupbykey.validate()

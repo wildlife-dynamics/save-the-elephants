@@ -1,9 +1,12 @@
+import logging
 import geopandas as gpd
 from pydantic import Field
 from ecoscope_workflows_core.decorators import task
 from typing import Annotated, Dict, Literal, Union, List
 from ecoscope_workflows_core.tasks.filter._filter import TimeRange
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame, AnyDataFrame
+
+logger = logging.getLogger(__name__)
 
 
 @task
@@ -190,12 +193,12 @@ def convert_to_str(
 
     for column in columns:
         if column not in df.columns:
-            print(f"Warning: Column '{column}' not found in DataFrame. Skipping.")
+            logger.info(f"Warning: Column '{column}' not found in DataFrame. Skipping.")
             continue
 
         try:
             df[column] = df[column].astype(str)
         except Exception as e:
-            print(f"Error converting column '{column}' to int: {e}")
+            logger.info(f"Error converting column '{column}' to int: {e}")
 
     return df
