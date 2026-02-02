@@ -34,6 +34,22 @@
           "title": "Until",
           "type": "string",
           "description": "The end time"
+        },
+        "timezone": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TimezoneInfo"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        },
+        "time_format": {
+          "default": "%d %b %Y %H:%M:%S",
+          "title": "Time Format",
+          "type": "string",
+          "description": "The time format",
+          "ecoscope:advanced": true
         }
       },
       "required": [
@@ -390,6 +406,34 @@
     }
   },
   "$defs": {
+    "TimezoneInfo": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "tzCode": {
+          "title": "Tzcode",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "utc": {
+          "title": "Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "tzCode",
+        "name",
+        "utc"
+      ],
+      "title": "TimezoneInfo",
+      "type": "object"
+    },
     "ValueGrouper": {
       "oneOf": [],
       "title": "Category",
@@ -479,34 +523,6 @@
       "title": "Enter date range you'd like to compare the data to",
       "type": "object"
     },
-    "TimezoneInfo": {
-      "properties": {
-        "label": {
-          "title": "Label",
-          "type": "string"
-        },
-        "tzCode": {
-          "title": "Tzcode",
-          "type": "string"
-        },
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
-        "utc": {
-          "title": "Utc",
-          "type": "string"
-        }
-      },
-      "required": [
-        "label",
-        "tzCode",
-        "name",
-        "utc"
-      ],
-      "title": "TimezoneInfo",
-      "type": "object"
-    },
     "EarthRangerConnection": {
       "properties": {
         "name": {
@@ -572,7 +588,9 @@
     "time_range": {
       "ui:order": [
         "since",
-        "until"
+        "until",
+        "timezone",
+        "time_format"
       ]
     },
     "custom_trajs_filter": {

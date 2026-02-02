@@ -214,16 +214,7 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            time_format="%d %b %Y %H:%M:%S %Z",
-            timezone={
-                "label": "UTC",
-                "tzCode": "UTC",
-                "name": "UTC",
-                "utc_offset": "+03:00",
-            },
-            **(params_dict.get("time_range") or {}),
-        )
+        .partial(**(params_dict.get("time_range") or {}))
         .call()
     )
 

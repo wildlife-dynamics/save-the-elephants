@@ -47,13 +47,6 @@ workflow:
   - name: Define analysis time range 
     id: time_range 
     task: set_time_range 
-    partial: 
-      time_format: "%d %b %Y %H:%M:%S %Z"
-      timezone: 
-        label: UTC 
-        tzCode: UTC 
-        name: UTC 
-        utc_offset: "+03:00"
 
   - name: Configure grouping strategy 
     id: groupers 
