@@ -641,6 +641,10 @@ workflow:
   - name: Create speedmap widgets 
     id: create_speedmap_widgets 
     task: create_map_widget_single_view 
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial: 
       title: Speed Map 
     map: 
@@ -779,6 +783,10 @@ workflow:
   - name: Create day night widgets 
     id: create_day_night_widgets 
     task: create_map_widget_single_view 
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial: 
       title: Day Night Tracks 
     map: 
@@ -902,6 +910,10 @@ workflow:
   - name: Create movement tracks widgets 
     id: create_movement_tracks_widgets 
     task: create_map_widget_single_view 
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial: 
       title: Movement Tracks
     map: 
@@ -1138,6 +1150,10 @@ workflow:
   - name: Create homerange widgets 
     id: create_home_range_widgets 
     task: create_map_widget_single_view 
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial: 
       title: Home Range 
     map: 
@@ -1336,6 +1352,10 @@ workflow:
   - name: Create mean speed raster widgets 
     id: create_mean_speed_raster_widgets 
     task: create_map_widget_single_view 
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial: 
       title: Mean Speed Raster 
     map: 
@@ -1489,6 +1509,10 @@ workflow:
   - name: Create seasonal home range widgets
     id: create_seasonal_hr_widgets
     task: create_map_widget_single_view
+    skipif:
+      conditions:
+        - any_is_empty_df
+        - any_dependency_skipped
     partial:
       title: Seasonal Home Range
     map:
