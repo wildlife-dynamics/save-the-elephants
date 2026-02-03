@@ -143,6 +143,9 @@ from ecoscope_workflows_ext_custom.tasks.io import html_to_png as html_to_png
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_geojson_layer as create_geojson_layer,
 )
+from ecoscope_workflows_ext_custom.tasks.transformation import (
+    to_quantity as to_quantity,
+)
 from ecoscope_workflows_ext_ste.tasks import (
     assign_season_colors as assign_season_colors,
 )
@@ -177,7 +180,6 @@ from ecoscope_workflows_ext_ste.tasks import (
     retrieve_feature_gdf as retrieve_feature_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
-from ecoscope_workflows_ext_ste.tasks import to_quantity as to_quantity
 
 from ..params import Params
 
@@ -393,12 +395,8 @@ def main(params: Params):
         "unique_subjects": ["rename_traj_cols"],
         "download_mapbook_cover_page": [],
         "download_sect_templates": [],
-        "download_logo_path": [],
-        "create_cover_tpl_context": [
-            "unique_subjects",
-            "time_range",
-            "download_logo_path",
-        ],
+        "logo_path": [],
+        "create_cover_tpl_context": ["unique_subjects", "time_range", "logo_path"],
         "persist_cover_context": [
             "download_mapbook_cover_page",
             "create_cover_tpl_context",
@@ -3999,9 +3997,9 @@ def main(params: Params):
             | (params_dict.get("download_sect_templates") or {}),
             method="call",
         ),
-        "download_logo_path": Node(
-            async_task=fetch_and_persist_file.validate()
-            .set_task_instance_id("download_logo_path")
+        "logo_path": Node(
+            async_task=get_file_path.validate()
+            .set_task_instance_id("logo_path")
             .handle_errors()
             .with_tracing()
             .skipif(
@@ -4013,13 +4011,9 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "url": "https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=jlwbhik9&dl=0",
                 "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "overwrite_existing": False,
-                "unzip": False,
-                "retries": 2,
             }
-            | (params_dict.get("download_logo_path") or {}),
+            | (params_dict.get("logo_path") or {}),
             method="call",
         ),
         "create_cover_tpl_context": Node(
@@ -4039,7 +4033,7 @@ def main(params: Params):
                 "count": DependsOn("unique_subjects"),
                 "report_period": DependsOn("time_range"),
                 "prepared_by": "Ecoscope",
-                "org_logo_path": DependsOn("download_logo_path"),
+                "org_logo_path": DependsOn("logo_path"),
             }
             | (params_dict.get("create_cover_tpl_context") or {}),
             method="call",
@@ -4111,8 +4105,8 @@ def main(params: Params):
                 "config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 5,
-                    "max_concurrent_pages": 5,
+                    "wait_for_timeout": 20000,
+                    "max_concurrent_pages": 1,
                 },
             }
             | (params_dict.get("generate_map_png") or {}),

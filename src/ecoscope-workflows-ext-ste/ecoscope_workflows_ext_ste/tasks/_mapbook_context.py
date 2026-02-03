@@ -113,35 +113,38 @@ def create_context_page(
 @task
 def create_mapbook_ctx_cover(
     count: int,
-    org_logo_path: Union[str, Path],
+    org_logo_path: Union[str, Path, None],
     report_period: TimeRange,
     prepared_by: str,
-) -> Dict[str, str]:
+) -> Dict[str, Optional[str]]:
     """
     Build a dictionary with the mapbook report template values.
 
     Args:
         count (int): Total number of subjects or records.
+        org_logo_path (Union[str, Path, None]): Path to the org logo, or None if unavailable.
         report_period (TimeRange): Object with 'since', 'until', and 'time_format' attributes.
         prepared_by (str): Name of the person or organization preparing the report.
 
     Returns:
-        Dict[str, str]: Structured dictionary with formatted metadata.
+        Dict[str, Optional[str]]: Structured dictionary with formatted metadata.
     """
-    org_logo_path = remove_file_scheme(org_logo_path)
+    # Resolve logo path — guard against None before calling remove_file_scheme
+    resolved_logo_path: Optional[str] = None
+    if org_logo_path is not None:
+        resolved_logo_path = remove_file_scheme(org_logo_path)
+        if not resolved_logo_path.strip():
+            raise ValueError("org_logo_path is empty after normalization")
 
-    if not org_logo_path.strip():
-        raise ValueError("org_logo_path is empty after normalization")
     formatted_date = datetime.now()
     formatted_date_str = formatted_date.strftime("%Y-%m-%d %H:%M:%S")
     fmt = getattr(report_period, "time_format", "%Y-%m-%d")
     formatted_time_range = f"{report_period.since.strftime(fmt)} to {report_period.until.strftime(fmt)}"
 
-    # Return structured dictionary
     return {
         "report_id": f"REP-{uuid.uuid4().hex[:8].upper()}",
         "subject_count": str(count),
-        "org_logo_path": org_logo_path,
+        "org_logo_path": resolved_logo_path,  # None if no logo was provided
         "time_generated": formatted_date_str,
         "report_period": formatted_time_range,
         "prepared_by": prepared_by,
@@ -175,7 +178,7 @@ def create_mapbook_grouper_ctx(
     grid_area: Quantity | None,
     mcp_area: Quantity | None,
     map_paths: list | None,
-) -> Dict[str, str]:
+) -> Dict[str, Optional[str]]:
     TIME_FMT = "%d %b %Y %H:%M:%S"
 
     # Format current period

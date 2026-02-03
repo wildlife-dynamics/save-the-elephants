@@ -224,13 +224,14 @@ class PreviousPeriodType(str, Enum):
 
 
 class PreviousTimeRange(BaseModel):
-    since: datetime = Field(..., description="The start time", title="Since")
-    until: datetime = Field(..., description="The end time", title="Until")
+    since: datetime = Field(
+        ..., description="The start time of the previous period", title="Since"
+    )
     timezone: TimezoneInfo | None = Field(
         default_factory=lambda: TimezoneInfo.model_validate(
             {"label": "UTC", "tzCode": "UTC", "name": "UTC", "utc": "+00:00"}
         ),
-        description="Timezone information (defaults to UTC)",
+        description="Timezone (defaults to UTC)",
     )
     time_format: str | None = Field(
         "%d %b %Y %H:%M:%S", description="The time format", title="Time Format"
@@ -313,6 +314,13 @@ class RetrieveLdxDb(BaseModel):
     input_method: DownloadFile | LocalFile = Field(..., title="Input Method")
 
 
+class LogoPath(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    input_method: DownloadFile | LocalFile = Field(..., title="Input Method")
+
+
 class PreviousCustomTimeRangeOption(BaseModel):
     custom: PreviousPeriodType = Field(
         ..., description="Select the previous period type"
@@ -358,3 +366,4 @@ class Params(BaseModel):
     custom_trajs_filter: CustomTrajsFilter | None = Field(
         None, title="Trajectory Segment Filter"
     )
+    logo_path: LogoPath | None = Field(None, title="Report logo")

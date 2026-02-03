@@ -32,7 +32,6 @@ from ._groupers import (
     set_custom_groupers,
 )
 
-from ._quantity import to_quantity
 from ._merge import merge_multiple_df
 from ._status import modify_status_colors, assign_season_colors
 from ._mapbook_context import (
@@ -77,7 +76,6 @@ __all__ = [
     "get_split_group_values",
     "get_split_group_names",
     "extract_index_names",
-    "to_quantity",
     "merge_multiple_df",
     "modify_status_colors",
     "assign_season_colors",

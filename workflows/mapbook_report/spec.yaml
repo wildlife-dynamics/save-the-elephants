@@ -1,20 +1,20 @@
 id: mapbook_report
 requirements:
   - name: ecoscope-workflows-core
-    version: "0.21.2.*"
+    version: "0.21.4.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-ecoscope
-    version: "0.21.2.*"
+    version: "0.21.4.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.20.*"
+    version: "0.0.23.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.7.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    version: "*"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
 
 rjsf-overrides:
   properties: 
@@ -1656,15 +1656,11 @@ workflow:
       retries: 2
 
   # Download Logo
-  - name: Download logo path 
-    id: download_logo_path
-    task: fetch_and_persist_file
-    partial:
-      url: "https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=jlwbhik9&dl=0"
+  - name: Report logo
+    id: logo_path
+    task: get_file_path 
+    partial: 
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      overwrite_existing: false 
-      unzip: false
-      retries: 2
 
   - name: Create cover template context 
     id: create_cover_tpl_context
@@ -1673,7 +1669,7 @@ workflow:
       count: ${{ workflow.unique_subjects.return }}
       report_period: ${{ workflow.time_range.return }}
       prepared_by: "Ecoscope"
-      org_logo_path: ${{ workflow.download_logo_path.return }}
+      org_logo_path: ${{ workflow.logo_path.return }}
 
   - name: Persist cover page context
     id: persist_cover_context 
@@ -1711,8 +1707,8 @@ workflow:
       config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 5 # testing only -- default should be 30_000
-        max_concurrent_pages: 5
+        wait_for_timeout: 20000
+        max_concurrent_pages: 1
     
     mapvalues:
       argnames: html_path

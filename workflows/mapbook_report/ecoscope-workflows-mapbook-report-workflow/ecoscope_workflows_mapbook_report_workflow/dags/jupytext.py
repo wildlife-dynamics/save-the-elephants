@@ -72,6 +72,9 @@ from ecoscope_workflows_ext_custom.tasks.results import (
 from ecoscope_workflows_ext_custom.tasks.transformation import (
     filter_row_values as filter_row_values,
 )
+from ecoscope_workflows_ext_custom.tasks.transformation import (
+    to_quantity as to_quantity,
+)
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density as calculate_elliptical_time_density,
 )
@@ -165,7 +168,6 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
 from ecoscope_workflows_ext_ste.tasks import set_custom_groupers as set_custom_groupers
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
-from ecoscope_workflows_ext_ste.tasks import to_quantity as to_quantity
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
 
@@ -4811,19 +4813,21 @@ download_sect_templates = (
 
 
 # %% [markdown]
-# ## Download logo path
+# ## Report logo
 
 # %%
 # parameters
 
-download_logo_path_params = dict()
+logo_path_params = dict(
+    input_method=...,
+)
 
 # %%
 # call the task
 
 
-download_logo_path = (
-    fetch_and_persist_file.set_task_instance_id("download_logo_path")
+logo_path = (
+    get_file_path.set_task_instance_id("logo_path")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -4833,14 +4837,7 @@ download_logo_path = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        url="https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=jlwbhik9&dl=0",
-        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        overwrite_existing=False,
-        unzip=False,
-        retries=2,
-        **download_logo_path_params,
-    )
+    .partial(output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"], **logo_path_params)
     .call()
 )
 
@@ -4872,7 +4869,7 @@ create_cover_tpl_context = (
         count=unique_subjects,
         report_period=time_range,
         prepared_by="Ecoscope",
-        org_logo_path=download_logo_path,
+        org_logo_path=logo_path,
         **create_cover_tpl_context_params,
     )
     .call()
@@ -4980,8 +4977,8 @@ generate_map_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 5,
-            "max_concurrent_pages": 5,
+            "wait_for_timeout": 20000,
+            "max_concurrent_pages": 1,
         },
         **generate_map_png_params,
     )

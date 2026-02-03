@@ -421,6 +421,27 @@
       "type": "object",
       "required": [],
       "title": "Trajectory Segment Filter"
+    },
+    "logo_path": {
+      "additionalProperties": false,
+      "properties": {
+        "input_method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DownloadFile"
+            },
+            {
+              "$ref": "#/$defs/LocalFile"
+            }
+          ],
+          "title": "Input Method"
+        }
+      },
+      "required": [
+        "input_method"
+      ],
+      "type": "object",
+      "title": "Report logo"
     }
   },
   "$defs": {
@@ -471,6 +492,7 @@
       "type": "string"
     },
     "PreviousCustomTimeRangeOption": {
+      "description": "User selects a predefined previous period via the enum.",
       "properties": {
         "custom": {
           "allOf": [
@@ -500,18 +522,12 @@
       "type": "string"
     },
     "PreviousTimeRange": {
-      "description": "Custom TimeRange with UTC defaults for previous period selection.",
+      "description": "Manual previous period selection.\n\nOnly `since` is provided by the user. `until` is always derived\nfrom the current period's start when converting to a TimeRange,\nenforcing the invariant that the previous period ends exactly\nwhere the current one begins.",
       "properties": {
         "since": {
-          "description": "The start time",
+          "description": "The start time of the previous period",
           "format": "date-time",
           "title": "Since",
-          "type": "string"
-        },
-        "until": {
-          "description": "The end time",
-          "format": "date-time",
-          "title": "Until",
           "type": "string"
         },
         "timezone": {
@@ -526,7 +542,7 @@
             "name": "UTC",
             "utc": "+00:00"
           },
-          "description": "Timezone information (defaults to UTC)"
+          "description": "Timezone (defaults to UTC)"
         },
         "time_format": {
           "default": "%d %b %Y %H:%M:%S",
@@ -536,13 +552,13 @@
         }
       },
       "required": [
-        "since",
-        "until"
+        "since"
       ],
       "title": "PreviousTimeRange",
       "type": "object"
     },
     "PreviousTimeRangeOption": {
+      "description": "User manually specifies a start date for the previous period.",
       "properties": {
         "time_range": {
           "$ref": "#/$defs/PreviousTimeRange"
@@ -551,7 +567,7 @@
       "required": [
         "time_range"
       ],
-      "title": "Enter date range you'd like to compare the data to",
+      "title": "Enter the start date you'd like the previous period to begin from",
       "type": "object"
     },
     "EarthRangerConnection": {
@@ -644,7 +660,8 @@
       "gee_project_name",
       "Subject Group",
       "retrieve_ldx_db",
-      "custom_trajs_filter"
+      "custom_trajs_filter",
+      "logo_path"
     ]
   },
   "additionalProperties": false
