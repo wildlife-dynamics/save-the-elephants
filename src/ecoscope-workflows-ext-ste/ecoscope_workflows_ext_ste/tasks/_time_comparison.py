@@ -99,23 +99,18 @@ def determine_previous_period(option: PrevOption, current_time_range: TimeRange)
     Returns:
         TimeRange representing the previous period for comparison.
     """
-    # --- manual path: user picked a start date, until is derived ---
     if isinstance(option, PreviousTimeRangeOption):
         return option.time_range.to_time_range(current_time_range)
 
-    # --- enum-driven path: resolve the offset, then apply uniformly ---
     period_type = option.custom
 
     if period_type == PreviousPeriodType.SAME_AS_CURRENT:
-        # Dynamic: mirror the current window's own duration
         offset = current_time_range.until - current_time_range.since
     elif period_type in PERIOD_OFFSETS:
-        # Fixed: look up from the dict
         offset = PERIOD_OFFSETS[period_type]
     else:
         raise ValueError(f"Unknown custom option: {period_type}")
 
-    # until is always pinned to the start of the current period
     prev_until = current_time_range.since
     prev_since = prev_until - offset
 

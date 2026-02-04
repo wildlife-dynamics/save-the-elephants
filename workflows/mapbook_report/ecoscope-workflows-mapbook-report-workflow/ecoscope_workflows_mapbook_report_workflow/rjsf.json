@@ -341,7 +341,8 @@
           "properties": {
             "var": {
               "title": "Subject Group Name",
-              "type": "string"
+              "type": "string",
+              "default": "subject_name"
             }
           },
           "required": [
@@ -349,17 +350,6 @@
           ],
           "type": "object",
           "title": ""
-        }
-      },
-      "": {
-        "properties": {
-          "subject_group_var": {
-            "properties": {
-              "var": {
-                "default": "subject_name"
-              }
-            }
-          }
         }
       }
     },

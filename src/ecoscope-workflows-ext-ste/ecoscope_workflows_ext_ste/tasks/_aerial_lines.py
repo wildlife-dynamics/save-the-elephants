@@ -2,12 +2,10 @@ import logging
 import numpy as np
 import geopandas as gpd
 from typing import Literal, Union
-from ecoscope.base.utils import hex_to_rgba
 from ecoscope_workflows_core.decorators import task
 from shapely.geometry import LineString, MultiPolygon
 from ecoscope_workflows_core.annotations import AnyGeoDataFrame
 from ecoscope_workflows_ext_custom.tasks.transformation._data_cleanup import drop_null_geometry
-
 
 logger = logging.getLogger(__name__)
 
@@ -70,13 +68,6 @@ def draw_survey_lines(
     lines_gdf = gpd.overlay(lines_gdf, gdf, how="intersection")
 
     return lines_gdf
-
-
-@task
-def generate_survey_line_colors(df: AnyGeoDataFrame, hex_value: str) -> AnyGeoDataFrame:
-    df["color"] = hex_value
-    df["survey_colors"] = df["color"].apply(hex_to_rgba)
-    return df
 
 
 @task

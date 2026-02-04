@@ -79,6 +79,7 @@ from ecoscope_workflows_core.tasks.results import (
 from ecoscope_workflows_core.tasks.results import (
     merge_widget_views as merge_widget_views,
 )
+from ecoscope_workflows_core.tasks.skip import never as never
 from ecoscope_workflows_core.tasks.transformation import map_columns as map_columns
 from ecoscope_workflows_core.tasks.transformation import (
     map_values_with_unit as map_values_with_unit,
@@ -126,7 +127,6 @@ from ecoscope_workflows_core.tasks.analysis import (
 from ecoscope_workflows_core.tasks.analysis import (
     dataframe_column_sum as dataframe_column_sum,
 )
-from ecoscope_workflows_core.tasks.groupby import groupbykey as groupbykey
 from ecoscope_workflows_core.tasks.results import (
     create_single_value_widget_single_view as create_single_value_widget_single_view,
 )
@@ -134,10 +134,6 @@ from ecoscope_workflows_core.tasks.results import (
     create_text_widget_single_view as create_text_widget_single_view,
 )
 from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
-from ecoscope_workflows_core.tasks.skip import (
-    all_keyed_iterables_are_skips as all_keyed_iterables_are_skips,
-)
-from ecoscope_workflows_core.tasks.skip import never as never
 from ecoscope_workflows_ext_custom.tasks.io import html_to_png as html_to_png
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_geojson_layer as create_geojson_layer,
@@ -1432,8 +1428,7 @@ def main(params: Params):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
@@ -1668,8 +1663,7 @@ def main(params: Params):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
@@ -1888,8 +1882,7 @@ def main(params: Params):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
@@ -2281,8 +2274,7 @@ def main(params: Params):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
@@ -2613,8 +2605,7 @@ def main(params: Params):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
@@ -2868,8 +2859,7 @@ def main(params: Params):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
@@ -3257,34 +3247,9 @@ def main(params: Params):
         .call()
     )
 
-    group_mapbook_maps = (
-        groupbykey.validate()
-        .set_task_instance_id("group_mapbook_maps")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                all_keyed_iterables_are_skips,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=[
-                persist_speedmap_html,
-                persist_day_night_html,
-                persist_movement_tracks_html,
-                persist_homerange_html,
-                persist_mean_speed_raster_html,
-                persist_seasonal_home_range_html,
-            ],
-            **(params_dict.get("group_mapbook_maps") or {}),
-        )
-        .call()
-    )
-
-    generate_map_png = (
+    generate_speedmap_png = (
         html_to_png.validate()
-        .set_task_instance_id("generate_map_png")
+        .set_task_instance_id("generate_speedmap_png")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -3299,12 +3264,137 @@ def main(params: Params):
             config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 20000,
+                "wait_for_timeout": 1000,
                 "max_concurrent_pages": 1,
             },
-            **(params_dict.get("generate_map_png") or {}),
+            **(params_dict.get("generate_speedmap_png") or {}),
         )
-        .mapvalues(argnames=["html_path"], argvalues=group_mapbook_maps)
+        .mapvalues(argnames=["html_path"], argvalues=persist_speedmap_html)
+    )
+
+    generate_day_night_png = (
+        html_to_png.validate()
+        .set_task_instance_id("generate_day_night_png")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 1000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("generate_day_night_png") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=persist_day_night_html)
+    )
+
+    generate_movement_png = (
+        html_to_png.validate()
+        .set_task_instance_id("generate_movement_png")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 1000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("generate_movement_png") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=persist_movement_tracks_html)
+    )
+
+    generate_homerange_png = (
+        html_to_png.validate()
+        .set_task_instance_id("generate_homerange_png")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 1000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("generate_homerange_png") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=persist_homerange_html)
+    )
+
+    generate_raster_png = (
+        html_to_png.validate()
+        .set_task_instance_id("generate_raster_png")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 1000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("generate_raster_png") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=persist_mean_speed_raster_html)
+    )
+
+    generate_seasonal_png = (
+        html_to_png.validate()
+        .set_task_instance_id("generate_seasonal_png")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 1000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("generate_seasonal_png") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=persist_seasonal_home_range_html)
     )
 
     group_context_values = (
@@ -3324,7 +3414,12 @@ def main(params: Params):
                 apply_speed_colormap,
                 coverage_grid_quantity,
                 coverage_mcp_quantity,
-                generate_map_png,
+                generate_speedmap_png,
+                generate_day_night_png,
+                generate_movement_png,
+                generate_homerange_png,
+                generate_raster_png,
+                generate_seasonal_png,
             ],
             **(params_dict.get("group_context_values") or {}),
         )
@@ -3338,8 +3433,7 @@ def main(params: Params):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
@@ -3351,7 +3445,17 @@ def main(params: Params):
             **(params_dict.get("indv_mapbook_ctx") or {}),
         )
         .mapvalues(
-            argnames=["df", "grid_area", "mcp_area", "map_paths"],
+            argnames=[
+                "df",
+                "grid_area",
+                "mcp_area",
+                "speedmap",
+                "day_night",
+                "movement_tracks",
+                "home_range",
+                "mean_raster",
+                "seasonal_homerange",
+            ],
             argvalues=group_context_values,
         )
     )
