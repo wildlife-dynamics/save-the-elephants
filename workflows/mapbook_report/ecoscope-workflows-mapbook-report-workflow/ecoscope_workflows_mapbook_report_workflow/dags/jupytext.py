@@ -136,6 +136,12 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import (
     determine_previous_period as determine_previous_period,
 )
+from ecoscope_workflows_ext_ste.tasks import (
+    exclude_geom_outliers_linestring as exclude_geom_outliers_linestring,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    exclude_geom_outliers_polygon as exclude_geom_outliers_polygon,
+)
 from ecoscope_workflows_ext_ste.tasks import extract_index_names as extract_index_names
 from ecoscope_workflows_ext_ste.tasks import (
     fetch_and_persist_file as fetch_and_persist_file,
@@ -605,14 +611,14 @@ create_ldx_text_layer = (
         geodataframe=filter_ldx_cols,
         layer_style={
             "get_text": "name",
-            "get_color": [0, 0, 0, 255],
+            "get_color": [20, 20, 20, 255],
             "get_size": 1500,
             "size_units": "meters",
             "size_min_pixels": 70,
             "size_max_pixels": 100,
             "size_scale": 2.25,
-            "font_family": "Calibri",
-            "font_weight": "700",
+            "font_family": "Arial",
+            "font_weight": None,
             "get_text_anchor": "middle",
             "get_alignment_baseline": "center",
             "billboard": True,
@@ -711,33 +717,33 @@ create_ldx_styled_layers = (
         gdf_dict=annotate_gdf_dict,
         styles={
             "Community Conservancy": {
-                "get_fill_color": [85, 107, 47],
-                "get_line_color": [85, 107, 47],
-                "opacity": 0.45,
+                "get_fill_color": [166, 182, 151],
+                "get_line_color": [166, 182, 151],
+                "opacity": 0.15,
                 "stroked": True,
                 "get_line_width": 2.0,
             },
             "National Reserve": {
-                "get_fill_color": [143, 188, 139],
-                "get_line_color": [143, 188, 139],
-                "opacity": 0.45,
+                "get_fill_color": [136, 167, 142],
+                "get_line_color": [136, 167, 142],
+                "opacity": 0.15,
                 "stroked": True,
                 "get_line_width": 2.0,
             },
             "National Park": {
-                "get_fill_color": [255, 250, 205],
-                "get_line_color": [255, 250, 205],
-                "opacity": 0.45,
+                "get_fill_color": [17, 86, 49],
+                "get_line_color": [17, 86, 49],
+                "opacity": 0.15,
                 "stroked": True,
                 "get_line_width": 2.0,
             },
         },
         legends={
-            "title": "Protected Areas",
+            "title": "",
             "values": [
-                {"label": "Community Conservancy", "color": "#556b2f"},
-                {"label": "National Reserve", "color": "#8fbc8f"},
-                {"label": "National Park", "color": "#fffacd"},
+                {"label": "Community Conservancy", "color": "#a6b697"},
+                {"label": "National Reserve", "color": "#88a78e"},
+                {"label": "National Park", "color": "#115631"},
             ],
         },
         **create_ldx_styled_layers_params,
@@ -1170,7 +1176,11 @@ classify_trajectories_speed_bins = (
         input_column_name="speed_kmhr",
         output_column_name="speed_bins",
         classification_options={"scheme": "equal_interval", "k": 6},
-        label_options={"label_range": False, "label_decimals": 1},
+        label_options={
+            "label_ranges": True,
+            "label_decimals": 1,
+            "label_suffix": " km/h",
+        },
         **classify_trajectories_speed_bins_params,
     )
     .call()
@@ -1767,76 +1777,6 @@ apply_speed_colormap = (
 
 
 # %% [markdown]
-# ## Format speed bins for legend
-
-# %%
-# parameters
-
-format_speed_bin_labels_params = dict()
-
-# %%
-# call the task
-
-
-format_speed_bin_labels = (
-    map_values_with_unit.set_task_instance_id("format_speed_bin_labels")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        input_column_name="speed_bins",
-        output_column_name="speed_bins_formatted",
-        original_unit="km/h",
-        new_unit="km/h",
-        decimal_places=1,
-        **format_speed_bin_labels_params,
-    )
-    .mapvalues(argnames=["df"], argvalues=apply_speed_colormap)
-)
-
-
-# %% [markdown]
-# ## Format speed values for display
-
-# %%
-# parameters
-
-format_speed_values_params = dict()
-
-# %%
-# call the task
-
-
-format_speed_values = (
-    map_values_with_unit.set_task_instance_id("format_speed_values")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        input_column_name="speed_kmhr",
-        output_column_name="speed_kmhr",
-        original_unit="km/h",
-        new_unit="km/h",
-        decimal_places=1,
-        **format_speed_values_params,
-    )
-    .mapvalues(argnames=["df"], argvalues=format_speed_bin_labels)
-)
-
-
-# %% [markdown]
 # ## Exclude unnecessary columns from speedmap gdf
 
 # %%
@@ -1866,11 +1806,39 @@ filter_speed_cols = (
             "geometry",
             "speed_kmhr",
             "hex_color",
-            "speed_bins_formatted",
+            "speed_bins",
         ],
         **filter_speed_cols_params,
     )
-    .mapvalues(argnames=["df"], argvalues=format_speed_values)
+    .mapvalues(argnames=["df"], argvalues=apply_speed_colormap)
+)
+
+
+# %% [markdown]
+# ## Exclude geom outliers speedmap
+
+# %%
+# parameters
+
+exclude_speed_outliers_params = dict()
+
+# %%
+# call the task
+
+
+exclude_speed_outliers = (
+    exclude_geom_outliers_linestring.set_task_instance_id("exclude_speed_outliers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(z_threshold=3, **exclude_speed_outliers_params)
+    .mapvalues(argnames=["df"], argvalues=filter_speed_cols)
 )
 
 
@@ -1913,14 +1881,14 @@ generate_speedmap_layers = (
         },
         legend={
             "title": "Speed (km/h)",
-            "label_column": "speed_bins_formatted",
+            "label_column": "speed_bins",
             "color_column": "speed_bins_colormap",
             "sort": "ascending",
             "label_suffix": None,
         },
         **generate_speedmap_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=filter_speed_cols)
+    .mapvalues(argnames=["geodataframe"], argvalues=exclude_speed_outliers)
 )
 
 
@@ -2240,6 +2208,34 @@ filter_day_night_cols = (
 
 
 # %% [markdown]
+# ## Exclude geom outliers day night map
+
+# %%
+# parameters
+
+exclude_dn_outliers_params = dict()
+
+# %%
+# call the task
+
+
+exclude_dn_outliers = (
+    exclude_geom_outliers_linestring.set_task_instance_id("exclude_dn_outliers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(z_threshold=3, **exclude_dn_outliers_params)
+    .mapvalues(argnames=["df"], argvalues=filter_day_night_cols)
+)
+
+
+# %% [markdown]
 # ## Create day/night map layers
 
 # %%
@@ -2277,7 +2273,7 @@ generate_day_night_layers = (
             "stroked": True,
         },
         legend={
-            "title": "Night Day tracks",
+            "title": "Day Night tracks",
             "values": [
                 {"label": "Day", "color": "#e7a553"},
                 {"label": "Night", "color": "#292965"},
@@ -2285,7 +2281,7 @@ generate_day_night_layers = (
         },
         **generate_day_night_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=filter_day_night_cols)
+    .mapvalues(argnames=["geodataframe"], argvalues=exclude_dn_outliers)
 )
 
 
@@ -2572,6 +2568,34 @@ filter_movement_cols = (
 
 
 # %% [markdown]
+# ## Exclude geom outliers movement map
+
+# %%
+# parameters
+
+exclude_move_outliers_params = dict()
+
+# %%
+# call the task
+
+
+exclude_move_outliers = (
+    exclude_geom_outliers_linestring.set_task_instance_id("exclude_move_outliers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(z_threshold=3, **exclude_move_outliers_params)
+    .mapvalues(argnames=["df"], argvalues=filter_movement_cols)
+)
+
+
+# %% [markdown]
 # ## Create movement track layers
 
 # %%
@@ -2617,7 +2641,7 @@ generate_track_layers = (
         },
         **generate_track_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=filter_movement_cols)
+    .mapvalues(argnames=["geodataframe"], argvalues=exclude_move_outliers)
 )
 
 
@@ -2865,10 +2889,7 @@ generate_etd = (
         unpack_depth=1,
     )
     .partial(
-        auto_scale_or_custom_cell_size={
-            "auto_scale_or_customize": "Customize",
-            "grid_cell_size": 2000,
-        },
+        auto_scale_or_custom_cell_size={"auto_scale_or_customize": "Auto-scale"},
         crs="ESRI:53042",
         percentiles=[50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
         nodata_value="nan",
@@ -3065,6 +3086,34 @@ filter_etd_cols = (
 
 
 # %% [markdown]
+# ## Exclude home range outliers
+
+# %%
+# parameters
+
+exclude_hr_outliers_params = dict()
+
+# %%
+# call the task
+
+
+exclude_hr_outliers = (
+    exclude_geom_outliers_polygon.set_task_instance_id("exclude_hr_outliers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(z_threshold=3, **exclude_hr_outliers_params)
+    .mapvalues(argnames=["df"], argvalues=filter_etd_cols)
+)
+
+
+# %% [markdown]
 # ## Create home range layers
 
 # %%
@@ -3113,7 +3162,7 @@ generate_home_range_layers = (
         },
         **generate_home_range_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=filter_etd_cols)
+    .mapvalues(argnames=["geodataframe"], argvalues=exclude_hr_outliers)
 )
 
 
@@ -3142,6 +3191,34 @@ filter_mcp_cols = (
     )
     .partial(columns=["area_km2", "geometry"], **filter_mcp_cols_params)
     .mapvalues(argnames=["df"], argvalues=generate_mcp)
+)
+
+
+# %% [markdown]
+# ## Exclude mcp outliers
+
+# %%
+# parameters
+
+exclude_mcp_outliers_params = dict()
+
+# %%
+# call the task
+
+
+exclude_mcp_outliers = (
+    exclude_geom_outliers_polygon.set_task_instance_id("exclude_mcp_outliers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(z_threshold=3, **exclude_mcp_outliers_params)
+    .mapvalues(argnames=["df"], argvalues=filter_mcp_cols)
 )
 
 
@@ -3191,7 +3268,7 @@ create_mcp_polygon_layer = (
         },
         **create_mcp_polygon_layer_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=filter_mcp_cols)
+    .mapvalues(argnames=["geodataframe"], argvalues=exclude_mcp_outliers)
 )
 
 
@@ -3281,7 +3358,7 @@ zoom_hr_gdf_extent = (
         unpack_depth=1,
     )
     .partial(pitch=0, bearing=0, **zoom_hr_gdf_extent_params)
-    .mapvalues(argnames=["gdf"], argvalues=format_speed_values)
+    .mapvalues(argnames=["gdf"], argvalues=filter_etd_cols)
 )
 
 
@@ -3670,10 +3747,43 @@ filter_mean_speed_cols = (
         unpack_depth=1,
     )
     .partial(
-        columns=["bins_formatted", "speedraster_bins_colormap", "geometry"],
+        columns=[
+            "value_bins",
+            "bins_formatted",
+            "speedraster_bins_colormap",
+            "geometry",
+        ],
         **filter_mean_speed_cols_params,
     )
     .mapvalues(argnames=["df"], argvalues=format_speed_raster_labels)
+)
+
+
+# %% [markdown]
+# ## Exclude speed raster outliers
+
+# %%
+# parameters
+
+exclude_raster_outliers_params = dict()
+
+# %%
+# call the task
+
+
+exclude_raster_outliers = (
+    exclude_geom_outliers_polygon.set_task_instance_id("exclude_raster_outliers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(z_threshold=3, **exclude_raster_outliers_params)
+    .mapvalues(argnames=["df"], argvalues=filter_mean_speed_cols)
 )
 
 
@@ -3726,7 +3836,7 @@ create_mean_speed_raster_layer = (
         },
         **create_mean_speed_raster_layer_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=filter_mean_speed_cols)
+    .mapvalues(argnames=["geodataframe"], argvalues=exclude_raster_outliers)
 )
 
 
@@ -4073,6 +4183,34 @@ filter_season_cols = (
 
 
 # %% [markdown]
+# ## Exclude season outliers
+
+# %%
+# parameters
+
+exclude_season_outliers_params = dict()
+
+# %%
+# call the task
+
+
+exclude_season_outliers = (
+    exclude_geom_outliers_polygon.set_task_instance_id("exclude_season_outliers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(z_threshold=3, **exclude_season_outliers_params)
+    .mapvalues(argnames=["df"], argvalues=filter_season_cols)
+)
+
+
+# %% [markdown]
 # ## Create seasonal home range layers
 
 # %%
@@ -4102,7 +4240,7 @@ generate_season_layers = (
             "extruded": False,
             "wireframe": False,
             "get_fill_color": "season_colors",
-            "get_line_color": [0, 0, 0, 255],
+            "get_line_color": "season_colors",
             "opacity": 0.55,
             "get_line_width": 0.35,
             "get_elevation": 0,
@@ -4121,7 +4259,7 @@ generate_season_layers = (
         },
         **generate_season_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=filter_season_cols)
+    .mapvalues(argnames=["geodataframe"], argvalues=exclude_season_outliers)
 )
 
 
@@ -4930,7 +5068,7 @@ generate_speedmap_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 1000,
+            "wait_for_timeout": 30000,
             "max_concurrent_pages": 1,
         },
         **generate_speedmap_png_params,
@@ -4967,7 +5105,7 @@ generate_day_night_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 1000,
+            "wait_for_timeout": 30000,
             "max_concurrent_pages": 1,
         },
         **generate_day_night_png_params,
@@ -5004,7 +5142,7 @@ generate_movement_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 1000,
+            "wait_for_timeout": 30000,
             "max_concurrent_pages": 1,
         },
         **generate_movement_png_params,
@@ -5041,7 +5179,7 @@ generate_homerange_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 1000,
+            "wait_for_timeout": 30000,
             "max_concurrent_pages": 1,
         },
         **generate_homerange_png_params,
@@ -5078,7 +5216,7 @@ generate_raster_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 1000,
+            "wait_for_timeout": 30000,
             "max_concurrent_pages": 1,
         },
         **generate_raster_png_params,
@@ -5115,7 +5253,7 @@ generate_seasonal_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 1000,
+            "wait_for_timeout": 30000,
             "max_concurrent_pages": 1,
         },
         **generate_seasonal_png_params,

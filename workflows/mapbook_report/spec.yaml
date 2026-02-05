@@ -132,7 +132,7 @@ workflow:
       geodataframe: ${{ workflow.filter_ldx_cols.return }}
       layer_style: 
         get_text: name 
-        get_color: [0,0,0,255]
+        get_color: [20,20,20,255]
         
         get_size: 1500
         size_units: meters 
@@ -140,8 +140,8 @@ workflow:
         size_max_pixels: 100
         size_scale: 2.25 
 
-        font_family: Calibri 
-        font_weight: "700" 
+        font_family: Arial 
+        font_weight: null
         get_text_anchor: middle 
         get_alignment_baseline: center
         billboard: true 
@@ -172,35 +172,35 @@ workflow:
       gdf_dict: ${{ workflow.annotate_gdf_dict.return }}
       styles: 
         Community Conservancy:
-          get_fill_color: [85, 107, 47]
-          get_line_color: [85, 107, 47]
-          opacity: 0.45
+          get_fill_color: [166,182,151]
+          get_line_color: [166,182,151]
+          opacity: 0.15
           stroked: true
           get_line_width: 2.00 #1.85
           
         National Reserve:
-          get_fill_color: [143, 188, 139]
-          get_line_color: [143, 188, 139]
-          opacity: 0.45
+          get_fill_color: [136,167,142]
+          get_line_color: [136,167,142]
+          opacity: 0.15
           stroked: true
           get_line_width: 2.00
 
         National Park: 
-          get_fill_color: [255, 250, 205]
-          get_line_color: [255, 250, 205]
-          opacity: 0.45
+          get_fill_color: [17, 86, 49]
+          get_line_color: [17, 86, 49]
+          opacity: 0.15
           stroked: true
           get_line_width: 2.00
     
       legends: 
-        title: Protected Areas 
+        title: "" 
         values: 
           - label: Community Conservancy 
-            color: "#556b2f"
+            color: "#a6b697"
           - label: National Reserve 
-            color: "#8fbc8f"
+            color: "#88a78e"
           - label: National Park 
-            color: "#fffacd"
+            color: "#115631"
 
   - name: Transform observations to relocations 
     id: subject_reloc
@@ -339,9 +339,10 @@ workflow:
       classification_options: 
         scheme: equal_interval 
         k: 6 
-      label_options: 
-        label_range: false 
-        label_decimals: 1 
+      label_options:
+        label_ranges: true
+        label_decimals: 1
+        label_suffix: ' km/h'
   
   - name: Rename trajectory columns 
     id: rename_traj_cols 
@@ -514,33 +515,7 @@ workflow:
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.sort_trajs_by_speed.return }}
-    
-  - name: Format speed bins for legend 
-    id: format_speed_bin_labels 
-    task: map_values_with_unit 
-    partial: 
-      input_column_name: speed_bins 
-      output_column_name: speed_bins_formatted 
-      original_unit: km/h
-      new_unit: km/h
-      decimal_places: 1 
-    mapvalues:
-      argnames: df
-      argvalues: ${{ workflow.apply_speed_colormap.return }}  
-
-  - name: Format speed values for display 
-    id: format_speed_values 
-    task: map_values_with_unit
-    partial: 
-      input_column_name: speed_kmhr 
-      output_column_name: speed_kmhr 
-      original_unit: km/h
-      new_unit: km/h
-      decimal_places: 1
-    mapvalues:
-      argnames: df
-      argvalues: ${{ workflow.format_speed_bin_labels.return }}
-  
+      
   - name: Exclude unnecessary columns from speedmap gdf 
     id: filter_speed_cols 
     task: filter_df_cols 
@@ -551,10 +526,19 @@ workflow:
         - geometry
         - speed_kmhr
         - hex_color
-        - speed_bins_formatted
+        - speed_bins
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.format_speed_values.return }}
+      argvalues: ${{ workflow.apply_speed_colormap.return }}  
+
+  - name: Exclude geom outliers speedmap 
+    id: exclude_speed_outliers 
+    task: exclude_geom_outliers_linestring 
+    partial:
+      z_threshold: 3 
+    mapvalues: 
+      argnames: df 
+      argvalues: ${{ workflow.filter_speed_cols.return }}
 
   - name: Generate speedmap layers 
     id: generate_speedmap_layers 
@@ -574,13 +558,13 @@ workflow:
         stroked: true 
       legend:
         title: Speed (km/h)
-        label_column: speed_bins_formatted
+        label_column: speed_bins
         color_column: speed_bins_colormap
         sort: ascending 
         label_suffix: null
     mapvalues:
       argnames: geodataframe
-      argvalues: ${{ workflow.filter_speed_cols.return }}
+      argvalues: ${{ workflow.exclude_speed_outliers.return }}
   
   # # should be used globally 
   - name: Zoom to gdf extent 
@@ -696,6 +680,15 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.apply_day_night_colormap.return }}
 
+  - name: Exclude geom outliers day night map 
+    id: exclude_dn_outliers 
+    task: exclude_geom_outliers_linestring 
+    partial:
+      z_threshold: 3 
+    mapvalues: 
+      argnames: df 
+      argvalues: ${{ workflow.filter_day_night_cols.return }}
+
   - name: Create day/night map layers 
     id: generate_day_night_layers 
     task: create_path_layer
@@ -713,7 +706,7 @@ workflow:
         opacity: 0.55
         stroked: true 
       legend:
-        title: Night Day tracks
+        title: Day Night tracks
         values: 
           - label: Day 
             color: "#e7a553"
@@ -722,7 +715,7 @@ workflow:
 
     mapvalues:
       argnames: geodataframe
-      argvalues: ${{ workflow.filter_day_night_cols.return }}
+      argvalues: ${{ workflow.exclude_dn_outliers.return }}
 
   - name: Combine ldx layers and day/night layers 
     id: combined_ldx_daynight_layers 
@@ -824,6 +817,15 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.sort_trajs_by_status.return }}
 
+  - name: Exclude geom outliers movement map 
+    id: exclude_move_outliers 
+    task: exclude_geom_outliers_linestring 
+    partial:
+      z_threshold: 3 
+    mapvalues: 
+      argnames: df 
+      argvalues: ${{ workflow.filter_movement_cols.return }}
+
   - name: Create movement track layers
     id: generate_track_layers
     task: create_path_layer
@@ -848,7 +850,7 @@ workflow:
         label_suffix: null
     mapvalues:
       argnames: geodataframe
-      argvalues: ${{ workflow.filter_movement_cols.return }}
+      argvalues: ${{ workflow.exclude_move_outliers.return }}
 
   - name: Combine ldx layers and movement track layers
     id: combined_ldx_movement_layers
@@ -931,8 +933,8 @@ workflow:
     task: calculate_elliptical_time_density
     partial: 
       auto_scale_or_custom_cell_size: 
-        auto_scale_or_customize: Customize
-        grid_cell_size: 2000 
+        auto_scale_or_customize: Auto-scale
+        #grid_cell_size: 2000 
       
       crs: ESRI:53042
       percentiles: 
@@ -1011,6 +1013,15 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.apply_etd_colormap.return }}
 
+  - name: Exclude home range outliers 
+    id: exclude_hr_outliers
+    task: exclude_geom_outliers_polygon 
+    partial: 
+      z_threshold: 3 
+    mapvalues:
+      argnames: df 
+      argvalues: ${{ workflow.filter_etd_cols.return }}
+
   - name: Create home range layers 
     id: generate_home_range_layers 
     task: create_geojson_layer
@@ -1039,7 +1050,7 @@ workflow:
         label_suffix: null
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.filter_etd_cols.return }}
+      argvalues: ${{ workflow.exclude_hr_outliers.return }}
 
   - name: Exclude unnecessary columns from mcp gdf  
     id: filter_mcp_cols 
@@ -1051,6 +1062,15 @@ workflow:
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.generate_mcp.return }}
+
+  - name: Exclude mcp outliers 
+    id: exclude_mcp_outliers
+    task: exclude_geom_outliers_polygon 
+    partial: 
+      z_threshold: 3 
+    mapvalues:
+      argnames: df 
+      argvalues: ${{ workflow.filter_mcp_cols.return }}
 
   - name: Create mcp polygon layer 
     id: create_mcp_polygon_layer 
@@ -1079,7 +1099,7 @@ workflow:
               color: "#ff1493"
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.filter_mcp_cols.return }}
+      argvalues: ${{ workflow.exclude_mcp_outliers.return }}
 
   - name: Combine home range layer and mcp layer 
     id: zip_home_range_with_mcp_layer
@@ -1108,7 +1128,7 @@ workflow:
       bearing: 0
     mapvalues:
       argnames: gdf
-      argvalues: ${{ workflow.format_speed_values.return }}
+      argvalues: ${{ workflow.filter_etd_cols.return }}
 
   - name: Combine home range layers with view state
     id: zip_hr_with_viewstate
@@ -1253,12 +1273,22 @@ workflow:
     task: filter_df_cols 
     partial: 
       columns: 
+        - value_bins
         - bins_formatted
         - speedraster_bins_colormap
         - geometry
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.format_speed_raster_labels.return }}
+
+  - name: Exclude speed raster outliers 
+    id: exclude_raster_outliers
+    task: exclude_geom_outliers_polygon 
+    partial: 
+      z_threshold: 3 
+    mapvalues:
+      argnames: df 
+      argvalues: ${{ workflow.filter_mean_speed_cols.return }}
 
   - name: Create mean speed raster layer
     id: create_mean_speed_raster_layer 
@@ -1288,7 +1318,7 @@ workflow:
         label_suffix: null
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.filter_mean_speed_cols.return }}
+      argvalues: ${{ workflow.exclude_raster_outliers.return }}
 
   - name: Combine ldx layers and mean speed raster layer
     id: combined_ldx_speed_raster
@@ -1412,6 +1442,15 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.assign_season_df.return }}
 
+  - name: Exclude season outliers 
+    id: exclude_season_outliers
+    task: exclude_geom_outliers_polygon 
+    partial: 
+      z_threshold: 3 
+    mapvalues:
+      argnames: df 
+      argvalues: ${{ workflow.filter_season_cols.return }}
+
   - name: Create seasonal home range layers
     id: generate_season_layers 
     task: create_geojson_layer
@@ -1422,7 +1461,7 @@ workflow:
         extruded: false 
         wireframe: false
         get_fill_color: season_colors
-        get_line_color: [0,0,0,255]
+        get_line_color: season_colors
         opacity: 0.55
         get_line_width: 0.35
         get_elevation: 0
@@ -1440,7 +1479,7 @@ workflow:
           label_suffix: null
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.filter_season_cols.return }}
+      argvalues: ${{ workflow.exclude_season_outliers.return }}
     
   - name: Combine ldx layers and seasonal home range layers
     id: combined_ldx_seasonal_hr_layers
@@ -1704,7 +1743,7 @@ workflow:
       config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 1000
+        wait_for_timeout: 30000
         max_concurrent_pages: 1
     
     mapvalues:
@@ -1719,7 +1758,7 @@ workflow:
       config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 1000
+        wait_for_timeout: 30000
         max_concurrent_pages: 1
     
     mapvalues:
@@ -1734,7 +1773,7 @@ workflow:
       config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 1000
+        wait_for_timeout: 30000
         max_concurrent_pages: 1
     
     mapvalues:
@@ -1749,7 +1788,7 @@ workflow:
       config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 1000
+        wait_for_timeout: 30000
         max_concurrent_pages: 1
     
     mapvalues:
@@ -1764,7 +1803,7 @@ workflow:
       config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 1000
+        wait_for_timeout: 30000
         max_concurrent_pages: 1
     
     mapvalues:
@@ -1779,7 +1818,7 @@ workflow:
       config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 1000
+        wait_for_timeout: 30000
         max_concurrent_pages: 1
     
     mapvalues:
