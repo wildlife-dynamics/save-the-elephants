@@ -138,10 +138,10 @@ workflow:
         size_units: meters 
         size_min_pixels: 70 #65 
         size_max_pixels: 100
-        size_scale: 0.25 
+        size_scale: 2.25 
 
         font_family: Arial 
-        font_weight: null
+        font_weight: normal
         get_text_anchor: middle 
         get_alignment_baseline: center
         billboard: true 
