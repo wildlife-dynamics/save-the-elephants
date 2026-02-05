@@ -85,7 +85,12 @@ workflow_details = (
 # %%
 # parameters
 
-time_range_params = dict()
+time_range_params = dict(
+    since=...,
+    until=...,
+    timezone=...,
+    time_format=...,
+)
 
 # %%
 # call the task
@@ -102,18 +107,7 @@ time_range = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        time_format="%d %b %Y %H:%M:%S %Z",
-        timezone={
-            "label": "UTC",
-            "tzCode": "UTC",
-            "name": "UTC",
-            "utc_offset": "+03:00",
-        },
-        since="2026-01-01T00:00:00Z",
-        until="2026-02-28T23:59:59Z",
-        **time_range_params,
-    )
+    .partial(**time_range_params)
     .call()
 )
 

@@ -1,10 +1,14 @@
 from enum import Enum
 from datetime import datetime, timedelta
-from pydantic import ConfigDict
 from typing import Union, Annotated
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from ecoscope_workflows_core.decorators import task
-from ecoscope_workflows_core.tasks.filter._filter import TimeRange, TimezoneInfo, UTC_TIMEZONEINFO, DEFAULT_TIME_FORMAT
+from ecoscope_workflows_core.tasks.filter._filter import (
+    TimeRange,
+    TimezoneInfo,
+    UTC_TIMEZONEINFO,
+    DEFAULT_TIME_FORMAT,
+)
 
 
 class PreviousPeriodType(str, Enum):
@@ -18,33 +22,64 @@ class PreviousPeriodType(str, Enum):
 
 
 class PreviousTimeRange(BaseModel):
-    """Custom TimeRange with UTC defaults for previous period selection."""
+    """
+    Manual previous period selection.
 
-    since: Annotated[datetime, Field(description="The start time")]
-    until: Annotated[datetime, Field(description="The end time")]
+    Only `since` is provided by the user. `until` is always derived
+    from the current period's start when converting to a TimeRange,
+    enforcing the invariant that the previous period ends exactly
+    where the current one begins.
+    """
+
+    since: Annotated[datetime, Field(description="The start time of the previous period")]
     timezone: Annotated[
-        TimezoneInfo, Field(default=UTC_TIMEZONEINFO, description="Timezone information (defaults to UTC)")
+        TimezoneInfo,
+        Field(default=UTC_TIMEZONEINFO, description="Timezone (defaults to UTC)"),
     ] = UTC_TIMEZONEINFO
     time_format: Annotated[str, Field(default=DEFAULT_TIME_FORMAT, description="The time format")] = DEFAULT_TIME_FORMAT
 
-    def to_time_range(self) -> TimeRange:
-        """Convert to standard TimeRange object."""
-        return TimeRange(since=self.since, until=self.until, timezone=self.timezone, time_format=self.time_format)
+    def to_time_range(self, current_time_range: TimeRange) -> TimeRange:
+        """
+        Convert to a standard TimeRange, pinning `until` to the start
+        of the current period.
+
+        Args:
+            current_time_range: The current period being analysed.
+
+        Returns:
+            TimeRange where until == current_time_range.since.
+        """
+        return TimeRange(
+            since=self.since,
+            until=current_time_range.since,
+            timezone=self.timezone,
+            time_format=self.time_format,
+        )
 
 
 class PreviousCustomTimeRangeOption(BaseModel):
-    model_config = ConfigDict(title="Choose which period you'd like to select your date from")
+    """User selects a predefined previous period via the enum."""
 
+    model_config = ConfigDict(title="Choose which period you'd like to select your date from")
     custom: Annotated[PreviousPeriodType, Field(description="Select the previous period type")]
 
 
 class PreviousTimeRangeOption(BaseModel):
-    model_config = ConfigDict(title="Enter date range you'd like to compare the data to")
-    time_range: PreviousTimeRange  # Now using PreviousTimeRange with defaults
+    """User manually specifies a start date for the previous period."""
+
+    model_config = ConfigDict(title="Enter the start date you'd like the previous period to begin from")
+    time_range: PreviousTimeRange
 
 
-# Union type for either custom or manual selection
+# Union type for either enum-driven or manual selection
 PrevOption = Union[PreviousCustomTimeRangeOption, PreviousTimeRangeOption]
+
+PERIOD_OFFSETS: dict[PreviousPeriodType, timedelta] = {
+    PreviousPeriodType.PREVIOUS_MONTH: timedelta(days=30),
+    PreviousPeriodType.PREVIOUS_3_MONTHS: timedelta(days=90),
+    PreviousPeriodType.PREVIOUS_6_MONTHS: timedelta(days=180),
+    PreviousPeriodType.PREVIOUS_YEAR: timedelta(days=365),
+}
 
 
 @task
@@ -52,44 +87,32 @@ def determine_previous_period(option: PrevOption, current_time_range: TimeRange)
     """
     Determines the previous period based on the selected option.
 
+    Invariant: the returned TimeRange's `until` is always equal to
+    `current_time_range.since` — the previous period ends exactly
+    where the current one begins, regardless of which path is taken.
+
     Args:
-        option: Either a custom period selection or manual TimeRange
-        current_time_range: The current period being analyzed
+        option: Either a predefined period selection (enum-driven)
+                or a manual start date.
+        current_time_range: The current period being analysed.
 
     Returns:
-        TimeRange representing the previous period for comparison
+        TimeRange representing the previous period for comparison.
     """
-
     if isinstance(option, PreviousTimeRangeOption):
-        # Convert PreviousTimeRange to standard TimeRange
-        return option.time_range.to_time_range()
+        return option.time_range.to_time_range(current_time_range)
 
-    if option.custom == PreviousPeriodType.SAME_AS_CURRENT:
-        # Calculate the duration of the current period
-        duration = current_time_range.until - current_time_range.since
+    period_type = option.custom
 
-        # Shift the entire period backwards by its own duration
-        prev_since = current_time_range.since - duration
-        prev_until = current_time_range.until - duration
-
-    elif option.custom == PreviousPeriodType.PREVIOUS_MONTH:
-        prev_until = current_time_range.since
-        prev_since = prev_until - timedelta(days=30)
-
-    elif option.custom == PreviousPeriodType.PREVIOUS_3_MONTHS:
-        prev_until = current_time_range.since
-        prev_since = prev_until - timedelta(days=90)
-
-    elif option.custom == PreviousPeriodType.PREVIOUS_6_MONTHS:
-        prev_until = current_time_range.since
-        prev_since = prev_until - timedelta(days=180)
-
-    elif option.custom == PreviousPeriodType.PREVIOUS_YEAR:
-        prev_until = current_time_range.since
-        prev_since = prev_until - timedelta(days=365)
-
+    if period_type == PreviousPeriodType.SAME_AS_CURRENT:
+        offset = current_time_range.until - current_time_range.since
+    elif period_type in PERIOD_OFFSETS:
+        offset = PERIOD_OFFSETS[period_type]
     else:
-        raise ValueError(f"Unknown custom option: {option.custom}")
+        raise ValueError(f"Unknown custom option: {period_type}")
+
+    prev_until = current_time_range.since
+    prev_since = prev_until - offset
 
     return TimeRange(
         since=prev_since,

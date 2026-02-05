@@ -3,6 +3,7 @@
 [workspace]
 name = "ecoscope-workflows-mapbook-report-workflow"
 channels = [
+    "file:///tmp/ecoscope-workflows-custom/release/artifacts/",
     "https://repo.prefix.dev/ecoscope-workflows-custom/",
     "https://repo.prefix.dev/ecoscope-workflows/",
     "conda-forge",
@@ -10,7 +11,6 @@ channels = [
 ]
 platforms = [
     "linux-64",
-    "linux-aarch64",
     "osx-arm64",
     "win-64",
     "osx-64",
@@ -20,23 +20,23 @@ platforms = [
 linux = "4.4.0"
 
 [dependencies.ecoscope-workflows-core]
-version = "0.21.2.*"
+version = "0.20.6.*"
 channel = "https://repo.prefix.dev/ecoscope-workflows/"
 
 [dependencies.ecoscope-workflows-ext-ecoscope]
-version = "0.21.2.*"
+version = "0.20.6.*"
 channel = "https://repo.prefix.dev/ecoscope-workflows/"
 
 [dependencies.ecoscope-workflows-ext-custom]
-version = "0.0.20.*"
+version = "0.0.23.*"
 channel = "https://repo.prefix.dev/ecoscope-workflows-custom/"
 
 [dependencies.ecoscope-workflows-ext-ste]
-version = "0.0.7.*"
-channel = "https://repo.prefix.dev/ecoscope-workflows-custom/"
+version = "*"
+channel = "file:///tmp/ecoscope-workflows-custom/release/artifacts/"
 
 [feature.runner.dependencies.ecoscope-workflows-runner]
-version = "0.21.2.*"
+version = "0.20.6.*"
 channel = "https://repo.prefix.dev/ecoscope-workflows/"
 
 [feature.runner.tasks]
@@ -129,5 +129,5 @@ solve-group = "test"
 no-default-feature = true
 
 [tasks]
-docker-build = "docker buildx build -t ecoscope-workflows-mapbook-report-workflow ."
+docker-build = "mkdir -p .tmp/ecoscope-workflows/release/artifacts/\n&& cp -r /tmp/ecoscope-workflows/release/artifacts/* .tmp/ecoscope-workflows/release/artifacts/\n&& docker buildx build -t ecoscope-workflows-mapbook-report-workflow .\n"
 ecoscope-workflows-mapbook-report-workflow = "python -m ecoscope_workflows_mapbook_report_workflow.cli"

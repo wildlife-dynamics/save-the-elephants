@@ -1,5 +1,6 @@
 import math
 import logging
+import numpy as np
 from enum import Enum
 from pydantic import Field
 from typing import TypedDict, Literal, Tuple
@@ -459,3 +460,204 @@ def create_deckgl_layers_from_gdf_dict(
 
     logger.info("Created %d layers from gdf_dict", len(layers))
     return layers
+
+
+@task
+def exclude_geom_outliers_linestring(
+    df: AnyGeoDataFrame,
+    z_threshold: float = 3.0,
+) -> AnyGeoDataFrame:
+    """
+    Exclude geometric outliers from a GeoDataFrame with LineString geometries.
+
+    This function identifies and removes outlier LineStrings based on their centroid's
+    distance from the overall centroid using z-score analysis. LineStrings with a
+    z-score exceeding the threshold are considered outliers and removed.
+
+    Args:
+        df: GeoDataFrame with LineString geometries
+        z_threshold: Z-score threshold for outlier detection. Higher values are more
+                    lenient (default: 3.0, which keeps ~99.7% of normally distributed data)
+
+    Returns:
+        Filtered GeoDataFrame with outliers removed. Temporary calculation columns
+        (centroid_x, centroid_y, dist_from_center) are not included in the output.
+
+    Raises:
+        ValueError: If DataFrame doesn't have a geometry column or contains non-LineString geometries
+
+    Examples:
+        >>> filtered_gdf = exclude_geom_outliers_linestring(linestring_gdf, z_threshold=3.0)
+
+        >>> # More lenient filtering
+        >>> filtered_gdf = exclude_geom_outliers_linestring(linestring_gdf, z_threshold=4.0)
+    """
+
+    if df.empty:
+        logger.warning("Warning: Input dataframe is empty")
+        return df
+
+    if len(df) < 4:
+        logger.warning(f"Warning: Too few LineStrings ({len(df)}) for reliable outlier detection.")
+        return df
+
+    if "geometry" not in df.columns:
+        raise ValueError("DataFrame must have a 'geometry' column")
+
+    # Check if all geometries are LineStrings
+    geom_types = df.geometry.geom_type.unique()
+    if not all(geom_type == "LineString" for geom_type in geom_types):
+        raise ValueError(
+            f"This function only works with LineString geometries. "
+            f"Found geometry types: {geom_types.tolist()}. "
+            f"Use exclude_geom_outliers() for Point geometries."
+        )
+
+    # Work on a copy to avoid modifying the input
+    df = df.copy()
+
+    # Calculate centroid for each LineString
+    line_centroids = df.geometry.centroid
+
+    # Extract x, y coordinates of centroids
+    df["centroid_x"] = line_centroids.x
+    df["centroid_y"] = line_centroids.y
+
+    # Calculate overall centroid (centroid of all line centroids)
+    overall_centroid_x = df["centroid_x"].mean()
+    overall_centroid_y = df["centroid_y"].mean()
+
+    # Calculate distance from overall centroid
+    df["dist_from_center"] = np.sqrt(
+        (df["centroid_x"] - overall_centroid_x) ** 2 + (df["centroid_y"] - overall_centroid_y) ** 2
+    )
+
+    # Calculate statistics
+    dist_mean = df["dist_from_center"].mean()
+    dist_std = df["dist_from_center"].std()
+
+    # Handle case where all LineString centroids are at the same location
+    if dist_std == 0:
+        logger.warning("Warning: All LineString centroids at same location (std=0). No outliers removed.")
+        return df[df.columns.difference(["centroid_x", "centroid_y", "dist_from_center"])].copy()
+
+    # Calculate z-scores and filter
+    z_scores = (df["dist_from_center"] - dist_mean) / dist_std
+    mask = np.abs(z_scores) < z_threshold
+
+    outliers_count = (~mask).sum()
+    logger.info(f"Outliers count: {outliers_count}")
+
+    # Filter and remove temporary columns
+    df_filtered = df[mask].copy()
+
+    # Drop temporary calculation columns
+    columns_to_drop = ["centroid_x", "centroid_y", "dist_from_center"]
+    df_filtered = df_filtered.drop(columns=columns_to_drop, errors="ignore")
+
+    return df_filtered
+
+
+@task
+def exclude_geom_outliers_polygon(
+    df: AnyGeoDataFrame,
+    z_threshold: float = 3.0,
+) -> AnyGeoDataFrame:
+    """
+    Exclude geometric outliers from a GeoDataFrame with Polygon or MultiPolygon geometries.
+
+    This function identifies and removes outlier Polygons/MultiPolygons based on their
+    centroid's distance from the overall centroid using z-score analysis. Geometries with
+    a z-score exceeding the threshold are considered outliers and removed.
+
+    Args:
+        df: GeoDataFrame with Polygon or MultiPolygon geometries
+        z_threshold: Z-score threshold for outlier detection. Higher values are more
+                    lenient (default: 3.0, which keeps ~99.7% of normally distributed data)
+
+    Returns:
+        Filtered GeoDataFrame with outliers removed. Temporary calculation columns
+        (centroid_x, centroid_y, dist_from_center) are not included in the output.
+
+    Raises:
+        ValueError: If DataFrame doesn't have a geometry column or contains geometries
+                   that are not Polygon or MultiPolygon
+
+    Examples:
+        >>> filtered_gdf = exclude_geom_outliers_polygon(polygon_gdf, z_threshold=3.0)
+
+        >>> # More lenient filtering
+        >>> filtered_gdf = exclude_geom_outliers_polygon(multipolygon_gdf, z_threshold=4.0)
+
+        >>> # Works with mixed Polygon and MultiPolygon
+        >>> filtered_gdf = exclude_geom_outliers_polygon(mixed_gdf, z_threshold=3.5)
+    """
+
+    if df.empty:
+        logger.warning("Warning: Input dataframe is empty")
+        return df
+
+    if len(df) < 4:
+        logger.warning(
+            f"Warning: Too few Polygons ({len(df)}) for reliable outlier detection. " f"Returning original data."
+        )
+        return df
+
+    if "geometry" not in df.columns:
+        raise ValueError("DataFrame must have a 'geometry' column")
+
+    # Check if all geometries are Polygon or MultiPolygon
+    geom_types = df.geometry.geom_type.unique()
+    valid_types = {"Polygon", "MultiPolygon"}
+
+    if not all(geom_type in valid_types for geom_type in geom_types):
+        raise ValueError(
+            f"This function only works with Polygon and MultiPolygon geometries. "
+            f"Found geometry types: {geom_types.tolist()}. "
+            f"Use exclude_geom_outliers() for Point geometries or "
+            f"exclude_geom_outliers_linestring() for LineString geometries."
+        )
+
+    # Work on a copy to avoid modifying the input
+    df = df.copy()
+
+    # Calculate centroid for each Polygon/MultiPolygon
+    polygon_centroids = df.geometry.centroid
+
+    # Extract x, y coordinates of centroids
+    df["centroid_x"] = polygon_centroids.x
+    df["centroid_y"] = polygon_centroids.y
+
+    # Calculate overall centroid (centroid of all polygon centroids)
+    overall_centroid_x = df["centroid_x"].mean()
+    overall_centroid_y = df["centroid_y"].mean()
+
+    # Calculate distance from overall centroid
+    df["dist_from_center"] = np.sqrt(
+        (df["centroid_x"] - overall_centroid_x) ** 2 + (df["centroid_y"] - overall_centroid_y) ** 2
+    )
+
+    # Calculate statistics
+    dist_mean = df["dist_from_center"].mean()
+    dist_std = df["dist_from_center"].std()
+
+    # Handle case where all polygon centroids are at the same location
+    if dist_std == 0:
+        logger.warning("Warning: All polygon centroids at same location (std=0). No outliers removed.")
+        return df[df.columns.difference(["centroid_x", "centroid_y", "dist_from_center"])].copy()
+
+    # Calculate z-scores and filter
+    z_scores = (df["dist_from_center"] - dist_mean) / dist_std
+    mask = np.abs(z_scores) < z_threshold
+
+    outliers_count = (~mask).sum()
+    logger.info(f"Outliers count: {outliers_count}")
+
+    # Filter and remove temporary columns
+    df_filtered = df[mask].copy()
+
+    # Drop temporary calculation columns
+    columns_to_drop = ["centroid_x", "centroid_y", "dist_from_center"]
+    df_filtered = df_filtered.drop(columns=columns_to_drop, errors="ignore")
+
+    return df_filtered

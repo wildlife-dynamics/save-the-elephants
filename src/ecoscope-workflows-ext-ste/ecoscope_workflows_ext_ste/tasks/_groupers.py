@@ -4,16 +4,30 @@ from typing import Annotated, Any, Union, List
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.indexes import CompositeFilter
 from pydantic.json_schema import SkipJsonSchema
+from pydantic.functional_validators import BeforeValidator
 
-from ecoscope_workflows_core.indexes import (
-    AllGrouper,
-    TemporalGrouper,
-    ValueAndOrTemporalGroupersBeforeValidator,
-    ValueGrouper,
-)
+from ecoscope_workflows_core.indexes import AllGrouper, TemporalGrouper, ValueGrouper, strftime_directives
 from ecoscope_workflows_core.tasks.groupby._groupby import _groupers_field_json_schema_extra
 
 logger = logging.getLogger(__name__)
+
+
+def _value_or_temporal_grouper(v: Any):
+    if v in [t.directive for t in strftime_directives]:
+        return TemporalGrouper(
+            temporal_index=next(t for t in strftime_directives if t.directive == v),
+        )
+    else:
+        return ValueGrouper(index_name=v)
+
+
+def _value_and_or_temporal_groupers(v: Any):
+    if not isinstance(v, list) and not all(isinstance(i, str) for i in v):
+        raise ValueError(f"Value must be a list of strings, got '{v}'")
+    return [_value_or_temporal_grouper(i) for i in v]
+
+
+ValueAndOrTemporalGroupersBeforeValidator = BeforeValidator(_value_and_or_temporal_groupers)
 
 
 @task

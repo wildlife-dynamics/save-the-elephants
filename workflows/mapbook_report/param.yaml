@@ -1,9 +1,18 @@
 workflow_details:
-  description: Custom
-  name: custom_workflow
+  description: ''
+  name: custom
+time_range:
+  timezone:
+    utc: '+00:00'
+    name: UTC
+    tzCode: UTC
+    label: UTC
+  time_format: '%d %b %Y %H:%M:%S'
+  since: '2025-05-01T09:40:00.000Z'
+  until: '2026-02-02T09:40:00.000Z'
 groupers:
   groupers:
-    - subject_sex
+    - subject_name
 configure_base_maps:
   base_maps:
     - url: >-
@@ -12,10 +21,17 @@ configure_base_maps:
       max_zoom: 20
 set_previous_period:
   option:
-    custom: Same as current period
+    time_range:
+      timezone:
+        label: UTC
+        tzCode: UTC
+        name: UTC
+        utc: '+00:00'
+      time_format: '%d %b %Y %H:%M:%S'
+      since: '2024-09-01T09:40:00.000Z'
 er_client_name:
   data_source:
-    name: ste
+    name: ate
 gee_project_name:
   data_source:
     name: ecoscope_poc
@@ -29,8 +45,8 @@ custom_trajs_filter:
   max_time_secs: 21600
   min_speed_kmhr: 0.01
   max_speed_kmhr: 9
-time_range:
-  since: '2025-08-01T10:11:00.000Z'
-  until: '2026-01-11T10:11:00.000Z'
+logo_path:
+  input_method:
+    file_path: /Users/tevintemu/Desktop/logo.png
 subject_group_var:
-  var: ecoscope
+  var: Elephants - STE

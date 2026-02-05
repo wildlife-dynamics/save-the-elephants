@@ -23,6 +23,8 @@ from ._mapdeck_utils import (
     create_custom_text_layer,
     create_deckgl_layer_from_gdf,
     create_deckgl_layers_from_gdf_dict,
+    exclude_geom_outliers_linestring,
+    exclude_geom_outliers_polygon,
 )
 from ._groupers import (
     get_split_group_column,
@@ -32,7 +34,6 @@ from ._groupers import (
     set_custom_groupers,
 )
 
-from ._quantity import to_quantity
 from ._merge import merge_multiple_df
 from ._status import modify_status_colors, assign_season_colors
 from ._mapbook_context import (
@@ -45,7 +46,9 @@ from ._mapbook_context import (
 
 from ._preprocess import custom_trajectory_segment_filter
 from ._filter import filter_groups_by_value_criteria
-from ._aerial_lines import validate_polygon_geometry, draw_survey_lines, generate_survey_line_colors, transform_gdf_crs
+from ._aerial_lines import validate_polygon_geometry, draw_survey_lines, transform_gdf_crs
+
+from ._example import add_one_thousand
 
 __all__ = [
     "fetch_and_persist_file",
@@ -77,7 +80,6 @@ __all__ = [
     "get_split_group_values",
     "get_split_group_names",
     "extract_index_names",
-    "to_quantity",
     "merge_multiple_df",
     "modify_status_colors",
     "assign_season_colors",
@@ -91,7 +93,9 @@ __all__ = [
     "set_custom_groupers",
     "validate_polygon_geometry",
     "draw_survey_lines",
-    "generate_survey_line_colors",
     "custom_determine_season_windows",
     "transform_gdf_crs",
+    "exclude_geom_outliers_linestring",
+    "exclude_geom_outliers_polygon",
+    "add_one_thousand",
 ]

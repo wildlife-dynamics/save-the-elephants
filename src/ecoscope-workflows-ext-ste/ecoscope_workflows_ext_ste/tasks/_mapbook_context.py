@@ -12,6 +12,7 @@ from ecoscope_workflows_core.tasks.filter._filter import TimeRange
 from ecoscope_workflows_core.tasks.transformation._unit import Quantity
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
 from ecoscope_workflows_core.annotations import AnyDataFrame
+from ecoscope_workflows_core.skip import SKIP_SENTINEL, SkipSentinel
 
 logger = logging.getLogger(__name__)
 
@@ -113,35 +114,38 @@ def create_context_page(
 @task
 def create_mapbook_ctx_cover(
     count: int,
-    org_logo_path: Union[str, Path],
+    org_logo_path: Union[str, Path, None],
     report_period: TimeRange,
     prepared_by: str,
-) -> Dict[str, str]:
+) -> Dict[str, Optional[str]]:
     """
     Build a dictionary with the mapbook report template values.
 
     Args:
         count (int): Total number of subjects or records.
+        org_logo_path (Union[str, Path, None]): Path to the org logo, or None if unavailable.
         report_period (TimeRange): Object with 'since', 'until', and 'time_format' attributes.
         prepared_by (str): Name of the person or organization preparing the report.
 
     Returns:
-        Dict[str, str]: Structured dictionary with formatted metadata.
+        Dict[str, Optional[str]]: Structured dictionary with formatted metadata.
     """
-    org_logo_path = remove_file_scheme(org_logo_path)
+    # Resolve logo path — guard against None before calling remove_file_scheme
+    resolved_logo_path: Optional[str] = None
+    if org_logo_path is not None:
+        resolved_logo_path = remove_file_scheme(org_logo_path)
+        if not resolved_logo_path.strip():
+            raise ValueError("org_logo_path is empty after normalization")
 
-    if not org_logo_path.strip():
-        raise ValueError("org_logo_path is empty after normalization")
     formatted_date = datetime.now()
     formatted_date_str = formatted_date.strftime("%Y-%m-%d %H:%M:%S")
     fmt = getattr(report_period, "time_format", "%Y-%m-%d")
     formatted_time_range = f"{report_period.since.strftime(fmt)} to {report_period.until.strftime(fmt)}"
 
-    # Return structured dictionary
     return {
         "report_id": f"REP-{uuid.uuid4().hex[:8].upper()}",
         "subject_count": str(count),
-        "org_logo_path": org_logo_path,
+        "org_logo_path": resolved_logo_path,  # None if no logo was provided
         "time_generated": formatted_date_str,
         "report_period": formatted_time_range,
         "prepared_by": prepared_by,
@@ -167,69 +171,181 @@ def validate_image_path(field_name: str, path: str) -> None:
 
 @task
 def create_mapbook_grouper_ctx(
-    current_period: TimeRange,
-    previous_period: TimeRange,
-    period: float | None,
-    grouper_name: tuple | list | str | None,
-    df: AnyDataFrame,
-    grid_area: Quantity | None,
-    mcp_area: Quantity | None,
-    map_paths: list | None,
-) -> Dict[str, str]:
+    current_period: TimeRange | SkipSentinel | None,
+    previous_period: TimeRange | SkipSentinel | None,
+    period: float | SkipSentinel | None,
+    grouper_name: tuple | list | str | SkipSentinel | None,
+    df: AnyDataFrame | SkipSentinel | None,
+    grid_area: Quantity | SkipSentinel | None,
+    mcp_area: Quantity | SkipSentinel | None,
+    speedmap: str | SkipSentinel | None,
+    day_night: str | SkipSentinel | None,
+    movement_tracks: str | SkipSentinel | None,
+    home_range: str | SkipSentinel | None,
+    mean_raster: str | SkipSentinel | None,
+    seasonal_homerange: str | SkipSentinel | None,
+) -> Dict[str, Optional[str]]:
+    def unwrap_skip(value):
+        """
+        Recursively unwrap SkipSentinel values from nested structures.
+        CRITICAL: Converts SkipSentinel to None to preserve argument positions.
+        """
+        if value is None or value is SKIP_SENTINEL:
+            return None
+
+        if isinstance(value, (list, tuple)):
+            # Convert each item, converting SkipSentinel to None
+            unwrapped_items = [unwrap_skip(v) for v in value]
+
+            # Filter out None values only for finding valid items to return
+            non_none_items = [item for item in unwrapped_items if item is not None]
+
+            # If no valid items found, return None
+            if not non_none_items:
+                return None
+
+            # If only one valid item, return it directly (flatten single-item containers)
+            if len(non_none_items) == 1:
+                return non_none_items[0]
+
+            # If multiple valid items, return the container with all items (including Nones)
+            # This preserves the structure but only matters for complex nested cases
+            return type(value)(unwrapped_items)
+
+        return value
+
     TIME_FMT = "%d %b %Y %H:%M:%S"
 
-    # Format current period
-    current_period_str = None
-    if current_period:
-        current_period_str = (
-            f"{current_period.since.strftime(TIME_FMT)} " f"to {current_period.until.strftime(TIME_FMT)}"
-        )
+    # ------------------ NORMALIZE ALL INPUTS ------------------
+    current_period = unwrap_skip(current_period)
+    previous_period = unwrap_skip(previous_period)
+    period = unwrap_skip(period)
+    grouper_name = unwrap_skip(grouper_name)
+    df = unwrap_skip(df)
+    grid_area = unwrap_skip(grid_area)
+    mcp_area = unwrap_skip(mcp_area)
+    speedmap = unwrap_skip(speedmap)
+    day_night = unwrap_skip(day_night)
+    movement_tracks = unwrap_skip(movement_tracks)
+    home_range = unwrap_skip(home_range)
+    mean_raster = unwrap_skip(mean_raster)
+    seasonal_homerange = unwrap_skip(seasonal_homerange)
 
-    # Format previous period
-    previous_period_str = None
-    if previous_period:
-        previous_period_str = (
-            f"{previous_period.since.strftime(TIME_FMT)} " f"to {previous_period.until.strftime(TIME_FMT)}"
-        )
+    logger.info(
+        f"""
+        current_period: {current_period}
+        previous_period: {previous_period}
+        period: {period}
+        grouper_name: {grouper_name}
+        df: {df}
+        grid_area: {grid_area}
+        mcp_area: {mcp_area}
+        speedmap: {speedmap}
+        day_night: {day_night}
+        movement_tracks: {movement_tracks}
+        home_range: {home_range}
+        mean_raster: {mean_raster}
+        seasonal_homerange: {seasonal_homerange}
+        """
+    )
+    logger.info(f"After unwrap - grouper_name: {grouper_name} (type: {type(grouper_name)})")
 
-    # Format period
-    period_str = f"{period:.2f}" if isinstance(period, float) else str(period)
+    # ------------------ TIME ------------------
+    current_period_str = (
+        f"{current_period.since.strftime(TIME_FMT)} to {current_period.until.strftime(TIME_FMT)}"
+        if current_period
+        else "N/A"
+    )
 
-    # Format areas with None handling
-    grid_area_str = "N/A"
-    if grid_area and grid_area.value is not None:
-        grid_area_str = f"{grid_area.value:.1f} {grid_area.unit}"
+    previous_period_str = (
+        f"{previous_period.since.strftime(TIME_FMT)} to {previous_period.until.strftime(TIME_FMT)}"
+        if previous_period
+        else "N/A"
+    )
 
-    mcp_area_str = "N/A"
-    if mcp_area and mcp_area.value is not None:
-        mcp_area_str = f"{mcp_area.value:.1f} {mcp_area.unit}"
+    period_str = f"{period:.2f}" if isinstance(period, float) else "N/A"
 
-    logging.info(f"grid area: {grid_area_str} || mcp area: {mcp_area_str}")
+    # ------------------ AREA ------------------
+    def format_area(area):
+        if area and hasattr(area, "value") and area.value is not None:
+            return f"{area.value:.1f} {area.unit}"
+        return "N/A"
 
-    # Extract grouper value dynamically
+    grid_area_str = format_area(grid_area)
+    mcp_area_str = format_area(mcp_area)
+
+    # ------------------ EXTRACT GROUPER VALUE ------------------
     grouper_value = "All"
-    logging.info(f"grouper name raw: {grouper_name} (type: {type(grouper_name)})")
+    logger.info(f"grouper name raw: {grouper_name} (type: {type(grouper_name)})")
 
     if grouper_name:
+        # Case 1: Simple string
         if isinstance(grouper_name, str):
             grouper_value = grouper_name
-        elif isinstance(grouper_name, (list, tuple)) and len(grouper_name) > 0:
-            # Check if it's a tuple structure like (('index_name', 'All'),)
-            first_item = grouper_name[0]
+            logger.info(f"Case 1 - String: {grouper_value}")
 
-            # Handle tuple structure (('index_name', 'All'),)
+        # Case 2: Direct grouper object (ValueGrouper, TemporalGrouper, AllGrouper, etc.)
+        elif hasattr(grouper_name, "__class__") and hasattr(grouper_name, "index_name"):
+            grouper = grouper_name
+            grouper_type = grouper.__class__.__name__
+            logger.info(f"Case 2 - Direct grouper object, type: {grouper_type}")
+
+            if grouper_type == "ValueGrouper":
+                index_name = getattr(grouper, "index_name", None)
+                if df is not None and index_name and index_name in df.columns:
+                    unique_values = df[index_name].unique()
+                    if len(unique_values) == 1:
+                        grouper_value = str(unique_values[0])
+                        logger.info(f"Single unique value found: {grouper_value}")
+                    else:
+                        grouper_value = index_name
+                        logger.info(f"Multiple values, using index_name: {grouper_value}")
+                else:
+                    grouper_value = index_name if index_name else "Value"
+                    logger.info(f"No df or column not found, using: {grouper_value}")
+
+            elif grouper_type == "TemporalGrouper":
+                grouper_value = _format_temporal_grouper(grouper, df)
+                logger.info(f"TemporalGrouper: {grouper_value}")
+
+            elif grouper_type == "AllGrouper":
+                grouper_value = "All"
+                logger.info(f"AllGrouper: {grouper_value}")
+            else:
+                grouper_value = str(grouper_name)
+                logger.info(f"Unknown grouper type, using str: {grouper_value}")
+
+        # Case 3: Tuple filter structure like ('subject_name', '=', 'Naromoru')
+        elif isinstance(grouper_name, tuple) and len(grouper_name) == 3:
+            column_name, operator, value = grouper_name
+            grouper_value = str(value)
+            logger.info(f"Case 3 - Filter tuple: {column_name} {operator} {value}, using: {grouper_value}")
+
+        # Case 4: List or tuple containing grouper objects or nested structures
+        elif isinstance(grouper_name, (list, tuple)) and len(grouper_name) > 0:
+            first_item = grouper_name[0]
+            logger.info(f"Case 4 - List/tuple, first_item: {first_item} (type: {type(first_item)})")
+
+            # Handle tuple structure like (('index_name', 'All'),)
             if isinstance(first_item, tuple) and len(first_item) == 2:
                 key, value = first_item
                 if key == "index_name" and value == "All":
                     grouper_value = "All"
                 else:
                     grouper_value = str(value)
-                logging.info(f"Extracted from tuple structure: {grouper_value}")
-            # Handle grouper objects
-            elif hasattr(first_item, "__class__"):
+                logger.info(f"Extracted from key-value tuple: {grouper_value}")
+
+            # Handle filter tuple like ('subject_name', '=', 'Naromoru')
+            elif isinstance(first_item, tuple) and len(first_item) == 3:
+                column_name, operator, value = first_item
+                grouper_value = str(value)
+                logger.info(f"Extracted from filter tuple: {column_name} {operator} {value}, using: {grouper_value}")
+
+            # Handle grouper objects inside list/tuple
+            elif hasattr(first_item, "__class__") and hasattr(first_item, "index_name"):
                 grouper = first_item
                 grouper_type = grouper.__class__.__name__
-                logging.info(f"grouper_type: {grouper_type}")
+                logger.info(f"grouper_type (from list): {grouper_type}")
 
                 if grouper_type == "ValueGrouper":
                     index_name = getattr(grouper, "index_name", None)
@@ -251,31 +367,27 @@ def create_mapbook_grouper_ctx(
                     grouper_value = str(grouper_name)
             else:
                 grouper_value = str(first_item)
+                logger.info(f"Using str of first_item: {grouper_value}")
         else:
             grouper_value = str(grouper_name)
+            logger.info(f"Fallback - using str: {grouper_value}")
 
-    logging.info(f"grouper_value: {grouper_value}")
+    logger.info(f"Final grouper_value: {grouper_value}")
 
-    # Map parsing with None handling
-    map_suffixes = {
-        "movement_tracks_map": "movement_tracks.png",
-        "home_range_map": "homerange.png",
-        "speed_map": "speedmap.png",
-        "speed_raster_map": "mean_speed_raster.png",
-        "night_day_ecomap": "day_night.png",
-        "seasonal_map": "seasonal_home_range.png",
+    # ------------------ MAPS ------------------
+    def clean_map_path(path):
+        return str(path) if path else "N/A"
+
+    mapbook_png_paths = {
+        "movement_tracks_map": clean_map_path(movement_tracks),
+        "home_range_map": clean_map_path(home_range),
+        "speed_map": clean_map_path(speedmap),
+        "speed_raster_map": clean_map_path(mean_raster),
+        "night_day_ecomap": clean_map_path(day_night),
+        "seasonal_map": clean_map_path(seasonal_homerange),
     }
 
-    mapbook_png_paths = {key: None for key in map_suffixes.keys()}
-    if map_paths:
-        for path in map_paths:
-            if path:
-                for key, suffix in map_suffixes.items():
-                    if path.endswith(suffix):
-                        mapbook_png_paths[key] = path
-                        break
-
-    # Build context
+    # ------------------ CONTEXT ------------------
     ctx = {
         "time_period": current_period_str,
         "previous_time_range": previous_period_str,
@@ -286,7 +398,11 @@ def create_mapbook_grouper_ctx(
         **mapbook_png_paths,
     }
 
-    logging.info(f"Context: {ctx}")
+    logger.info(f"Context information for {grouper_value}")
+    logger.info("---------------")
+    logger.info(f"Context: {ctx}")
+    logger.info("----------------")
+
     return ctx
 
 

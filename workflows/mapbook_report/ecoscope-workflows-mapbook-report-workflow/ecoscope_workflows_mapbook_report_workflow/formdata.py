@@ -17,14 +17,6 @@ class WorkflowDetails(BaseModel):
     description: str | None = Field("", title="Workflow Description")
 
 
-class TimeRange(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    since: datetime = Field(..., description="The start time", title="Since")
-    until: datetime = Field(..., description="The end time", title="Until")
-
-
 class Url(str, Enum):
     https___tile_openstreetmap_org__z___x___y__png = (
         "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -216,6 +208,13 @@ class CustomTrajsFilter(BaseModel):
     max_speed_kmhr: float | None = Field(9.0, title="Max Speed Kmhr")
 
 
+class TimezoneInfo(BaseModel):
+    label: str = Field(..., title="Label")
+    tzCode: str = Field(..., title="Tzcode")
+    name: str = Field(..., title="Name")
+    utc: str = Field(..., title="Utc")
+
+
 class ValueGrouper(str, Enum):
     subject_name = "subject_name"
     subject_sex = "subject_sex"
@@ -230,11 +229,23 @@ class PreviousPeriodType(str, Enum):
     Previous_year = "Previous year"
 
 
-class TimezoneInfo(BaseModel):
-    label: str = Field(..., title="Label")
-    tzCode: str = Field(..., title="Tzcode")
-    name: str = Field(..., title="Name")
-    utc: str = Field(..., title="Utc")
+class PreviousTimeRange(BaseModel):
+    since: datetime = Field(
+        ..., description="The start time of the previous period", title="Since"
+    )
+    timezone: TimezoneInfo | None = Field(
+        default_factory=lambda: TimezoneInfo.model_validate(
+            {"label": "UTC", "tzCode": "UTC", "name": "UTC", "utc": "+00:00"}
+        ),
+        description="Timezone (defaults to UTC)",
+    )
+    time_format: str | None = Field(
+        "%d %b %Y %H:%M:%S", description="The time format", title="Time Format"
+    )
+
+
+class PreviousTimeRangeOption(BaseModel):
+    time_range: PreviousTimeRange
 
 
 class EarthRangerConnection(BaseModel):
@@ -258,6 +269,18 @@ class LocalFile(BaseModel):
         ...,
         description="Path to the local shapefile or archive on the filesystem",
         title="Local file path",
+    )
+
+
+class TimeRange(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    since: datetime = Field(..., description="The start time", title="Since")
+    until: datetime = Field(..., description="The end time", title="Until")
+    timezone: TimezoneInfo | None = Field(None, title="Timezone")
+    time_format: str | None = Field(
+        "%d %b %Y %H:%M:%S", description="The time format", title="Time Format"
     )
 
 
@@ -297,28 +320,17 @@ class RetrieveLdxDb(BaseModel):
     input_method: DownloadFile | LocalFile = Field(..., title="Input Method")
 
 
+class LogoPath(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    input_method: DownloadFile | LocalFile = Field(..., title="Input Method")
+
+
 class PreviousCustomTimeRangeOption(BaseModel):
     custom: PreviousPeriodType = Field(
         ..., description="Select the previous period type"
     )
-
-
-class PreviousTimeRange(BaseModel):
-    since: datetime = Field(..., description="The start time", title="Since")
-    until: datetime = Field(..., description="The end time", title="Until")
-    timezone: TimezoneInfo | None = Field(
-        default_factory=lambda: TimezoneInfo.model_validate(
-            {"label": "UTC", "tzCode": "UTC", "name": "UTC", "utc": "+00:00"}
-        ),
-        description="Timezone information (defaults to UTC)",
-    )
-    time_format: str | None = Field(
-        "%d %b %Y %H:%M:%S", description="The time format", title="Time Format"
-    )
-
-
-class PreviousTimeRangeOption(BaseModel):
-    time_range: PreviousTimeRange
 
 
 class SetPreviousPeriod(BaseModel):
@@ -362,3 +374,4 @@ class FormData(BaseModel):
     custom_trajs_filter: CustomTrajsFilter | None = Field(
         None, title="Trajectory Segment Filter"
     )
+    logo_path: LogoPath | None = Field(None, title="Report logo")

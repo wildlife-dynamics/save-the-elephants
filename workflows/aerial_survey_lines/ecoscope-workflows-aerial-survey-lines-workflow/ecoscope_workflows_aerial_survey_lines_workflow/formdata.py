@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import Literal
 
@@ -197,6 +198,13 @@ class SurveyLines(BaseModel):
     spacing: int | None = Field(500, title="Spacing")
 
 
+class TimezoneInfo(BaseModel):
+    label: str = Field(..., title="Label")
+    tzCode: str = Field(..., title="Tzcode")
+    name: str = Field(..., title="Name")
+    utc: str = Field(..., title="Utc")
+
+
 class DownloadFile(BaseModel):
     url: str = Field(
         ...,
@@ -210,6 +218,18 @@ class LocalFile(BaseModel):
         ...,
         description="Path to the local shapefile or archive on the filesystem",
         title="Local file path",
+    )
+
+
+class TimeRange(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    since: datetime = Field(..., description="The start time", title="Since")
+    until: datetime = Field(..., description="The end time", title="Until")
+    timezone: TimezoneInfo | None = Field(None, title="Timezone")
+    time_format: str | None = Field(
+        "%d %b %Y %H:%M:%S", description="The time format", title="Time Format"
     )
 
 
@@ -228,6 +248,9 @@ class FormData(BaseModel):
         None,
         description="Add information that will help to differentiate this workflow from another.",
         title="Set workflow details",
+    )
+    time_range: TimeRange | None = Field(
+        None, description="Choose the period of time to analyze.", title="Time range"
     )
     configure_base_maps: ConfigureBaseMaps | None = Field(
         None, title="Configure base map layers"

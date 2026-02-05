@@ -14,7 +14,6 @@ from ecoscope_workflows_core.tasks.config import (
     set_workflow_details as set_workflow_details,
 )
 from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
-from ecoscope_workflows_core.tasks.groupby import groupbykey as groupbykey
 from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
 from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.io import set_er_connection as set_er_connection
@@ -31,9 +30,6 @@ from ecoscope_workflows_core.tasks.results import (
 from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
 from ecoscope_workflows_core.tasks.results import (
     merge_widget_views as merge_widget_views,
-)
-from ecoscope_workflows_core.tasks.skip import (
-    all_keyed_iterables_are_skips as all_keyed_iterables_are_skips,
 )
 from ecoscope_workflows_core.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
@@ -62,6 +58,9 @@ from ecoscope_workflows_ext_custom.tasks.results import (
 )
 from ecoscope_workflows_ext_custom.tasks.transformation import (
     filter_row_values as filter_row_values,
+)
+from ecoscope_workflows_ext_custom.tasks.transformation import (
+    to_quantity as to_quantity,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density as calculate_elliptical_time_density,
@@ -128,6 +127,12 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import (
     determine_previous_period as determine_previous_period,
 )
+from ecoscope_workflows_ext_ste.tasks import (
+    exclude_geom_outliers_linestring as exclude_geom_outliers_linestring,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    exclude_geom_outliers_polygon as exclude_geom_outliers_polygon,
+)
 from ecoscope_workflows_ext_ste.tasks import extract_index_names as extract_index_names
 from ecoscope_workflows_ext_ste.tasks import (
     fetch_and_persist_file as fetch_and_persist_file,
@@ -156,7 +161,6 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
 from ecoscope_workflows_ext_ste.tasks import set_custom_groupers as set_custom_groupers
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
-from ecoscope_workflows_ext_ste.tasks import to_quantity as to_quantity
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
 
@@ -224,10 +228,9 @@ def main(params: Params):
         "assign_duration_colors": ["split_comb_cols", "split_comb_trajs"],
         "sort_trajs_by_speed": ["split_traj_by_group"],
         "apply_speed_colormap": ["sort_trajs_by_speed"],
-        "format_speed_bin_labels": ["apply_speed_colormap"],
-        "format_speed_values": ["format_speed_bin_labels"],
-        "filter_speed_cols": ["format_speed_values"],
-        "generate_speedmap_layers": ["filter_speed_cols"],
+        "filter_speed_cols": ["apply_speed_colormap"],
+        "exclude_speed_outliers": ["filter_speed_cols"],
+        "generate_speedmap_layers": ["exclude_speed_outliers"],
         "zoom_speed_gdf_extent": ["filter_speed_cols"],
         "combined_ldx_speed_layers": [
             "create_ldx_styled_layers",
@@ -245,7 +248,8 @@ def main(params: Params):
         "sort_trajs_by_day_night": ["split_traj_by_group"],
         "apply_day_night_colormap": ["sort_trajs_by_day_night"],
         "filter_day_night_cols": ["apply_day_night_colormap"],
-        "generate_day_night_layers": ["filter_day_night_cols"],
+        "exclude_dn_outliers": ["filter_day_night_cols"],
+        "generate_day_night_layers": ["exclude_dn_outliers"],
         "combined_ldx_daynight_layers": [
             "create_ldx_styled_layers",
             "create_ldx_text_layer",
@@ -262,7 +266,8 @@ def main(params: Params):
         "merge_day_night_widgets": ["create_day_night_widgets"],
         "sort_trajs_by_status": ["assign_duration_colors"],
         "filter_movement_cols": ["sort_trajs_by_status"],
-        "generate_track_layers": ["filter_movement_cols"],
+        "exclude_move_outliers": ["filter_movement_cols"],
+        "generate_track_layers": ["exclude_move_outliers"],
         "combined_ldx_movement_layers": [
             "create_ldx_styled_layers",
             "create_ldx_text_layer",
@@ -288,9 +293,11 @@ def main(params: Params):
         "generate_mcp": ["split_traj_by_group"],
         "apply_etd_colormap": ["generate_etd"],
         "filter_etd_cols": ["apply_etd_colormap"],
-        "generate_home_range_layers": ["filter_etd_cols"],
+        "exclude_hr_outliers": ["filter_etd_cols"],
+        "generate_home_range_layers": ["exclude_hr_outliers"],
         "filter_mcp_cols": ["generate_mcp"],
-        "create_mcp_polygon_layer": ["filter_mcp_cols"],
+        "exclude_mcp_outliers": ["filter_mcp_cols"],
+        "create_mcp_polygon_layer": ["exclude_mcp_outliers"],
         "zip_home_range_with_mcp_layer": [
             "generate_home_range_layers",
             "create_mcp_polygon_layer",
@@ -300,7 +307,7 @@ def main(params: Params):
             "create_ldx_text_layer",
             "zip_home_range_with_mcp_layer",
         ],
-        "zoom_hr_gdf_extent": ["format_speed_values"],
+        "zoom_hr_gdf_extent": ["filter_etd_cols"],
         "zip_hr_with_viewstate": [
             "combined_ldx_home_range_layers",
             "zoom_hr_gdf_extent",
@@ -316,7 +323,8 @@ def main(params: Params):
         "apply_speed_raster_colormap": ["apply_classification_raster"],
         "format_speed_raster_labels": ["apply_speed_raster_colormap"],
         "filter_mean_speed_cols": ["format_speed_raster_labels"],
-        "create_mean_speed_raster_layer": ["filter_mean_speed_cols"],
+        "exclude_raster_outliers": ["filter_mean_speed_cols"],
+        "create_mean_speed_raster_layer": ["exclude_raster_outliers"],
         "combined_ldx_speed_raster": [
             "create_ldx_styled_layers",
             "create_ldx_text_layer",
@@ -338,7 +346,8 @@ def main(params: Params):
         "convert_season_to_string": ["seasonal_home_range"],
         "assign_season_df": ["convert_season_to_string"],
         "filter_season_cols": ["assign_season_df"],
-        "generate_season_layers": ["filter_season_cols"],
+        "exclude_season_outliers": ["filter_season_cols"],
+        "generate_season_layers": ["exclude_season_outliers"],
         "combined_ldx_seasonal_hr_layers": [
             "create_ldx_styled_layers",
             "create_ldx_text_layer",
@@ -372,30 +381,28 @@ def main(params: Params):
         "unique_subjects": ["rename_traj_cols"],
         "download_mapbook_cover_page": [],
         "download_sect_templates": [],
-        "download_logo_path": [],
-        "create_cover_tpl_context": [
-            "unique_subjects",
-            "time_range",
-            "download_logo_path",
-        ],
+        "logo_path": [],
+        "create_cover_tpl_context": ["unique_subjects", "time_range", "logo_path"],
         "persist_cover_context": [
             "download_mapbook_cover_page",
             "create_cover_tpl_context",
         ],
-        "group_mapbook_maps": [
-            "persist_speedmap_html",
-            "persist_day_night_html",
-            "persist_movement_tracks_html",
-            "persist_homerange_html",
-            "persist_mean_speed_raster_html",
-            "persist_seasonal_home_range_html",
-        ],
-        "generate_map_png": ["group_mapbook_maps"],
+        "generate_speedmap_png": ["persist_speedmap_html"],
+        "generate_day_night_png": ["persist_day_night_html"],
+        "generate_movement_png": ["persist_movement_tracks_html"],
+        "generate_homerange_png": ["persist_homerange_html"],
+        "generate_raster_png": ["persist_mean_speed_raster_html"],
+        "generate_seasonal_png": ["persist_seasonal_home_range_html"],
         "group_context_values": [
             "apply_speed_colormap",
             "coverage_grid_quantity",
             "coverage_mcp_quantity",
-            "generate_map_png",
+            "generate_speedmap_png",
+            "generate_day_night_png",
+            "generate_movement_png",
+            "generate_homerange_png",
+            "generate_raster_png",
+            "generate_seasonal_png",
         ],
         "indv_mapbook_ctx": [
             "time_range",
@@ -452,16 +459,7 @@ def main(params: Params):
                 unpack_depth=1,
             )
             .set_executor("lithops"),
-            partial={
-                "time_format": "%d %b %Y %H:%M:%S %Z",
-                "timezone": {
-                    "label": "UTC",
-                    "tzCode": "UTC",
-                    "name": "UTC",
-                    "utc_offset": "+03:00",
-                },
-            }
-            | (params_dict.get("time_range") or {}),
+            partial=(params_dict.get("time_range") or {}),
             method="call",
         ),
         "groupers": Node(
@@ -694,9 +692,9 @@ def main(params: Params):
                 "layer_style": {
                     "get_text": "name",
                     "get_color": [
-                        0,
-                        0,
-                        0,
+                        20,
+                        20,
+                        20,
                         255,
                     ],
                     "get_size": 1500,
@@ -704,8 +702,8 @@ def main(params: Params):
                     "size_min_pixels": 70,
                     "size_max_pixels": 100,
                     "size_scale": 2.25,
-                    "font_family": "Calibri",
-                    "font_weight": "700",
+                    "font_family": "Arial",
+                    "font_weight": "normal",
                     "get_text_anchor": "middle",
                     "get_alignment_baseline": "center",
                     "billboard": True,
@@ -779,64 +777,64 @@ def main(params: Params):
                 "styles": {
                     "Community Conservancy": {
                         "get_fill_color": [
-                            85,
-                            107,
-                            47,
+                            166,
+                            182,
+                            151,
                         ],
                         "get_line_color": [
-                            85,
-                            107,
-                            47,
+                            166,
+                            182,
+                            151,
                         ],
-                        "opacity": 0.45,
+                        "opacity": 0.15,
                         "stroked": True,
                         "get_line_width": 2.0,
                     },
                     "National Reserve": {
                         "get_fill_color": [
-                            143,
-                            188,
-                            139,
+                            136,
+                            167,
+                            142,
                         ],
                         "get_line_color": [
-                            143,
-                            188,
-                            139,
+                            136,
+                            167,
+                            142,
                         ],
-                        "opacity": 0.45,
+                        "opacity": 0.15,
                         "stroked": True,
                         "get_line_width": 2.0,
                     },
                     "National Park": {
                         "get_fill_color": [
-                            255,
-                            250,
-                            205,
+                            17,
+                            86,
+                            49,
                         ],
                         "get_line_color": [
-                            255,
-                            250,
-                            205,
+                            17,
+                            86,
+                            49,
                         ],
-                        "opacity": 0.45,
+                        "opacity": 0.15,
                         "stroked": True,
                         "get_line_width": 2.0,
                     },
                 },
                 "legends": {
-                    "title": "Protected Areas",
+                    "title": "",
                     "values": [
                         {
                             "label": "Community Conservancy",
-                            "color": "#556b2f",
+                            "color": "#a6b697",
                         },
                         {
                             "label": "National Reserve",
-                            "color": "#8fbc8f",
+                            "color": "#88a78e",
                         },
                         {
                             "label": "National Park",
-                            "color": "#fffacd",
+                            "color": "#115631",
                         },
                     ],
                 },
@@ -1145,8 +1143,9 @@ def main(params: Params):
                     "k": 6,
                 },
                 "label_options": {
-                    "label_range": False,
+                    "label_ranges": True,
                     "label_decimals": 1,
+                    "label_suffix": " km/h",
                 },
             }
             | (params_dict.get("classify_trajectories_speed_bins") or {}),
@@ -1560,60 +1559,6 @@ def main(params: Params):
                 "argvalues": DependsOn("sort_trajs_by_speed"),
             },
         ),
-        "format_speed_bin_labels": Node(
-            async_task=map_values_with_unit.validate()
-            .set_task_instance_id("format_speed_bin_labels")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "input_column_name": "speed_bins",
-                "output_column_name": "speed_bins_formatted",
-                "original_unit": "km/h",
-                "new_unit": "km/h",
-                "decimal_places": 1,
-            }
-            | (params_dict.get("format_speed_bin_labels") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("apply_speed_colormap"),
-            },
-        ),
-        "format_speed_values": Node(
-            async_task=map_values_with_unit.validate()
-            .set_task_instance_id("format_speed_values")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "input_column_name": "speed_kmhr",
-                "output_column_name": "speed_kmhr",
-                "original_unit": "km/h",
-                "new_unit": "km/h",
-                "decimal_places": 1,
-            }
-            | (params_dict.get("format_speed_values") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("format_speed_bin_labels"),
-            },
-        ),
         "filter_speed_cols": Node(
             async_task=filter_df_cols.validate()
             .set_task_instance_id("filter_speed_cols")
@@ -1634,14 +1579,37 @@ def main(params: Params):
                     "geometry",
                     "speed_kmhr",
                     "hex_color",
-                    "speed_bins_formatted",
+                    "speed_bins",
                 ],
             }
             | (params_dict.get("filter_speed_cols") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["df"],
-                "argvalues": DependsOn("format_speed_values"),
+                "argvalues": DependsOn("apply_speed_colormap"),
+            },
+        ),
+        "exclude_speed_outliers": Node(
+            async_task=exclude_geom_outliers_linestring.validate()
+            .set_task_instance_id("exclude_speed_outliers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "z_threshold": 3,
+            }
+            | (params_dict.get("exclude_speed_outliers") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("filter_speed_cols"),
             },
         ),
         "generate_speedmap_layers": Node(
@@ -1673,7 +1641,7 @@ def main(params: Params):
                 },
                 "legend": {
                     "title": "Speed (km/h)",
-                    "label_column": "speed_bins_formatted",
+                    "label_column": "speed_bins",
                     "color_column": "speed_bins_colormap",
                     "sort": "ascending",
                     "label_suffix": None,
@@ -1683,7 +1651,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("filter_speed_cols"),
+                "argvalues": DependsOn("exclude_speed_outliers"),
             },
         ),
         "zoom_speed_gdf_extent": Node(
@@ -1818,8 +1786,7 @@ def main(params: Params):
             .with_tracing()
             .skipif(
                 conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
+                    never,
                 ],
                 unpack_depth=1,
             )
@@ -1934,6 +1901,29 @@ def main(params: Params):
                 "argvalues": DependsOn("apply_day_night_colormap"),
             },
         ),
+        "exclude_dn_outliers": Node(
+            async_task=exclude_geom_outliers_linestring.validate()
+            .set_task_instance_id("exclude_dn_outliers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "z_threshold": 3,
+            }
+            | (params_dict.get("exclude_dn_outliers") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("filter_day_night_cols"),
+            },
+        ),
         "generate_day_night_layers": Node(
             async_task=create_path_layer.validate()
             .set_task_instance_id("generate_day_night_layers")
@@ -1962,7 +1952,7 @@ def main(params: Params):
                     "stroked": True,
                 },
                 "legend": {
-                    "title": "Night Day tracks",
+                    "title": "Day Night tracks",
                     "values": [
                         {
                             "label": "Day",
@@ -1979,7 +1969,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("filter_day_night_cols"),
+                "argvalues": DependsOn("exclude_dn_outliers"),
             },
         ),
         "combined_ldx_daynight_layers": Node(
@@ -2114,8 +2104,7 @@ def main(params: Params):
             .with_tracing()
             .skipif(
                 conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
+                    never,
                 ],
                 unpack_depth=1,
             )
@@ -2202,6 +2191,29 @@ def main(params: Params):
                 "argvalues": DependsOn("sort_trajs_by_status"),
             },
         ),
+        "exclude_move_outliers": Node(
+            async_task=exclude_geom_outliers_linestring.validate()
+            .set_task_instance_id("exclude_move_outliers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "z_threshold": 3,
+            }
+            | (params_dict.get("exclude_move_outliers") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("filter_movement_cols"),
+            },
+        ),
         "generate_track_layers": Node(
             async_task=create_path_layer.validate()
             .set_task_instance_id("generate_track_layers")
@@ -2241,7 +2253,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("filter_movement_cols"),
+                "argvalues": DependsOn("exclude_move_outliers"),
             },
         ),
         "combined_ldx_movement_layers": Node(
@@ -2376,8 +2388,7 @@ def main(params: Params):
             .with_tracing()
             .skipif(
                 conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
+                    never,
                 ],
                 unpack_depth=1,
             )
@@ -2426,8 +2437,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "auto_scale_or_custom_cell_size": {
-                    "auto_scale_or_customize": "Customize",
-                    "grid_cell_size": 2000,
+                    "auto_scale_or_customize": "Auto-scale",
                 },
                 "crs": "ESRI:53042",
                 "percentiles": [
@@ -2593,6 +2603,29 @@ def main(params: Params):
                 "argvalues": DependsOn("apply_etd_colormap"),
             },
         ),
+        "exclude_hr_outliers": Node(
+            async_task=exclude_geom_outliers_polygon.validate()
+            .set_task_instance_id("exclude_hr_outliers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "z_threshold": 3,
+            }
+            | (params_dict.get("exclude_hr_outliers") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("filter_etd_cols"),
+            },
+        ),
         "generate_home_range_layers": Node(
             async_task=create_geojson_layer.validate()
             .set_task_instance_id("generate_home_range_layers")
@@ -2635,7 +2668,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("filter_etd_cols"),
+                "argvalues": DependsOn("exclude_hr_outliers"),
             },
         ),
         "filter_mcp_cols": Node(
@@ -2662,6 +2695,29 @@ def main(params: Params):
             kwargs={
                 "argnames": ["df"],
                 "argvalues": DependsOn("generate_mcp"),
+            },
+        ),
+        "exclude_mcp_outliers": Node(
+            async_task=exclude_geom_outliers_polygon.validate()
+            .set_task_instance_id("exclude_mcp_outliers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "z_threshold": 3,
+            }
+            | (params_dict.get("exclude_mcp_outliers") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("filter_mcp_cols"),
             },
         ),
         "create_mcp_polygon_layer": Node(
@@ -2718,7 +2774,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("filter_mcp_cols"),
+                "argvalues": DependsOn("exclude_mcp_outliers"),
             },
         ),
         "zip_home_range_with_mcp_layer": Node(
@@ -2790,7 +2846,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["gdf"],
-                "argvalues": DependsOn("format_speed_values"),
+                "argvalues": DependsOn("filter_etd_cols"),
             },
         ),
         "zip_hr_with_viewstate": Node(
@@ -2875,8 +2931,7 @@ def main(params: Params):
             .with_tracing()
             .skipif(
                 conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
+                    never,
                 ],
                 unpack_depth=1,
             )
@@ -3094,6 +3149,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "columns": [
+                    "value_bins",
                     "bins_formatted",
                     "speedraster_bins_colormap",
                     "geometry",
@@ -3104,6 +3160,29 @@ def main(params: Params):
             kwargs={
                 "argnames": ["df"],
                 "argvalues": DependsOn("format_speed_raster_labels"),
+            },
+        ),
+        "exclude_raster_outliers": Node(
+            async_task=exclude_geom_outliers_polygon.validate()
+            .set_task_instance_id("exclude_raster_outliers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "z_threshold": 3,
+            }
+            | (params_dict.get("exclude_raster_outliers") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("filter_mean_speed_cols"),
             },
         ),
         "create_mean_speed_raster_layer": Node(
@@ -3148,7 +3227,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("filter_mean_speed_cols"),
+                "argvalues": DependsOn("exclude_raster_outliers"),
             },
         ),
         "combined_ldx_speed_raster": Node(
@@ -3283,8 +3362,7 @@ def main(params: Params):
             .with_tracing()
             .skipif(
                 conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
+                    never,
                 ],
                 unpack_depth=1,
             )
@@ -3424,6 +3502,29 @@ def main(params: Params):
                 "argvalues": DependsOn("assign_season_df"),
             },
         ),
+        "exclude_season_outliers": Node(
+            async_task=exclude_geom_outliers_polygon.validate()
+            .set_task_instance_id("exclude_season_outliers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "z_threshold": 3,
+            }
+            | (params_dict.get("exclude_season_outliers") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("filter_season_cols"),
+            },
+        ),
         "generate_season_layers": Node(
             async_task=create_geojson_layer.validate()
             .set_task_instance_id("generate_season_layers")
@@ -3444,12 +3545,7 @@ def main(params: Params):
                     "extruded": False,
                     "wireframe": False,
                     "get_fill_color": "season_colors",
-                    "get_line_color": [
-                        0,
-                        0,
-                        0,
-                        255,
-                    ],
+                    "get_line_color": "season_colors",
                     "opacity": 0.55,
                     "get_line_width": 0.35,
                     "get_elevation": 0,
@@ -3471,7 +3567,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("filter_season_cols"),
+                "argvalues": DependsOn("exclude_season_outliers"),
             },
         ),
         "combined_ldx_seasonal_hr_layers": Node(
@@ -3606,8 +3702,7 @@ def main(params: Params):
             .with_tracing()
             .skipif(
                 conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
+                    never,
                 ],
                 unpack_depth=1,
             )
@@ -3987,9 +4082,9 @@ def main(params: Params):
             | (params_dict.get("download_sect_templates") or {}),
             method="call",
         ),
-        "download_logo_path": Node(
-            async_task=fetch_and_persist_file.validate()
-            .set_task_instance_id("download_logo_path")
+        "logo_path": Node(
+            async_task=get_file_path.validate()
+            .set_task_instance_id("logo_path")
             .handle_errors()
             .with_tracing()
             .skipif(
@@ -4001,13 +4096,9 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "url": "https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=jlwbhik9&dl=0",
                 "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "overwrite_existing": False,
-                "unzip": False,
-                "retries": 2,
             }
-            | (params_dict.get("download_logo_path") or {}),
+            | (params_dict.get("logo_path") or {}),
             method="call",
         ),
         "create_cover_tpl_context": Node(
@@ -4027,7 +4118,7 @@ def main(params: Params):
                 "count": DependsOn("unique_subjects"),
                 "report_period": DependsOn("time_range"),
                 "prepared_by": "Ecoscope",
-                "org_logo_path": DependsOn("download_logo_path"),
+                "org_logo_path": DependsOn("logo_path"),
             }
             | (params_dict.get("create_cover_tpl_context") or {}),
             method="call",
@@ -4056,34 +4147,9 @@ def main(params: Params):
             | (params_dict.get("persist_cover_context") or {}),
             method="call",
         ),
-        "group_mapbook_maps": Node(
-            async_task=groupbykey.validate()
-            .set_task_instance_id("group_mapbook_maps")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    all_keyed_iterables_are_skips,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "iterables": [
-                    DependsOn("persist_speedmap_html"),
-                    DependsOn("persist_day_night_html"),
-                    DependsOn("persist_movement_tracks_html"),
-                    DependsOn("persist_homerange_html"),
-                    DependsOn("persist_mean_speed_raster_html"),
-                    DependsOn("persist_seasonal_home_range_html"),
-                ],
-            }
-            | (params_dict.get("group_mapbook_maps") or {}),
-            method="call",
-        ),
-        "generate_map_png": Node(
+        "generate_speedmap_png": Node(
             async_task=html_to_png.validate()
-            .set_task_instance_id("generate_map_png")
+            .set_task_instance_id("generate_speedmap_png")
             .handle_errors()
             .with_tracing()
             .skipif(
@@ -4099,15 +4165,160 @@ def main(params: Params):
                 "config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 5,
-                    "max_concurrent_pages": 5,
+                    "wait_for_timeout": 30000,
+                    "max_concurrent_pages": 1,
                 },
             }
-            | (params_dict.get("generate_map_png") or {}),
+            | (params_dict.get("generate_speedmap_png") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["html_path"],
-                "argvalues": DependsOn("group_mapbook_maps"),
+                "argvalues": DependsOn("persist_speedmap_html"),
+            },
+        ),
+        "generate_day_night_png": Node(
+            async_task=html_to_png.validate()
+            .set_task_instance_id("generate_day_night_png")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "config": {
+                    "full_page": False,
+                    "device_scale_factor": 2.0,
+                    "wait_for_timeout": 30000,
+                    "max_concurrent_pages": 1,
+                },
+            }
+            | (params_dict.get("generate_day_night_png") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["html_path"],
+                "argvalues": DependsOn("persist_day_night_html"),
+            },
+        ),
+        "generate_movement_png": Node(
+            async_task=html_to_png.validate()
+            .set_task_instance_id("generate_movement_png")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "config": {
+                    "full_page": False,
+                    "device_scale_factor": 2.0,
+                    "wait_for_timeout": 30000,
+                    "max_concurrent_pages": 1,
+                },
+            }
+            | (params_dict.get("generate_movement_png") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["html_path"],
+                "argvalues": DependsOn("persist_movement_tracks_html"),
+            },
+        ),
+        "generate_homerange_png": Node(
+            async_task=html_to_png.validate()
+            .set_task_instance_id("generate_homerange_png")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "config": {
+                    "full_page": False,
+                    "device_scale_factor": 2.0,
+                    "wait_for_timeout": 30000,
+                    "max_concurrent_pages": 1,
+                },
+            }
+            | (params_dict.get("generate_homerange_png") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["html_path"],
+                "argvalues": DependsOn("persist_homerange_html"),
+            },
+        ),
+        "generate_raster_png": Node(
+            async_task=html_to_png.validate()
+            .set_task_instance_id("generate_raster_png")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "config": {
+                    "full_page": False,
+                    "device_scale_factor": 2.0,
+                    "wait_for_timeout": 30000,
+                    "max_concurrent_pages": 1,
+                },
+            }
+            | (params_dict.get("generate_raster_png") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["html_path"],
+                "argvalues": DependsOn("persist_mean_speed_raster_html"),
+            },
+        ),
+        "generate_seasonal_png": Node(
+            async_task=html_to_png.validate()
+            .set_task_instance_id("generate_seasonal_png")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "config": {
+                    "full_page": False,
+                    "device_scale_factor": 2.0,
+                    "wait_for_timeout": 30000,
+                    "max_concurrent_pages": 1,
+                },
+            }
+            | (params_dict.get("generate_seasonal_png") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["html_path"],
+                "argvalues": DependsOn("persist_seasonal_home_range_html"),
             },
         ),
         "group_context_values": Node(
@@ -4128,7 +4339,12 @@ def main(params: Params):
                     DependsOn("apply_speed_colormap"),
                     DependsOn("coverage_grid_quantity"),
                     DependsOn("coverage_mcp_quantity"),
-                    DependsOn("generate_map_png"),
+                    DependsOn("generate_speedmap_png"),
+                    DependsOn("generate_day_night_png"),
+                    DependsOn("generate_movement_png"),
+                    DependsOn("generate_homerange_png"),
+                    DependsOn("generate_raster_png"),
+                    DependsOn("generate_seasonal_png"),
                 ],
             }
             | (params_dict.get("group_context_values") or {}),
@@ -4141,8 +4357,7 @@ def main(params: Params):
             .with_tracing()
             .skipif(
                 conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
+                    never,
                 ],
                 unpack_depth=1,
             )
@@ -4156,7 +4371,17 @@ def main(params: Params):
             | (params_dict.get("indv_mapbook_ctx") or {}),
             method="mapvalues",
             kwargs={
-                "argnames": ["df", "grid_area", "mcp_area", "map_paths"],
+                "argnames": [
+                    "df",
+                    "grid_area",
+                    "mcp_area",
+                    "speedmap",
+                    "day_night",
+                    "movement_tracks",
+                    "home_range",
+                    "mean_raster",
+                    "seasonal_homerange",
+                ],
                 "argvalues": DependsOn("group_context_values"),
             },
         ),
