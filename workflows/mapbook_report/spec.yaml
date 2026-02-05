@@ -13,9 +13,9 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: ecoscope-workflows-ext-ste
-    version: "*"
-    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
-
+    version: "0.0.8.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    
 rjsf-overrides:
   properties: 
     Subject Group.properties.subject_group_var.properties.var.title: Subject Group Name
