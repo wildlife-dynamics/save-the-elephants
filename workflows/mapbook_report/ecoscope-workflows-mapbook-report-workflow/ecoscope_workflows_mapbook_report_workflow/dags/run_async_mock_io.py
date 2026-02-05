@@ -722,7 +722,7 @@ def main(params: Params):
                     "size_units": "meters",
                     "size_min_pixels": 70,
                     "size_max_pixels": 100,
-                    "size_scale": 2.25,
+                    "size_scale": 0.25,
                     "font_family": "Arial",
                     "font_weight": None,
                     "get_text_anchor": "middle",

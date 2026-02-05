@@ -1,11 +1,11 @@
 id: mapbook_report
 requirements:
   - name: ecoscope-workflows-core
-    version: "0.21.4.*"
+    version: "0.20.6.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-ecoscope
-    version: "0.21.4.*"
+    version: "0.20.6.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
@@ -138,7 +138,7 @@ workflow:
         size_units: meters 
         size_min_pixels: 70 #65 
         size_max_pixels: 100
-        size_scale: 2.25 
+        size_scale: 0.25 
 
         font_family: Arial 
         font_weight: null
