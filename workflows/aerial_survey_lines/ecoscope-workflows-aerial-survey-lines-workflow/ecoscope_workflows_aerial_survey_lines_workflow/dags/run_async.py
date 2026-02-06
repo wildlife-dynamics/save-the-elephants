@@ -346,12 +346,12 @@ def main(params: Params):
                     "wireframe": False,
                     "get_fill_color": [
                         255,
-                        265,
+                        255,
                         0,
                     ],
                     "get_line_color": [
                         255,
-                        265,
+                        255,
                         0,
                     ],
                     "opacity": 0.85,
@@ -368,7 +368,7 @@ def main(params: Params):
                     "values": [
                         {
                             "label": "Aerial lines",
-                            "color": "#ffa500",
+                            "color": "#FFFF00",
                         },
                     ],
                 },

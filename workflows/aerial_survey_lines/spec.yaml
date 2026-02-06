@@ -43,7 +43,7 @@ workflow:
     id: configure_base_maps
     task: set_base_maps_pydeck
 
-  - name: Retrieve input from get shapefile 
+  - name: Define Region of Interest
     id: retrieve_file_params
     task: get_file_path
     partial: 
@@ -120,8 +120,8 @@ workflow:
         stroked: true 
         extruded: false 
         wireframe: false
-        get_fill_color: [255, 265, 0]
-        get_line_color: [255, 265, 0]
+        get_fill_color: [255, 255, 0]
+        get_line_color: [255, 255, 0]
         opacity: 0.85
         get_line_width: 1.55
         get_elevation: 0
@@ -134,7 +134,7 @@ workflow:
         title: ""
         values:
           - label: Aerial lines
-            color: "#ffa500"
+            color: "#FFFF00"
       geodataframe: ${{ workflow.transform_gdf.return }}
 
   - name: Zoom to gdf extent 
