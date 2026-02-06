@@ -171,7 +171,7 @@ configure_base_maps = (
 
 
 # %% [markdown]
-# ## Retrieve input from get shapefile
+# ## Define Region of Interest
 
 # %%
 # parameters
@@ -462,8 +462,8 @@ aerial_survey_polylines = (
             "stroked": True,
             "extruded": False,
             "wireframe": False,
-            "get_fill_color": [255, 265, 0],
-            "get_line_color": [255, 265, 0],
+            "get_fill_color": [255, 255, 0],
+            "get_line_color": [255, 255, 0],
             "opacity": 0.85,
             "get_line_width": 1.55,
             "get_elevation": 0,
@@ -473,7 +473,7 @@ aerial_survey_polylines = (
             "line_width_min_pixels": 1,
             "line_width_max_pixels": 5,
         },
-        legend={"title": "", "values": [{"label": "Aerial lines", "color": "#ffa500"}]},
+        legend={"title": "", "values": [{"label": "Aerial lines", "color": "#FFFF00"}]},
         geodataframe=transform_gdf,
         **aerial_survey_polylines_params,
     )

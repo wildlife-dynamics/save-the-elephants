@@ -281,7 +281,7 @@
         "input_method"
       ],
       "type": "object",
-      "title": "Retrieve input from get shapefile"
+      "title": "Define Region of Interest"
     },
     "survey_lines": {
       "additionalProperties": false,
