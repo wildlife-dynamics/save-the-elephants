@@ -320,8 +320,8 @@ def main(params: Params):
         "exclude_mcp_outliers": ["filter_mcp_cols"],
         "create_mcp_polygon_layer": ["exclude_mcp_outliers"],
         "zip_home_range_with_mcp_layer": [
-            "generate_home_range_layers",
             "create_mcp_polygon_layer",
+            "generate_home_range_layers",
         ],
         "combined_ldx_home_range_layers": [
             "create_ldx_styled_layers",
@@ -512,7 +512,16 @@ def main(params: Params):
                 unpack_depth=1,
             )
             .set_executor("lithops"),
-            partial=(params_dict.get("configure_base_maps") or {}),
+            partial={
+                "base_maps": [
+                    {
+                        "url": "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
+                        "opacity": 1,
+                        "max_zoom": 20,
+                    },
+                ],
+            }
+            | (params_dict.get("configure_base_maps") or {}),
             method="call",
         ),
         "set_previous_period": Node(
@@ -843,7 +852,7 @@ def main(params: Params):
                     },
                 },
                 "legends": {
-                    "title": "",
+                    "title": "Land Use",
                     "values": [
                         {
                             "label": "Community Conservancy",
@@ -2782,7 +2791,7 @@ def main(params: Params):
                     "line_width_max_pixels": 5,
                 },
                 "legend": {
-                    "title": "Minimum Convex Polygon Area",
+                    "title": "Minimum Convex Polygon",
                     "values": [
                         {
                             "label": "MCP",
@@ -2813,8 +2822,8 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "sequences": [
-                    DependsOn("generate_home_range_layers"),
                     DependsOn("create_mcp_polygon_layer"),
+                    DependsOn("generate_home_range_layers"),
                 ],
             }
             | (params_dict.get("zip_home_range_with_mcp_layer") or {}),
@@ -4071,7 +4080,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "url": "https://www.dropbox.com/scl/fi/1373gi65ji918rxele5h9/cover_page_v3.docx?rlkey=ur01wtpa98tcyq8f0f6dtksl8&st=eq39sgwz&dl=0",
+                "url": "https://www.dropbox.com/scl/fi/v2rbwywas1ag645qjptsk/mapbook_cover_page.docx?rlkey=pmpmkgjpjoc4i8ngt7qfipstz&st=xqplosdg&dl=0",
                 "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "overwrite_existing": False,
                 "unzip": False,
@@ -4094,7 +4103,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "url": "https://www.dropbox.com/scl/fi/s85tmsn4ed5es18xkykw9/grouper_template.docx?rlkey=wdtzx9ry51fxncgoakeydit3l&st=0upmlflg&dl=0",
+                "url": "https://www.dropbox.com/scl/fi/2h1gakoqgtsxbw2axibmk/mapbook_grouper_template.docx?rlkey=3jz96yxacnotzrbx32v06jvj1&st=5kc9g34a&dl=0",
                 "output_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "overwrite_existing": False,
                 "unzip": False,
@@ -4161,8 +4170,8 @@ def main(params: Params):
                 "template_path": DependsOn("download_mapbook_cover_page"),
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "context": DependsOn("create_cover_tpl_context"),
-                "logo_width_cm": 4.5,
-                "logo_height_cm": 1.93,
+                "logo_width_cm": 1.67,
+                "logo_height_cm": 1.06,
                 "filename": "mapbook_context.docx",
             }
             | (params_dict.get("persist_cover_context") or {}),

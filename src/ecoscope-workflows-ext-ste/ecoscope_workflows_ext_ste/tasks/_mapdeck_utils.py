@@ -201,6 +201,52 @@ def view_state_deck_gdf(
     return ViewState(longitude=center_lon, latitude=center_lat, zoom=zoom, pitch=pitch, bearing=bearing)
 
 
+# @task
+# def combine_deckgl_map_layers(
+#     static_layers: Annotated[
+#         Union[LayerDefinition, List[LayerDefinition | List[LayerDefinition]]],
+#         Field(description="Static layers from local files or base maps."),
+#     ] = None,
+#     grouped_layers: Annotated[
+#         Union[LayerDefinition, List[LayerDefinition | List[LayerDefinition]]],
+#         Field(description="Grouped layers generated from split/grouped data."),
+#     ] = None,
+# ) -> list[LayerDefinition]:
+#     """
+#     Combine static and grouped map layers into a single list for rendering in `draw_ecomap`.
+#     Automatically flattens nested lists to handle cases where layer generation tasks return lists.
+#     """
+
+#     def flatten_layers(layers):
+#         """Recursively flatten nested lists of LayerDefinition objects."""
+#         if not isinstance(layers, list):
+#             return [layers]
+
+#         flattened = []
+#         for item in layers:
+#             if isinstance(item, list):
+#                 flattened.extend(flatten_layers(item))
+#             else:
+#                 flattened.append(item)
+#         return flattened
+
+#     flat_static = flatten_layers(static_layers) if static_layers else []
+#     flat_grouped = flatten_layers(grouped_layers) if grouped_layers else []
+
+#     #all_layers = flat_static + flat_grouped
+#     all_layers = flat_grouped + flat_static
+#     text_layers = []
+#     other_layers = []
+
+#     for layer in all_layers:
+#         if isinstance(layer.layer_style, TextLayerStyle):
+#             text_layers.append(layer)
+#         else:
+#             other_layers.append(layer)
+
+#     return other_layers + text_layers
+
+
 @task
 def combine_deckgl_map_layers(
     static_layers: Annotated[
@@ -215,13 +261,14 @@ def combine_deckgl_map_layers(
     """
     Combine static and grouped map layers into a single list for rendering in `draw_ecomap`.
     Automatically flattens nested lists to handle cases where layer generation tasks return lists.
+    Static layer legends are merged into grouped layers to appear in legend while static layers
+    render at the bottom of the map.
     """
 
     def flatten_layers(layers):
         """Recursively flatten nested lists of LayerDefinition objects."""
         if not isinstance(layers, list):
             return [layers]
-
         flattened = []
         for item in layers:
             if isinstance(item, list):
@@ -232,11 +279,38 @@ def combine_deckgl_map_layers(
 
     flat_static = flatten_layers(static_layers) if static_layers else []
     flat_grouped = flatten_layers(grouped_layers) if grouped_layers else []
+    flat_static_legend = [i for i in flat_static if i.legend]
+    flat_static_no_legend = [i for i in flat_static if i.legend is None]
 
-    all_layers = flat_static + flat_grouped
+    # Extract legends from static layers and create new grouped layer copies with those legends
+    grouped_with_static_legends = []
+    for static_layer in flat_static_legend:
+        # Create a copy of the static layer but with legend removed for rendering
+        static_layer_copy = LayerDefinition(
+            layer_type=static_layer.layer_type,
+            geodataframe=static_layer.geodataframe,
+            layer_style=static_layer.layer_style,
+            legend=None,  # Remove legend from static layer
+        )
+        flat_static_no_legend.append(static_layer_copy)
+
+        # Create a dummy grouped layer that only exists for legend display
+        # Use the first grouped layer's properties but with the static layer's legend
+        if flat_grouped:
+            legend_carrier = LayerDefinition(
+                layer_type=flat_grouped[0].layer_type,
+                geodataframe=flat_grouped[0].geodataframe,
+                layer_style=flat_grouped[0].layer_style,
+                legend=static_layer.legend,  # Transfer the legend here
+            )
+            grouped_with_static_legends.append(legend_carrier)
+
+    # Combine: static_no_legend (bottom) -> all grouped layers with transferred legends (top)
+    all_layers = flat_static_no_legend + flat_grouped + grouped_with_static_legends
+
+    # Separate text layers (always render on top)
     text_layers = []
     other_layers = []
-
     for layer in all_layers:
         if isinstance(layer.layer_style, TextLayerStyle):
             text_layers.append(layer)
