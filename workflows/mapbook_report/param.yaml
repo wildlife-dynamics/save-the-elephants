@@ -26,7 +26,7 @@ set_previous_period:
         label: UTC
         tzCode: UTC
         name: UTC
-        utc: '+00:00'
+        utc: '+03:00'
       time_format: '%d %b %Y %H:%M:%S'
       since: '2024-09-01T09:40:00.000Z'
 er_client_name:

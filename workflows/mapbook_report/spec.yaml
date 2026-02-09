@@ -13,8 +13,8 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.9.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    version: "*"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
     
 rjsf-overrides:
   properties: 
@@ -1738,7 +1738,7 @@ workflow:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       context: ${{ workflow.create_cover_tpl_context.return }}
       logo_width_cm: 1.67
-      logo_height_cm: 1.06
+      logo_height_cm: 1.09
       filename: mapbook_context.docx
 
   - name: Convert speedmap html to png 

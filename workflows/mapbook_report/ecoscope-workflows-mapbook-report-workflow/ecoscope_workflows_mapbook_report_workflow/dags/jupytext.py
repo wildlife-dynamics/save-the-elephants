@@ -5039,7 +5039,7 @@ persist_cover_context = (
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         context=create_cover_tpl_context,
         logo_width_cm=1.67,
-        logo_height_cm=1.06,
+        logo_height_cm=1.09,
         filename="mapbook_context.docx",
         **persist_cover_context_params,
     )
