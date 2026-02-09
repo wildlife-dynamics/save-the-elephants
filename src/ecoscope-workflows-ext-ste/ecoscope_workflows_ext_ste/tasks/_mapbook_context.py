@@ -3,7 +3,7 @@ import uuid
 import logging
 from pathlib import Path
 from pydantic import Field
-from docx.shared import Cm
+from docx.shared import Cm, Inches
 from datetime import datetime
 from docxtpl import DocxTemplate, InlineImage
 from ecoscope_workflows_core.decorators import task
@@ -102,8 +102,8 @@ def create_context_page(
         context["org_logo"] = InlineImage(
             doc,
             context["org_logo_path"],
-            width=Cm(logo_width_cm),
-            height=Cm(logo_height_cm),
+            width=Inches(logo_width_cm),
+            height=Inches(logo_height_cm),
         )
     doc.render(context)
     doc.save(output_path)

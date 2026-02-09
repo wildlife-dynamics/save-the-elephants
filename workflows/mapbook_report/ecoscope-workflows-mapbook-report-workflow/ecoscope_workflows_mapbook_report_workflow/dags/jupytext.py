@@ -274,9 +274,7 @@ groupers = (
 # %%
 # parameters
 
-configure_base_maps_params = dict(
-    base_maps=...,
-)
+configure_base_maps_params = dict()
 
 # %%
 # call the task
@@ -293,7 +291,16 @@ configure_base_maps = (
         ],
         unpack_depth=1,
     )
-    .partial(**configure_base_maps_params)
+    .partial(
+        base_maps=[
+            {
+                "url": "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
+                "opacity": 1,
+                "max_zoom": 20,
+            }
+        ],
+        **configure_base_maps_params,
+    )
     .call()
 )
 
@@ -739,7 +746,7 @@ create_ldx_styled_layers = (
             },
         },
         legends={
-            "title": "",
+            "title": "Land Use",
             "values": [
                 {"label": "Community Conservancy", "color": "#a6b697"},
                 {"label": "National Reserve", "color": "#88a78e"},
@@ -3263,7 +3270,7 @@ create_mcp_polygon_layer = (
             "line_width_max_pixels": 5,
         },
         legend={
-            "title": "Minimum Convex Polygon Area",
+            "title": "Minimum Convex Polygon",
             "values": [{"label": "MCP", "color": "#ff1493"}],
         },
         **create_mcp_polygon_layer_params,
@@ -3296,7 +3303,7 @@ zip_home_range_with_mcp_layer = (
         unpack_depth=1,
     )
     .partial(
-        sequences=[generate_home_range_layers, create_mcp_polygon_layer],
+        sequences=[create_mcp_polygon_layer, generate_home_range_layers],
         **zip_home_range_with_mcp_layer_params,
     )
     .call()
@@ -4894,7 +4901,7 @@ download_mapbook_cover_page = (
         unpack_depth=1,
     )
     .partial(
-        url="https://www.dropbox.com/scl/fi/1373gi65ji918rxele5h9/cover_page_v3.docx?rlkey=ur01wtpa98tcyq8f0f6dtksl8&st=eq39sgwz&dl=0",
+        url="https://www.dropbox.com/scl/fi/v2rbwywas1ag645qjptsk/mapbook_cover_page.docx?rlkey=pmpmkgjpjoc4i8ngt7qfipstz&st=xqplosdg&dl=0",
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         unzip=False,
@@ -4929,7 +4936,7 @@ download_sect_templates = (
         unpack_depth=1,
     )
     .partial(
-        url="https://www.dropbox.com/scl/fi/s85tmsn4ed5es18xkykw9/grouper_template.docx?rlkey=wdtzx9ry51fxncgoakeydit3l&st=0upmlflg&dl=0",
+        url="https://www.dropbox.com/scl/fi/2h1gakoqgtsxbw2axibmk/mapbook_grouper_template.docx?rlkey=3jz96yxacnotzrbx32v06jvj1&st=5kc9g34a&dl=0",
         output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         overwrite_existing=False,
         unzip=False,
@@ -5031,8 +5038,8 @@ persist_cover_context = (
         template_path=download_mapbook_cover_page,
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         context=create_cover_tpl_context,
-        logo_width_cm=4.5,
-        logo_height_cm=1.93,
+        logo_width_cm=1.67,
+        logo_height_cm=1.06,
         filename="mapbook_context.docx",
         **persist_cover_context_params,
     )
