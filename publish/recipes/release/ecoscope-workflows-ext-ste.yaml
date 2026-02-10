@@ -33,7 +33,9 @@ requirements:
     - python-igraph
     - earthengine-api
     - docxtpl
+    - docxcompose
     - playwright
+    - setuptools <=81.0.0
 
 about:
   license: BSD-3-Clause

@@ -69,7 +69,9 @@ ecoscope-workflows-ext-custom = "0.0.23.*"
 #ecoscope = { extras = ["analysis"], version = "*" }
 earthengine-api ="*"
 docxtpl="*"
+docxcompose = "*"
 playwright="*"
+setuptools = "81.0.0.*" 
 
 # additional dependencies added by this extension
 [tool.mypy]
