@@ -1738,7 +1738,7 @@ workflow:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       context: ${{ workflow.create_cover_tpl_context.return }}
       logo_width_cm: 1.67
-      logo_height_cm: 1.09
+      logo_height_cm: 1.10
       filename: mapbook_context.docx
 
   - name: Convert speedmap html to png 
