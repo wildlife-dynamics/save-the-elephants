@@ -196,7 +196,7 @@ def main(params: Params):
                 "get_line_width": 1.25,
             },
             legend={
-                "title": "Legend",
+                "title": "",
                 "values": [{"label": "Area of Interest", "color": "#556b2f"}],
             },
             **(params_dict.get("generate_layers_map") or {}),
@@ -314,7 +314,7 @@ def main(params: Params):
                 "line_width_max_pixels": 5,
             },
             legend={
-                "title": "",
+                "title": "Legend",
                 "values": [{"label": "Aerial lines", "color": "#FFFF00"}],
             },
             geodataframe=transform_gdf,
