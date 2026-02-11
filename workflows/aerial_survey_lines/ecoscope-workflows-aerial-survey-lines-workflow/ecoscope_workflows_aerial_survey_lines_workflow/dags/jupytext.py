@@ -297,7 +297,7 @@ generate_layers_map = (
             "get_line_width": 1.25,
         },
         legend={
-            "title": "Legend",
+            "title": "",
             "values": [{"label": "Area of Interest", "color": "#556b2f"}],
         },
         **generate_layers_map_params,
@@ -473,7 +473,10 @@ aerial_survey_polylines = (
             "line_width_min_pixels": 1,
             "line_width_max_pixels": 5,
         },
-        legend={"title": "", "values": [{"label": "Aerial lines", "color": "#FFFF00"}]},
+        legend={
+            "title": "Legend",
+            "values": [{"label": "Aerial lines", "color": "#FFFF00"}],
+        },
         geodataframe=transform_gdf,
         **aerial_survey_polylines_params,
     )
