@@ -23,8 +23,7 @@ from ._mapdeck_utils import (
     create_custom_text_layer,
     create_deckgl_layer_from_gdf,
     create_deckgl_layers_from_gdf_dict,
-    exclude_geom_outliers_linestring,
-    exclude_geom_outliers_polygon,
+    custom_view_state_from_gdf,
 )
 from ._groupers import (
     get_split_group_column,
@@ -95,7 +94,6 @@ __all__ = [
     "draw_survey_lines",
     "custom_determine_season_windows",
     "transform_gdf_crs",
-    "exclude_geom_outliers_linestring",
-    "exclude_geom_outliers_polygon",
     "add_one_thousand",
+    "custom_view_state_from_gdf",
 ]

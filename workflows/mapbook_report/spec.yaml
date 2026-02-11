@@ -13,8 +13,8 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.11.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    version: "*"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
     
 rjsf-overrides:
   properties: 
@@ -537,14 +537,7 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.apply_speed_colormap.return }}  
 
-  - name: Exclude geom outliers speedmap 
-    id: exclude_speed_outliers 
-    task: exclude_geom_outliers_linestring 
-    partial:
-      z_threshold: 3 
-    mapvalues: 
-      argnames: df 
-      argvalues: ${{ workflow.filter_speed_cols.return }}
+
 
   - name: Generate speedmap layers 
     id: generate_speedmap_layers 
@@ -570,15 +563,14 @@ workflow:
         label_suffix: null
     mapvalues:
       argnames: geodataframe
-      argvalues: ${{ workflow.exclude_speed_outliers.return }}
+      argvalues: ${{ workflow.filter_speed_cols.return }}
   
   # # should be used globally 
   - name: Zoom to gdf extent 
     id: zoom_speed_gdf_extent
-    task: view_state_deck_gdf
+    task: custom_view_state_from_gdf
     partial: 
-      pitch: 0
-      bearing: 0
+      max_zoom: 20
     mapvalues:
       argnames: gdf
       argvalues: ${{ workflow.filter_speed_cols.return }}
@@ -686,15 +678,6 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.apply_day_night_colormap.return }}
 
-  - name: Exclude geom outliers day night map 
-    id: exclude_dn_outliers 
-    task: exclude_geom_outliers_linestring 
-    partial:
-      z_threshold: 3 
-    mapvalues: 
-      argnames: df 
-      argvalues: ${{ workflow.filter_day_night_cols.return }}
-
   - name: Create day/night map layers 
     id: generate_day_night_layers 
     task: create_path_layer
@@ -721,7 +704,7 @@ workflow:
 
     mapvalues:
       argnames: geodataframe
-      argvalues: ${{ workflow.exclude_dn_outliers.return }}
+      argvalues: ${{ workflow.filter_day_night_cols.return }}
 
   - name: Combine ldx layers and day/night layers 
     id: combined_ldx_daynight_layers 
@@ -736,13 +719,13 @@ workflow:
 
   - name: Zoom day-night gdf extent 
     id: zoom_dn_gdf_extent
-    task: view_state_deck_gdf
+    task: custom_view_state_from_gdf
     partial: 
-      pitch: 0
-      bearing: 0
+      max_zoom: 20
     mapvalues:
       argnames: gdf
-      argvalues: ${{ workflow.apply_day_night_colormap.return }}
+      argvalues: 
+        - ${{ workflow.apply_day_night_colormap.return }}
 
   - name: Combine day night layers with view state 
     id: zip_day_night_with_viewstate
@@ -823,15 +806,6 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.sort_trajs_by_status.return }}
 
-  - name: Exclude geom outliers movement map 
-    id: exclude_move_outliers 
-    task: exclude_geom_outliers_linestring 
-    partial:
-      z_threshold: 3 
-    mapvalues: 
-      argnames: df 
-      argvalues: ${{ workflow.filter_movement_cols.return }}
-
   - name: Create movement track layers
     id: generate_track_layers
     task: create_path_layer
@@ -856,7 +830,7 @@ workflow:
         label_suffix: null
     mapvalues:
       argnames: geodataframe
-      argvalues: ${{ workflow.exclude_move_outliers.return }}
+      argvalues: ${{ workflow.filter_movement_cols.return }}
 
   - name: Combine ldx layers and movement track layers
     id: combined_ldx_movement_layers
@@ -871,13 +845,13 @@ workflow:
 
   - name: Zoom to movement gdf extent 
     id: zoom_mov_gdf_extent
-    task: view_state_deck_gdf
+    task: custom_view_state_from_gdf
     partial: 
-      pitch: 0
-      bearing: 0
+      max_zoom: 20
     mapvalues:
       argnames: gdf
-      argvalues: ${{ workflow.sort_trajs_by_status.return }}
+      argvalues: 
+        - ${{ workflow.sort_trajs_by_status.return }}
 
   - name: Combine movement tracks layers with view state 
     id: zip_tracks_with_viewstate
@@ -961,7 +935,7 @@ workflow:
 
   - name: Determine seasonal windows 
     id: determine_seasonal_windows 
-    task: determine_season_windows
+    task: custom_determine_season_windows
     partial: 
       client: ${{ workflow.gee_project_name.return }}
       time_range: ${{ workflow.time_range.return }}
@@ -1019,15 +993,6 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.apply_etd_colormap.return }}
 
-  - name: Exclude home range outliers 
-    id: exclude_hr_outliers
-    task: exclude_geom_outliers_polygon 
-    partial: 
-      z_threshold: 3 
-    mapvalues:
-      argnames: df 
-      argvalues: ${{ workflow.filter_etd_cols.return }}
-
   - name: Create home range layers 
     id: generate_home_range_layers 
     task: create_geojson_layer
@@ -1056,7 +1021,7 @@ workflow:
         label_suffix: null
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.exclude_hr_outliers.return }}
+      argvalues: ${{ workflow.filter_etd_cols.return }}
 
   - name: Exclude unnecessary columns from mcp gdf  
     id: filter_mcp_cols 
@@ -1068,15 +1033,6 @@ workflow:
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.generate_mcp.return }}
-
-  - name: Exclude mcp outliers 
-    id: exclude_mcp_outliers
-    task: exclude_geom_outliers_polygon 
-    partial: 
-      z_threshold: 3 
-    mapvalues:
-      argnames: df 
-      argvalues: ${{ workflow.filter_mcp_cols.return }}
 
   - name: Create mcp polygon layer 
     id: create_mcp_polygon_layer 
@@ -1105,7 +1061,7 @@ workflow:
               color: "#ff1493"
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.exclude_mcp_outliers.return }}
+      argvalues: ${{ workflow.filter_mcp_cols.return }}
 
   - name: Combine home range layer and mcp layer 
     id: zip_home_range_with_mcp_layer
@@ -1128,13 +1084,13 @@ workflow:
   
   - name: Zoom to  home range gdf extent 
     id: zoom_hr_gdf_extent
-    task: view_state_deck_gdf
+    task: custom_view_state_from_gdf
     partial: 
-      pitch: 0
-      bearing: 0
+      max_zoom: 20
     mapvalues:
       argnames: gdf
-      argvalues: ${{ workflow.filter_etd_cols.return }}
+      argvalues: 
+        - ${{ workflow.filter_etd_cols.return }}
 
   - name: Combine home range layers with view state
     id: zip_hr_with_viewstate
@@ -1287,15 +1243,6 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.format_speed_raster_labels.return }}
 
-  - name: Exclude speed raster outliers 
-    id: exclude_raster_outliers
-    task: exclude_geom_outliers_polygon 
-    partial: 
-      z_threshold: 3 
-    mapvalues:
-      argnames: df 
-      argvalues: ${{ workflow.filter_mean_speed_cols.return }}
-
   - name: Create mean speed raster layer
     id: create_mean_speed_raster_layer 
     task: create_geojson_layer 
@@ -1324,7 +1271,7 @@ workflow:
         label_suffix: null
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.exclude_raster_outliers.return }}
+      argvalues: ${{ workflow.filter_mean_speed_cols.return }}
 
   - name: Combine ldx layers and mean speed raster layer
     id: combined_ldx_speed_raster
@@ -1339,13 +1286,13 @@ workflow:
 
   - name: Zoom  mean speed raster to gdf extent 
     id: zoom_raster_gdf_extent
-    task: view_state_deck_gdf
+    task: custom_view_state_from_gdf
     partial: 
-      pitch: 0
-      bearing: 0
+      max_zoom: 20
     mapvalues:
       argnames: gdf
-      argvalues: ${{ workflow.format_speed_raster_labels.return }}
+      argvalues: 
+        - ${{ workflow.format_speed_raster_labels.return }}
 
   - name: Combine mean speed raster layer with view state
     id: zip_speed_raster_viewstate
@@ -1448,15 +1395,6 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.assign_season_df.return }}
 
-  - name: Exclude season outliers 
-    id: exclude_season_outliers
-    task: exclude_geom_outliers_polygon 
-    partial: 
-      z_threshold: 3 
-    mapvalues:
-      argnames: df 
-      argvalues: ${{ workflow.filter_season_cols.return }}
-
   - name: Create seasonal home range layers
     id: generate_season_layers 
     task: create_geojson_layer
@@ -1485,7 +1423,7 @@ workflow:
           label_suffix: null
     mapvalues: 
       argnames: geodataframe
-      argvalues: ${{ workflow.exclude_season_outliers.return }}
+      argvalues: ${{ workflow.filter_season_cols.return }}
     
   - name: Combine ldx layers and seasonal home range layers
     id: combined_ldx_seasonal_hr_layers
@@ -1500,10 +1438,9 @@ workflow:
 
   - name: Zoom to seasons gdf extent 
     id: zoom_seasons_gdf_extent
-    task: view_state_deck_gdf
+    task: custom_view_state_from_gdf
     partial: 
-      pitch: 0
-      bearing: 0
+      max_zoom: 20
     mapvalues:
       argnames: gdf
       argvalues: ${{ workflow.assign_season_df.return }}
