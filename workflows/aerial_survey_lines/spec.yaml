@@ -75,7 +75,7 @@ workflow:
         stroked: true 
         get_line_width: 1.25
       legend: 
-        title: Legend
+        title: ""
         values:
           - label: Area of Interest
             color: "#556b2f"
@@ -131,7 +131,7 @@ workflow:
         line_width_min_pixels: 1
         line_width_max_pixels: 5
       legend:
-        title: ""
+        title: "Legend"
         values:
           - label: Aerial lines
             color: "#FFFF00"

@@ -4149,9 +4149,7 @@ def main(params: Params):
                 "template_path": DependsOn("download_mapbook_cover_page"),
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "context": DependsOn("create_cover_tpl_context"),
-                "logo_width_cm": 1.67,
-                "logo_height_cm": 1.09,
-                "filename": "mapbook_context.docx",
+                "filename": "mapbook_context_page.docx",
             }
             | (params_dict.get("persist_cover_context") or {}),
             method="call",
