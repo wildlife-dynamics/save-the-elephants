@@ -183,41 +183,27 @@ def custom_determine_season_windows(
     time_range: Annotated[TimeRange, Field(description="Time range filter")],
 ):
     import pandas as pd
+    from datetime import datetime
     from ecoscope.analysis.seasons import (  # type: ignore[import-untyped]
         seasonal_windows,
         std_ndvi_vals,
         val_cuts,
     )
 
+    # Create a new TimeRange with default since date if not provided
+    # Using model_copy() to create a modified copy
+    time_range = time_range.model_copy(update={"since": datetime(2000, 2, 24, tzinfo=time_range.since.tzinfo)})
+
     # If there's more than one roi, merge them to one
-    merged_roi = roi.to_crs(4326).dissolve().iloc[0]["geometry"]  # type: ignore[operator]
-
-    # Calculate the number of days in the time range
-    days = (time_range.until - time_range.since).days + (time_range.until - time_range.since).seconds / 86400.0
-    logger.info(f"Days: {days}")
-
-    # Adjust time range if necessary
-    # For seasonal analysis, we need at least 30 days of data
-    if days > 30:
-        # Use the full range if it's more than 30 days
-        since = time_range.since
-        until = time_range.until
-    else:
-        # If less than 30 days, extend backwards to get 30 days total
-        since = time_range.until - pd.Timedelta(days=30)
-        until = time_range.until
-        logger.info(
-            f"Warning: Time range extended backwards to {since} to ensure minimum 30 days for seasonal analysis"
-        )
+    merged_roi = roi.to_crs(4326).dissolve().iloc[0]["geometry"]
 
     # Determine wet/dry seasons
     date_chunks = (
-        pd.date_range(start=since, end=until, periods=5, inclusive="both")
+        pd.date_range(start=time_range.since, end=time_range.until, periods=5, inclusive="both")
         .to_series()
         .apply(lambda x: x.isoformat())
         .values
     )
-
     ndvi_vals = []
     for t in range(1, len(date_chunks)):
         ndvi_vals.append(
