@@ -571,11 +571,18 @@ workflow:
     task: custom_view_state_from_gdf
     partial: 
       max_zoom: 20
-      padding_percent: 0.25
+      padding_percent: 0.30
     mapvalues:
       argnames: gdf
       argvalues: ${{ workflow.filter_speed_cols.return }}
     
+  - name: Zoom to gdf extent for image 
+    id: gdf_image_extent 
+    task: get_image_zoom_value
+    mapvalues:
+      argnames: gdf 
+      argvalues: ${{ workflow.filter_speed_cols.return }}
+
   - name: Combine ldx layers and speedmap layers 
     id: combined_ldx_speed_layers 
     task: combine_deckgl_map_layers
@@ -1686,97 +1693,160 @@ workflow:
       template_path: ${{ workflow.download_mapbook_cover_page.return }}
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       context: ${{ workflow.create_cover_tpl_context.return }}
+      logo_width: 1.34
+      logo_height: 1.21
       filename: mapbook_context_page.docx
+
+
+  - name: Combine speedmap path with zoom value 
+    id: zip_speed_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_speedmap_html.return }}
 
   - name: Convert speedmap html to png 
     id: generate_speedmap_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
         wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_speedmap_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_speed_value.return }}
+
+  - name: Combine daynight path with zoom value 
+    id: zip_dn_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_day_night_html.return }}
 
   - name: Convert day-night html to png 
     id: generate_day_night_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
         wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_day_night_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_dn_value.return }}
+
+  - name: Combine movement path with zoom value 
+    id: zip_movement_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_movement_tracks_html.return }}
 
   - name: Convert movement tracks html to png 
     id: generate_movement_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
         wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_movement_tracks_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_movement_value.return }}
+
+  - name: Combine hr path with zoom value 
+    id: zip_hr_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_homerange_html.return }}
 
   - name: Convert homerange html to png 
     id: generate_homerange_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
         wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_homerange_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_hr_value.return }}
+
+  - name: Combine mean speed raster path with zoom value 
+    id: zip_mean_speed_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_mean_speed_raster_html.return }}
 
   - name: Convert mean speed raster html to png 
     id: generate_raster_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
         wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_mean_speed_raster_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_mean_speed_value.return }}
+
+  - name: Combine seasonal hr  path with zoom value 
+    id: zip_season_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_seasonal_home_range_html.return }}
 
   - name: Convert seasonal html to png 
     id: generate_seasonal_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
         wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_seasonal_home_range_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_season_value.return }}
 
   # Create mapbook context 
   - name: Group grouper context values together 

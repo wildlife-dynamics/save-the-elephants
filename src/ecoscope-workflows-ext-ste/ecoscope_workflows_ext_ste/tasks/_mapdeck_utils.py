@@ -200,6 +200,21 @@ def view_state_deck_gdf(
     return ViewState(longitude=center_lon, latitude=center_lat, zoom=zoom, pitch=pitch, bearing=bearing)
 
 
+@task
+def get_image_zoom_value(
+    gdf,
+) -> float:
+    if gdf.empty:
+        raise ValueError("GeoDataFrame is empty. Cannot compute ViewState.")
+
+    if gdf.crs is None or not gdf.crs.is_geographic:
+        gdf = gdf.to_crs("EPSG:4326")
+
+    minx, miny, maxx, maxy = gdf.total_bounds
+    zoom = _zoom_from_bbox(minx, miny, maxx, maxy)
+    return zoom
+
+
 # @task
 # def custom_view_state_from_gdf(
 #     gdf: AnyGeoDataFrame,
@@ -259,11 +274,6 @@ def custom_view_state_from_gdf(
     ]
 
     computed_zoom = pdk.data_utils.viewport_helpers.bbox_to_zoom_level(bbox)
-
-    print(f"Original bounds: {bounds}")
-    print(f"Padded bounds: {padded_bounds}")
-    print(f"Computed zoom: {computed_zoom}")
-
     centerLon = (bounds[0] + bounds[2]) / 2
     centerLat = (bounds[1] + bounds[3]) / 2
 
