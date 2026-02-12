@@ -17,10 +17,15 @@ yq = "*"
 hatch = "*"
 pip = "*"
 hatch-vcs = "*"
+playwright = ">=1.58.2,<2"
 
 [feature.compile.dependencies]
 # Include this if you add new tasks and the package has been built
+<<<<<<< HEAD
 ecoscope-workflows-ext-ste = "*"
+=======
+ecoscope-workflows-ext-ste = "0.0.12.*"
+>>>>>>> main
 ecoscope-workflows-core = "0.20.6.*"
 ecoscope-workflows-ext-custom = "0.0.23.*"
 
