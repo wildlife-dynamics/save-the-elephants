@@ -66,9 +66,6 @@ from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density as calculate_elliptical_time_density,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.io import (
-    determine_season_windows as determine_season_windows,
-)
-from ecoscope_workflows_ext_ecoscope.tasks.io import (
     get_subjectgroup_observations as get_subjectgroup_observations,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
@@ -119,19 +116,19 @@ from ecoscope_workflows_ext_ste.tasks import (
     create_seasonal_labels as create_seasonal_labels,
 )
 from ecoscope_workflows_ext_ste.tasks import (
+    custom_determine_season_windows as custom_determine_season_windows,
+)
+from ecoscope_workflows_ext_ste.tasks import (
     custom_trajectory_segment_filter as custom_trajectory_segment_filter,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    custom_view_state_from_gdf as custom_view_state_from_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     dataframe_column_first_unique_str as dataframe_column_first_unique_str,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     determine_previous_period as determine_previous_period,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    exclude_geom_outliers_linestring as exclude_geom_outliers_linestring,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    exclude_geom_outliers_polygon as exclude_geom_outliers_polygon,
 )
 from ecoscope_workflows_ext_ste.tasks import extract_index_names as extract_index_names
 from ecoscope_workflows_ext_ste.tasks import (
@@ -161,7 +158,6 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
 from ecoscope_workflows_ext_ste.tasks import set_custom_groupers as set_custom_groupers
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
-from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
 
 from ..params import Params
@@ -229,8 +225,7 @@ def main(params: Params):
         "sort_trajs_by_speed": ["split_traj_by_group"],
         "apply_speed_colormap": ["sort_trajs_by_speed"],
         "filter_speed_cols": ["apply_speed_colormap"],
-        "exclude_speed_outliers": ["filter_speed_cols"],
-        "generate_speedmap_layers": ["exclude_speed_outliers"],
+        "generate_speedmap_layers": ["filter_speed_cols"],
         "zoom_speed_gdf_extent": ["filter_speed_cols"],
         "combined_ldx_speed_layers": [
             "create_ldx_styled_layers",
@@ -248,8 +243,7 @@ def main(params: Params):
         "sort_trajs_by_day_night": ["split_traj_by_group"],
         "apply_day_night_colormap": ["sort_trajs_by_day_night"],
         "filter_day_night_cols": ["apply_day_night_colormap"],
-        "exclude_dn_outliers": ["filter_day_night_cols"],
-        "generate_day_night_layers": ["exclude_dn_outliers"],
+        "generate_day_night_layers": ["filter_day_night_cols"],
         "combined_ldx_daynight_layers": [
             "create_ldx_styled_layers",
             "create_ldx_text_layer",
@@ -266,8 +260,7 @@ def main(params: Params):
         "merge_day_night_widgets": ["create_day_night_widgets"],
         "sort_trajs_by_status": ["assign_duration_colors"],
         "filter_movement_cols": ["sort_trajs_by_status"],
-        "exclude_move_outliers": ["filter_movement_cols"],
-        "generate_track_layers": ["exclude_move_outliers"],
+        "generate_track_layers": ["filter_movement_cols"],
         "combined_ldx_movement_layers": [
             "create_ldx_styled_layers",
             "create_ldx_text_layer",
@@ -293,11 +286,9 @@ def main(params: Params):
         "generate_mcp": ["split_traj_by_group"],
         "apply_etd_colormap": ["generate_etd"],
         "filter_etd_cols": ["apply_etd_colormap"],
-        "exclude_hr_outliers": ["filter_etd_cols"],
-        "generate_home_range_layers": ["exclude_hr_outliers"],
+        "generate_home_range_layers": ["filter_etd_cols"],
         "filter_mcp_cols": ["generate_mcp"],
-        "exclude_mcp_outliers": ["filter_mcp_cols"],
-        "create_mcp_polygon_layer": ["exclude_mcp_outliers"],
+        "create_mcp_polygon_layer": ["filter_mcp_cols"],
         "zip_home_range_with_mcp_layer": [
             "create_mcp_polygon_layer",
             "generate_home_range_layers",
@@ -323,8 +314,7 @@ def main(params: Params):
         "apply_speed_raster_colormap": ["apply_classification_raster"],
         "format_speed_raster_labels": ["apply_speed_raster_colormap"],
         "filter_mean_speed_cols": ["format_speed_raster_labels"],
-        "exclude_raster_outliers": ["filter_mean_speed_cols"],
-        "create_mean_speed_raster_layer": ["exclude_raster_outliers"],
+        "create_mean_speed_raster_layer": ["filter_mean_speed_cols"],
         "combined_ldx_speed_raster": [
             "create_ldx_styled_layers",
             "create_ldx_text_layer",
@@ -346,8 +336,7 @@ def main(params: Params):
         "convert_season_to_string": ["seasonal_home_range"],
         "assign_season_df": ["convert_season_to_string"],
         "filter_season_cols": ["assign_season_df"],
-        "exclude_season_outliers": ["filter_season_cols"],
-        "generate_season_layers": ["exclude_season_outliers"],
+        "generate_season_layers": ["filter_season_cols"],
         "combined_ldx_seasonal_hr_layers": [
             "create_ldx_styled_layers",
             "create_ldx_text_layer",
@@ -1598,29 +1587,6 @@ def main(params: Params):
                 "argvalues": DependsOn("apply_speed_colormap"),
             },
         ),
-        "exclude_speed_outliers": Node(
-            async_task=exclude_geom_outliers_linestring.validate()
-            .set_task_instance_id("exclude_speed_outliers")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "z_threshold": 3,
-            }
-            | (params_dict.get("exclude_speed_outliers") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("filter_speed_cols"),
-            },
-        ),
         "generate_speedmap_layers": Node(
             async_task=create_path_layer.validate()
             .set_task_instance_id("generate_speedmap_layers")
@@ -1660,11 +1626,11 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("exclude_speed_outliers"),
+                "argvalues": DependsOn("filter_speed_cols"),
             },
         ),
         "zoom_speed_gdf_extent": Node(
-            async_task=view_state_deck_gdf.validate()
+            async_task=custom_view_state_from_gdf.validate()
             .set_task_instance_id("zoom_speed_gdf_extent")
             .handle_errors()
             .with_tracing()
@@ -1677,8 +1643,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "pitch": 0,
-                "bearing": 0,
+                "max_zoom": 20,
             }
             | (params_dict.get("zoom_speed_gdf_extent") or {}),
             method="mapvalues",
@@ -1910,29 +1875,6 @@ def main(params: Params):
                 "argvalues": DependsOn("apply_day_night_colormap"),
             },
         ),
-        "exclude_dn_outliers": Node(
-            async_task=exclude_geom_outliers_linestring.validate()
-            .set_task_instance_id("exclude_dn_outliers")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "z_threshold": 3,
-            }
-            | (params_dict.get("exclude_dn_outliers") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("filter_day_night_cols"),
-            },
-        ),
         "generate_day_night_layers": Node(
             async_task=create_path_layer.validate()
             .set_task_instance_id("generate_day_night_layers")
@@ -1978,7 +1920,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("exclude_dn_outliers"),
+                "argvalues": DependsOn("filter_day_night_cols"),
             },
         ),
         "combined_ldx_daynight_layers": Node(
@@ -2008,7 +1950,7 @@ def main(params: Params):
             },
         ),
         "zoom_dn_gdf_extent": Node(
-            async_task=view_state_deck_gdf.validate()
+            async_task=custom_view_state_from_gdf.validate()
             .set_task_instance_id("zoom_dn_gdf_extent")
             .handle_errors()
             .with_tracing()
@@ -2021,8 +1963,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "pitch": 0,
-                "bearing": 0,
+                "max_zoom": 20,
             }
             | (params_dict.get("zoom_dn_gdf_extent") or {}),
             method="mapvalues",
@@ -2200,29 +2141,6 @@ def main(params: Params):
                 "argvalues": DependsOn("sort_trajs_by_status"),
             },
         ),
-        "exclude_move_outliers": Node(
-            async_task=exclude_geom_outliers_linestring.validate()
-            .set_task_instance_id("exclude_move_outliers")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "z_threshold": 3,
-            }
-            | (params_dict.get("exclude_move_outliers") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("filter_movement_cols"),
-            },
-        ),
         "generate_track_layers": Node(
             async_task=create_path_layer.validate()
             .set_task_instance_id("generate_track_layers")
@@ -2262,7 +2180,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("exclude_move_outliers"),
+                "argvalues": DependsOn("filter_movement_cols"),
             },
         ),
         "combined_ldx_movement_layers": Node(
@@ -2292,7 +2210,7 @@ def main(params: Params):
             },
         ),
         "zoom_mov_gdf_extent": Node(
-            async_task=view_state_deck_gdf.validate()
+            async_task=custom_view_state_from_gdf.validate()
             .set_task_instance_id("zoom_mov_gdf_extent")
             .handle_errors()
             .with_tracing()
@@ -2305,8 +2223,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "pitch": 0,
-                "bearing": 0,
+                "max_zoom": 20,
             }
             | (params_dict.get("zoom_mov_gdf_extent") or {}),
             method="mapvalues",
@@ -2471,7 +2388,7 @@ def main(params: Params):
             },
         ),
         "determine_seasonal_windows": Node(
-            async_task=determine_season_windows.validate()
+            async_task=custom_determine_season_windows.validate()
             .set_task_instance_id("determine_seasonal_windows")
             .handle_errors()
             .with_tracing()
@@ -2612,29 +2529,6 @@ def main(params: Params):
                 "argvalues": DependsOn("apply_etd_colormap"),
             },
         ),
-        "exclude_hr_outliers": Node(
-            async_task=exclude_geom_outliers_polygon.validate()
-            .set_task_instance_id("exclude_hr_outliers")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "z_threshold": 3,
-            }
-            | (params_dict.get("exclude_hr_outliers") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("filter_etd_cols"),
-            },
-        ),
         "generate_home_range_layers": Node(
             async_task=create_geojson_layer.validate()
             .set_task_instance_id("generate_home_range_layers")
@@ -2677,7 +2571,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("exclude_hr_outliers"),
+                "argvalues": DependsOn("filter_etd_cols"),
             },
         ),
         "filter_mcp_cols": Node(
@@ -2704,29 +2598,6 @@ def main(params: Params):
             kwargs={
                 "argnames": ["df"],
                 "argvalues": DependsOn("generate_mcp"),
-            },
-        ),
-        "exclude_mcp_outliers": Node(
-            async_task=exclude_geom_outliers_polygon.validate()
-            .set_task_instance_id("exclude_mcp_outliers")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "z_threshold": 3,
-            }
-            | (params_dict.get("exclude_mcp_outliers") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("filter_mcp_cols"),
             },
         ),
         "create_mcp_polygon_layer": Node(
@@ -2783,7 +2654,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("exclude_mcp_outliers"),
+                "argvalues": DependsOn("filter_mcp_cols"),
             },
         ),
         "zip_home_range_with_mcp_layer": Node(
@@ -2835,7 +2706,7 @@ def main(params: Params):
             },
         ),
         "zoom_hr_gdf_extent": Node(
-            async_task=view_state_deck_gdf.validate()
+            async_task=custom_view_state_from_gdf.validate()
             .set_task_instance_id("zoom_hr_gdf_extent")
             .handle_errors()
             .with_tracing()
@@ -2848,8 +2719,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "pitch": 0,
-                "bearing": 0,
+                "max_zoom": 20,
             }
             | (params_dict.get("zoom_hr_gdf_extent") or {}),
             method="mapvalues",
@@ -3171,29 +3041,6 @@ def main(params: Params):
                 "argvalues": DependsOn("format_speed_raster_labels"),
             },
         ),
-        "exclude_raster_outliers": Node(
-            async_task=exclude_geom_outliers_polygon.validate()
-            .set_task_instance_id("exclude_raster_outliers")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "z_threshold": 3,
-            }
-            | (params_dict.get("exclude_raster_outliers") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("filter_mean_speed_cols"),
-            },
-        ),
         "create_mean_speed_raster_layer": Node(
             async_task=create_geojson_layer.validate()
             .set_task_instance_id("create_mean_speed_raster_layer")
@@ -3236,7 +3083,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("exclude_raster_outliers"),
+                "argvalues": DependsOn("filter_mean_speed_cols"),
             },
         ),
         "combined_ldx_speed_raster": Node(
@@ -3266,7 +3113,7 @@ def main(params: Params):
             },
         ),
         "zoom_raster_gdf_extent": Node(
-            async_task=view_state_deck_gdf.validate()
+            async_task=custom_view_state_from_gdf.validate()
             .set_task_instance_id("zoom_raster_gdf_extent")
             .handle_errors()
             .with_tracing()
@@ -3279,8 +3126,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "pitch": 0,
-                "bearing": 0,
+                "max_zoom": 20,
             }
             | (params_dict.get("zoom_raster_gdf_extent") or {}),
             method="mapvalues",
@@ -3511,29 +3357,6 @@ def main(params: Params):
                 "argvalues": DependsOn("assign_season_df"),
             },
         ),
-        "exclude_season_outliers": Node(
-            async_task=exclude_geom_outliers_polygon.validate()
-            .set_task_instance_id("exclude_season_outliers")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "z_threshold": 3,
-            }
-            | (params_dict.get("exclude_season_outliers") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("filter_season_cols"),
-            },
-        ),
         "generate_season_layers": Node(
             async_task=create_geojson_layer.validate()
             .set_task_instance_id("generate_season_layers")
@@ -3576,7 +3399,7 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("exclude_season_outliers"),
+                "argvalues": DependsOn("filter_season_cols"),
             },
         ),
         "combined_ldx_seasonal_hr_layers": Node(
@@ -3606,7 +3429,7 @@ def main(params: Params):
             },
         ),
         "zoom_seasons_gdf_extent": Node(
-            async_task=view_state_deck_gdf.validate()
+            async_task=custom_view_state_from_gdf.validate()
             .set_task_instance_id("zoom_seasons_gdf_extent")
             .handle_errors()
             .with_tracing()
@@ -3619,8 +3442,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "pitch": 0,
-                "bearing": 0,
+                "max_zoom": 20,
             }
             | (params_dict.get("zoom_seasons_gdf_extent") or {}),
             method="mapvalues",

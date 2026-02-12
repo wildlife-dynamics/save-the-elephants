@@ -75,9 +75,6 @@ from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density as calculate_elliptical_time_density,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.io import (
-    determine_season_windows as determine_season_windows,
-)
-from ecoscope_workflows_ext_ecoscope.tasks.io import (
     get_subjectgroup_observations as get_subjectgroup_observations,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
@@ -128,19 +125,19 @@ from ecoscope_workflows_ext_ste.tasks import (
     create_seasonal_labels as create_seasonal_labels,
 )
 from ecoscope_workflows_ext_ste.tasks import (
+    custom_determine_season_windows as custom_determine_season_windows,
+)
+from ecoscope_workflows_ext_ste.tasks import (
     custom_trajectory_segment_filter as custom_trajectory_segment_filter,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    custom_view_state_from_gdf as custom_view_state_from_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     dataframe_column_first_unique_str as dataframe_column_first_unique_str,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     determine_previous_period as determine_previous_period,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    exclude_geom_outliers_linestring as exclude_geom_outliers_linestring,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    exclude_geom_outliers_polygon as exclude_geom_outliers_polygon,
 )
 from ecoscope_workflows_ext_ste.tasks import extract_index_names as extract_index_names
 from ecoscope_workflows_ext_ste.tasks import (
@@ -170,7 +167,6 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
 from ecoscope_workflows_ext_ste.tasks import set_custom_groupers as set_custom_groupers
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
-from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
 
 # %% [markdown]
@@ -1822,34 +1818,6 @@ filter_speed_cols = (
 
 
 # %% [markdown]
-# ## Exclude geom outliers speedmap
-
-# %%
-# parameters
-
-exclude_speed_outliers_params = dict()
-
-# %%
-# call the task
-
-
-exclude_speed_outliers = (
-    exclude_geom_outliers_linestring.set_task_instance_id("exclude_speed_outliers")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(z_threshold=3, **exclude_speed_outliers_params)
-    .mapvalues(argnames=["df"], argvalues=filter_speed_cols)
-)
-
-
-# %% [markdown]
 # ## Generate speedmap layers
 
 # %%
@@ -1895,7 +1863,7 @@ generate_speedmap_layers = (
         },
         **generate_speedmap_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=exclude_speed_outliers)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_speed_cols)
 )
 
 
@@ -1912,7 +1880,7 @@ zoom_speed_gdf_extent_params = dict()
 
 
 zoom_speed_gdf_extent = (
-    view_state_deck_gdf.set_task_instance_id("zoom_speed_gdf_extent")
+    custom_view_state_from_gdf.set_task_instance_id("zoom_speed_gdf_extent")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -1922,7 +1890,7 @@ zoom_speed_gdf_extent = (
         ],
         unpack_depth=1,
     )
-    .partial(pitch=0, bearing=0, **zoom_speed_gdf_extent_params)
+    .partial(max_zoom=20, **zoom_speed_gdf_extent_params)
     .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
 )
 
@@ -2215,34 +2183,6 @@ filter_day_night_cols = (
 
 
 # %% [markdown]
-# ## Exclude geom outliers day night map
-
-# %%
-# parameters
-
-exclude_dn_outliers_params = dict()
-
-# %%
-# call the task
-
-
-exclude_dn_outliers = (
-    exclude_geom_outliers_linestring.set_task_instance_id("exclude_dn_outliers")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(z_threshold=3, **exclude_dn_outliers_params)
-    .mapvalues(argnames=["df"], argvalues=filter_day_night_cols)
-)
-
-
-# %% [markdown]
 # ## Create day/night map layers
 
 # %%
@@ -2288,7 +2228,7 @@ generate_day_night_layers = (
         },
         **generate_day_night_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=exclude_dn_outliers)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_day_night_cols)
 )
 
 
@@ -2336,7 +2276,7 @@ zoom_dn_gdf_extent_params = dict()
 
 
 zoom_dn_gdf_extent = (
-    view_state_deck_gdf.set_task_instance_id("zoom_dn_gdf_extent")
+    custom_view_state_from_gdf.set_task_instance_id("zoom_dn_gdf_extent")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -2346,7 +2286,7 @@ zoom_dn_gdf_extent = (
         ],
         unpack_depth=1,
     )
-    .partial(pitch=0, bearing=0, **zoom_dn_gdf_extent_params)
+    .partial(max_zoom=20, **zoom_dn_gdf_extent_params)
     .mapvalues(argnames=["gdf"], argvalues=apply_day_night_colormap)
 )
 
@@ -2575,34 +2515,6 @@ filter_movement_cols = (
 
 
 # %% [markdown]
-# ## Exclude geom outliers movement map
-
-# %%
-# parameters
-
-exclude_move_outliers_params = dict()
-
-# %%
-# call the task
-
-
-exclude_move_outliers = (
-    exclude_geom_outliers_linestring.set_task_instance_id("exclude_move_outliers")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(z_threshold=3, **exclude_move_outliers_params)
-    .mapvalues(argnames=["df"], argvalues=filter_movement_cols)
-)
-
-
-# %% [markdown]
 # ## Create movement track layers
 
 # %%
@@ -2648,7 +2560,7 @@ generate_track_layers = (
         },
         **generate_track_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=exclude_move_outliers)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_movement_cols)
 )
 
 
@@ -2696,7 +2608,7 @@ zoom_mov_gdf_extent_params = dict()
 
 
 zoom_mov_gdf_extent = (
-    view_state_deck_gdf.set_task_instance_id("zoom_mov_gdf_extent")
+    custom_view_state_from_gdf.set_task_instance_id("zoom_mov_gdf_extent")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -2706,7 +2618,7 @@ zoom_mov_gdf_extent = (
         ],
         unpack_depth=1,
     )
-    .partial(pitch=0, bearing=0, **zoom_mov_gdf_extent_params)
+    .partial(max_zoom=20, **zoom_mov_gdf_extent_params)
     .mapvalues(argnames=["gdf"], argvalues=sort_trajs_by_status)
 )
 
@@ -2922,7 +2834,7 @@ determine_seasonal_windows_params = dict()
 
 
 determine_seasonal_windows = (
-    determine_season_windows.set_task_instance_id("determine_seasonal_windows")
+    custom_determine_season_windows.set_task_instance_id("determine_seasonal_windows")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -3093,34 +3005,6 @@ filter_etd_cols = (
 
 
 # %% [markdown]
-# ## Exclude home range outliers
-
-# %%
-# parameters
-
-exclude_hr_outliers_params = dict()
-
-# %%
-# call the task
-
-
-exclude_hr_outliers = (
-    exclude_geom_outliers_polygon.set_task_instance_id("exclude_hr_outliers")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(z_threshold=3, **exclude_hr_outliers_params)
-    .mapvalues(argnames=["df"], argvalues=filter_etd_cols)
-)
-
-
-# %% [markdown]
 # ## Create home range layers
 
 # %%
@@ -3169,7 +3053,7 @@ generate_home_range_layers = (
         },
         **generate_home_range_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=exclude_hr_outliers)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_etd_cols)
 )
 
 
@@ -3198,34 +3082,6 @@ filter_mcp_cols = (
     )
     .partial(columns=["area_km2", "geometry"], **filter_mcp_cols_params)
     .mapvalues(argnames=["df"], argvalues=generate_mcp)
-)
-
-
-# %% [markdown]
-# ## Exclude mcp outliers
-
-# %%
-# parameters
-
-exclude_mcp_outliers_params = dict()
-
-# %%
-# call the task
-
-
-exclude_mcp_outliers = (
-    exclude_geom_outliers_polygon.set_task_instance_id("exclude_mcp_outliers")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(z_threshold=3, **exclude_mcp_outliers_params)
-    .mapvalues(argnames=["df"], argvalues=filter_mcp_cols)
 )
 
 
@@ -3275,7 +3131,7 @@ create_mcp_polygon_layer = (
         },
         **create_mcp_polygon_layer_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=exclude_mcp_outliers)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_mcp_cols)
 )
 
 
@@ -3354,7 +3210,7 @@ zoom_hr_gdf_extent_params = dict()
 
 
 zoom_hr_gdf_extent = (
-    view_state_deck_gdf.set_task_instance_id("zoom_hr_gdf_extent")
+    custom_view_state_from_gdf.set_task_instance_id("zoom_hr_gdf_extent")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -3364,7 +3220,7 @@ zoom_hr_gdf_extent = (
         ],
         unpack_depth=1,
     )
-    .partial(pitch=0, bearing=0, **zoom_hr_gdf_extent_params)
+    .partial(max_zoom=20, **zoom_hr_gdf_extent_params)
     .mapvalues(argnames=["gdf"], argvalues=filter_etd_cols)
 )
 
@@ -3767,34 +3623,6 @@ filter_mean_speed_cols = (
 
 
 # %% [markdown]
-# ## Exclude speed raster outliers
-
-# %%
-# parameters
-
-exclude_raster_outliers_params = dict()
-
-# %%
-# call the task
-
-
-exclude_raster_outliers = (
-    exclude_geom_outliers_polygon.set_task_instance_id("exclude_raster_outliers")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(z_threshold=3, **exclude_raster_outliers_params)
-    .mapvalues(argnames=["df"], argvalues=filter_mean_speed_cols)
-)
-
-
-# %% [markdown]
 # ## Create mean speed raster layer
 
 # %%
@@ -3843,7 +3671,7 @@ create_mean_speed_raster_layer = (
         },
         **create_mean_speed_raster_layer_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=exclude_raster_outliers)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_mean_speed_cols)
 )
 
 
@@ -3891,7 +3719,7 @@ zoom_raster_gdf_extent_params = dict()
 
 
 zoom_raster_gdf_extent = (
-    view_state_deck_gdf.set_task_instance_id("zoom_raster_gdf_extent")
+    custom_view_state_from_gdf.set_task_instance_id("zoom_raster_gdf_extent")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -3901,7 +3729,7 @@ zoom_raster_gdf_extent = (
         ],
         unpack_depth=1,
     )
-    .partial(pitch=0, bearing=0, **zoom_raster_gdf_extent_params)
+    .partial(max_zoom=20, **zoom_raster_gdf_extent_params)
     .mapvalues(argnames=["gdf"], argvalues=format_speed_raster_labels)
 )
 
@@ -4190,34 +4018,6 @@ filter_season_cols = (
 
 
 # %% [markdown]
-# ## Exclude season outliers
-
-# %%
-# parameters
-
-exclude_season_outliers_params = dict()
-
-# %%
-# call the task
-
-
-exclude_season_outliers = (
-    exclude_geom_outliers_polygon.set_task_instance_id("exclude_season_outliers")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(z_threshold=3, **exclude_season_outliers_params)
-    .mapvalues(argnames=["df"], argvalues=filter_season_cols)
-)
-
-
-# %% [markdown]
 # ## Create seasonal home range layers
 
 # %%
@@ -4266,7 +4066,7 @@ generate_season_layers = (
         },
         **generate_season_layers_params,
     )
-    .mapvalues(argnames=["geodataframe"], argvalues=exclude_season_outliers)
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_season_cols)
 )
 
 
@@ -4314,7 +4114,7 @@ zoom_seasons_gdf_extent_params = dict()
 
 
 zoom_seasons_gdf_extent = (
-    view_state_deck_gdf.set_task_instance_id("zoom_seasons_gdf_extent")
+    custom_view_state_from_gdf.set_task_instance_id("zoom_seasons_gdf_extent")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -4324,7 +4124,7 @@ zoom_seasons_gdf_extent = (
         ],
         unpack_depth=1,
     )
-    .partial(pitch=0, bearing=0, **zoom_seasons_gdf_extent_params)
+    .partial(max_zoom=20, **zoom_seasons_gdf_extent_params)
     .mapvalues(argnames=["gdf"], argvalues=assign_season_df)
 )
 

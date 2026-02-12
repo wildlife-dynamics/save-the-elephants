@@ -1,6 +1,6 @@
 workflow_details:
   description: ''
-  name: custom
+  name: custom ste mapbook workflow
 time_range:
   timezone:
     utc: '+00:00'
