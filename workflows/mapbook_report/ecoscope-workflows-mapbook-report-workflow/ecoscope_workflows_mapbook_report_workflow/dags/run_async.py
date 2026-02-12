@@ -249,10 +249,9 @@ def main(params: Params):
             "create_ldx_text_layer",
             "generate_day_night_layers",
         ],
-        "zoom_dn_gdf_extent": ["apply_day_night_colormap"],
         "zip_day_night_with_viewstate": [
             "combined_ldx_daynight_layers",
-            "zoom_dn_gdf_extent",
+            "zoom_speed_gdf_extent",
         ],
         "draw_day_night_map": ["configure_base_maps", "zip_day_night_with_viewstate"],
         "persist_day_night_html": ["draw_day_night_map"],
@@ -266,10 +265,9 @@ def main(params: Params):
             "create_ldx_text_layer",
             "generate_track_layers",
         ],
-        "zoom_mov_gdf_extent": ["sort_trajs_by_status"],
         "zip_tracks_with_viewstate": [
             "combined_ldx_movement_layers",
-            "zoom_mov_gdf_extent",
+            "zoom_speed_gdf_extent",
         ],
         "draw_movement_tracks": ["configure_base_maps", "zip_tracks_with_viewstate"],
         "persist_movement_tracks_html": ["draw_movement_tracks"],
@@ -281,6 +279,7 @@ def main(params: Params):
             "time_range",
             "generate_etd",
         ],
+        "persist_ndvi_values": ["determine_seasonal_windows"],
         "zip_etd_with_traj": ["determine_seasonal_windows", "split_traj_by_group"],
         "add_season_labels": ["zip_etd_with_traj"],
         "generate_mcp": ["split_traj_by_group"],
@@ -298,10 +297,9 @@ def main(params: Params):
             "create_ldx_text_layer",
             "zip_home_range_with_mcp_layer",
         ],
-        "zoom_hr_gdf_extent": ["filter_etd_cols"],
         "zip_hr_with_viewstate": [
             "combined_ldx_home_range_layers",
-            "zoom_hr_gdf_extent",
+            "zoom_speed_gdf_extent",
         ],
         "draw_home_range_map": ["configure_base_maps", "zip_hr_with_viewstate"],
         "persist_homerange_html": ["draw_home_range_map"],
@@ -320,10 +318,9 @@ def main(params: Params):
             "create_ldx_text_layer",
             "create_mean_speed_raster_layer",
         ],
-        "zoom_raster_gdf_extent": ["format_speed_raster_labels"],
         "zip_speed_raster_viewstate": [
             "combined_ldx_speed_raster",
-            "zoom_raster_gdf_extent",
+            "zoom_speed_gdf_extent",
         ],
         "draw_mean_speed_raster_map": [
             "configure_base_maps",
@@ -342,10 +339,9 @@ def main(params: Params):
             "create_ldx_text_layer",
             "generate_season_layers",
         ],
-        "zoom_seasons_gdf_extent": ["assign_season_df"],
         "zip_seasonal_hr_with_viewstate": [
             "combined_ldx_seasonal_hr_layers",
-            "zoom_seasons_gdf_extent",
+            "zoom_speed_gdf_extent",
         ],
         "draw_seasonal_home_range_map": [
             "configure_base_maps",
@@ -1644,6 +1640,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "max_zoom": 20,
+                "padding_percent": 0.25,
             }
             | (params_dict.get("zoom_speed_gdf_extent") or {}),
             method="mapvalues",
@@ -1949,29 +1946,6 @@ def main(params: Params):
                 "argvalues": DependsOn("generate_day_night_layers"),
             },
         ),
-        "zoom_dn_gdf_extent": Node(
-            async_task=custom_view_state_from_gdf.validate()
-            .set_task_instance_id("zoom_dn_gdf_extent")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "max_zoom": 20,
-            }
-            | (params_dict.get("zoom_dn_gdf_extent") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["gdf"],
-                "argvalues": DependsOn("apply_day_night_colormap"),
-            },
-        ),
         "zip_day_night_with_viewstate": Node(
             async_task=zip_groupbykey.validate()
             .set_task_instance_id("zip_day_night_with_viewstate")
@@ -1988,7 +1962,7 @@ def main(params: Params):
             partial={
                 "sequences": [
                     DependsOn("combined_ldx_daynight_layers"),
-                    DependsOn("zoom_dn_gdf_extent"),
+                    DependsOn("zoom_speed_gdf_extent"),
                 ],
             }
             | (params_dict.get("zip_day_night_with_viewstate") or {}),
@@ -2209,29 +2183,6 @@ def main(params: Params):
                 "argvalues": DependsOn("generate_track_layers"),
             },
         ),
-        "zoom_mov_gdf_extent": Node(
-            async_task=custom_view_state_from_gdf.validate()
-            .set_task_instance_id("zoom_mov_gdf_extent")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "max_zoom": 20,
-            }
-            | (params_dict.get("zoom_mov_gdf_extent") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["gdf"],
-                "argvalues": DependsOn("sort_trajs_by_status"),
-            },
-        ),
         "zip_tracks_with_viewstate": Node(
             async_task=zip_groupbykey.validate()
             .set_task_instance_id("zip_tracks_with_viewstate")
@@ -2248,7 +2199,7 @@ def main(params: Params):
             partial={
                 "sequences": [
                     DependsOn("combined_ldx_movement_layers"),
-                    DependsOn("zoom_mov_gdf_extent"),
+                    DependsOn("zoom_speed_gdf_extent"),
                 ],
             }
             | (params_dict.get("zip_tracks_with_viewstate") or {}),
@@ -2409,6 +2360,31 @@ def main(params: Params):
             kwargs={
                 "argnames": ["roi"],
                 "argvalues": DependsOn("generate_etd"),
+            },
+        ),
+        "persist_ndvi_values": Node(
+            async_task=persist_df.validate()
+            .set_task_instance_id("persist_ndvi_values")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filetype": "csv",
+                "filename": None,
+            }
+            | (params_dict.get("persist_ndvi_values") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("determine_seasonal_windows"),
             },
         ),
         "zip_etd_with_traj": Node(
@@ -2705,29 +2681,6 @@ def main(params: Params):
                 "argvalues": DependsOn("zip_home_range_with_mcp_layer"),
             },
         ),
-        "zoom_hr_gdf_extent": Node(
-            async_task=custom_view_state_from_gdf.validate()
-            .set_task_instance_id("zoom_hr_gdf_extent")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "max_zoom": 20,
-            }
-            | (params_dict.get("zoom_hr_gdf_extent") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["gdf"],
-                "argvalues": DependsOn("filter_etd_cols"),
-            },
-        ),
         "zip_hr_with_viewstate": Node(
             async_task=zip_groupbykey.validate()
             .set_task_instance_id("zip_hr_with_viewstate")
@@ -2744,7 +2697,7 @@ def main(params: Params):
             partial={
                 "sequences": [
                     DependsOn("combined_ldx_home_range_layers"),
-                    DependsOn("zoom_hr_gdf_extent"),
+                    DependsOn("zoom_speed_gdf_extent"),
                 ],
             }
             | (params_dict.get("zip_hr_with_viewstate") or {}),
@@ -3112,29 +3065,6 @@ def main(params: Params):
                 "argvalues": DependsOn("create_mean_speed_raster_layer"),
             },
         ),
-        "zoom_raster_gdf_extent": Node(
-            async_task=custom_view_state_from_gdf.validate()
-            .set_task_instance_id("zoom_raster_gdf_extent")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "max_zoom": 20,
-            }
-            | (params_dict.get("zoom_raster_gdf_extent") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["gdf"],
-                "argvalues": DependsOn("format_speed_raster_labels"),
-            },
-        ),
         "zip_speed_raster_viewstate": Node(
             async_task=zip_groupbykey.validate()
             .set_task_instance_id("zip_speed_raster_viewstate")
@@ -3151,7 +3081,7 @@ def main(params: Params):
             partial={
                 "sequences": [
                     DependsOn("combined_ldx_speed_raster"),
-                    DependsOn("zoom_raster_gdf_extent"),
+                    DependsOn("zoom_speed_gdf_extent"),
                 ],
             }
             | (params_dict.get("zip_speed_raster_viewstate") or {}),
@@ -3428,29 +3358,6 @@ def main(params: Params):
                 "argvalues": DependsOn("generate_season_layers"),
             },
         ),
-        "zoom_seasons_gdf_extent": Node(
-            async_task=custom_view_state_from_gdf.validate()
-            .set_task_instance_id("zoom_seasons_gdf_extent")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "max_zoom": 20,
-            }
-            | (params_dict.get("zoom_seasons_gdf_extent") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["gdf"],
-                "argvalues": DependsOn("assign_season_df"),
-            },
-        ),
         "zip_seasonal_hr_with_viewstate": Node(
             async_task=zip_groupbykey.validate()
             .set_task_instance_id("zip_seasonal_hr_with_viewstate")
@@ -3467,7 +3374,7 @@ def main(params: Params):
             partial={
                 "sequences": [
                     DependsOn("combined_ldx_seasonal_hr_layers"),
-                    DependsOn("zoom_seasons_gdf_extent"),
+                    DependsOn("zoom_speed_gdf_extent"),
                 ],
             }
             | (params_dict.get("zip_seasonal_hr_with_viewstate") or {}),
@@ -3994,7 +3901,7 @@ def main(params: Params):
                 "config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 30000,
+                    "wait_for_timeout": 10,
                     "max_concurrent_pages": 1,
                 },
             }
@@ -4023,7 +3930,7 @@ def main(params: Params):
                 "config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 30000,
+                    "wait_for_timeout": 10,
                     "max_concurrent_pages": 1,
                 },
             }
@@ -4052,7 +3959,7 @@ def main(params: Params):
                 "config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 30000,
+                    "wait_for_timeout": 10,
                     "max_concurrent_pages": 1,
                 },
             }
@@ -4081,7 +3988,7 @@ def main(params: Params):
                 "config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 30000,
+                    "wait_for_timeout": 10,
                     "max_concurrent_pages": 1,
                 },
             }
@@ -4110,7 +4017,7 @@ def main(params: Params):
                 "config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 30000,
+                    "wait_for_timeout": 10,
                     "max_concurrent_pages": 1,
                 },
             }
@@ -4139,7 +4046,7 @@ def main(params: Params):
                 "config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 30000,
+                    "wait_for_timeout": 10,
                     "max_concurrent_pages": 1,
                 },
             }

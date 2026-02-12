@@ -200,10 +200,39 @@ def view_state_deck_gdf(
     return ViewState(longitude=center_lon, latitude=center_lat, zoom=zoom, pitch=pitch, bearing=bearing)
 
 
+# @task
+# def custom_view_state_from_gdf(
+#     gdf: AnyGeoDataFrame,
+#     max_zoom: float = 20,
+# ) -> Annotated[ViewState, Field()]:
+#     import pydeck as pdk
+
+#     if gdf is None or gdf.empty:
+#         return ViewState()
+
+#     gdf = gdf.to_crs(epsg=4326)
+
+#     bounds = gdf.total_bounds
+#     bbox = [
+#         [bounds[0], bounds[1]],  # Northwest corner
+#         [bounds[2], bounds[3]],  # Southeast corner
+#     ]
+#     computed_zoom = pdk.data_utils.viewport_helpers.bbox_to_zoom_level(bbox)
+#     print(f"computed zoom: {computed_zoom}")
+#     modified_zoom = computed_zoom  - (computed_zoom * 0.0095)
+#     print(f"Modified zoom: {modified_zoom}")
+
+#     centerLon = (bounds[0] + bounds[2]) / 2
+#     centerLat = (bounds[1] + bounds[3]) / 2
+
+#     return ViewState(longitude=centerLon, latitude=centerLat, zoom=min(max_zoom, modified_zoom))
+
+
 @task
 def custom_view_state_from_gdf(
     gdf: AnyGeoDataFrame,
     max_zoom: float = 20,
+    padding_percent: float = 0.15,  # Add 15% padding around bounds
 ) -> Annotated[ViewState, Field()]:
     import pydeck as pdk
 
@@ -211,13 +240,30 @@ def custom_view_state_from_gdf(
         return ViewState()
 
     gdf = gdf.to_crs(epsg=4326)
-
     bounds = gdf.total_bounds
-    bbox = [
-        [bounds[0], bounds[1]],  # Northwest corner
-        [bounds[2], bounds[3]],  # Southeast corner
+
+    # Add padding to bounds
+    width = bounds[2] - bounds[0]
+    height = bounds[3] - bounds[1]
+
+    padded_bounds = [
+        bounds[0] - (width * padding_percent),  # min_x
+        bounds[1] - (height * padding_percent),  # min_y
+        bounds[2] + (width * padding_percent),  # max_x
+        bounds[3] + (height * padding_percent),  # max_y
     ]
+
+    bbox = [
+        [padded_bounds[0], padded_bounds[1]],
+        [padded_bounds[2], padded_bounds[3]],
+    ]
+
     computed_zoom = pdk.data_utils.viewport_helpers.bbox_to_zoom_level(bbox)
+
+    print(f"Original bounds: {bounds}")
+    print(f"Padded bounds: {padded_bounds}")
+    print(f"Computed zoom: {computed_zoom}")
+
     centerLon = (bounds[0] + bounds[2]) / 2
     centerLat = (bounds[1] + bounds[3]) / 2
 

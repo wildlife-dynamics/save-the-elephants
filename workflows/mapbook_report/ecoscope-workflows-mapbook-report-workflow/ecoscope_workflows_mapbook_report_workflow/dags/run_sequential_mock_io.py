@@ -1301,7 +1301,11 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(max_zoom=20, **(params_dict.get("zoom_speed_gdf_extent") or {}))
+        .partial(
+            max_zoom=20,
+            padding_percent=0.25,
+            **(params_dict.get("zoom_speed_gdf_extent") or {}),
+        )
         .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
     )
 
@@ -1542,22 +1546,6 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_day_night_layers)
     )
 
-    zoom_dn_gdf_extent = (
-        custom_view_state_from_gdf.validate()
-        .set_task_instance_id("zoom_dn_gdf_extent")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(max_zoom=20, **(params_dict.get("zoom_dn_gdf_extent") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=apply_day_night_colormap)
-    )
-
     zip_day_night_with_viewstate = (
         zip_groupbykey.validate()
         .set_task_instance_id("zip_day_night_with_viewstate")
@@ -1571,7 +1559,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            sequences=[combined_ldx_daynight_layers, zoom_dn_gdf_extent],
+            sequences=[combined_ldx_daynight_layers, zoom_speed_gdf_extent],
             **(params_dict.get("zip_day_night_with_viewstate") or {}),
         )
         .call()
@@ -1762,22 +1750,6 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_track_layers)
     )
 
-    zoom_mov_gdf_extent = (
-        custom_view_state_from_gdf.validate()
-        .set_task_instance_id("zoom_mov_gdf_extent")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(max_zoom=20, **(params_dict.get("zoom_mov_gdf_extent") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=sort_trajs_by_status)
-    )
-
     zip_tracks_with_viewstate = (
         zip_groupbykey.validate()
         .set_task_instance_id("zip_tracks_with_viewstate")
@@ -1791,7 +1763,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            sequences=[combined_ldx_movement_layers, zoom_mov_gdf_extent],
+            sequences=[combined_ldx_movement_layers, zoom_speed_gdf_extent],
             **(params_dict.get("zip_tracks_with_viewstate") or {}),
         )
         .call()
@@ -1922,6 +1894,27 @@ def main(params: Params):
             **(params_dict.get("determine_seasonal_windows") or {}),
         )
         .mapvalues(argnames=["roi"], argvalues=generate_etd)
+    )
+
+    persist_ndvi_values = (
+        persist_df.validate()
+        .set_task_instance_id("persist_ndvi_values")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filetype="csv",
+            filename=None,
+            **(params_dict.get("persist_ndvi_values") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=determine_seasonal_windows)
     )
 
     zip_etd_with_traj = (
@@ -2151,22 +2144,6 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=zip_home_range_with_mcp_layer)
     )
 
-    zoom_hr_gdf_extent = (
-        custom_view_state_from_gdf.validate()
-        .set_task_instance_id("zoom_hr_gdf_extent")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(max_zoom=20, **(params_dict.get("zoom_hr_gdf_extent") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=filter_etd_cols)
-    )
-
     zip_hr_with_viewstate = (
         zip_groupbykey.validate()
         .set_task_instance_id("zip_hr_with_viewstate")
@@ -2180,7 +2157,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            sequences=[combined_ldx_home_range_layers, zoom_hr_gdf_extent],
+            sequences=[combined_ldx_home_range_layers, zoom_speed_gdf_extent],
             **(params_dict.get("zip_hr_with_viewstate") or {}),
         )
         .call()
@@ -2485,22 +2462,6 @@ def main(params: Params):
         )
     )
 
-    zoom_raster_gdf_extent = (
-        custom_view_state_from_gdf.validate()
-        .set_task_instance_id("zoom_raster_gdf_extent")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(max_zoom=20, **(params_dict.get("zoom_raster_gdf_extent") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=format_speed_raster_labels)
-    )
-
     zip_speed_raster_viewstate = (
         zip_groupbykey.validate()
         .set_task_instance_id("zip_speed_raster_viewstate")
@@ -2514,7 +2475,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            sequences=[combined_ldx_speed_raster, zoom_raster_gdf_extent],
+            sequences=[combined_ldx_speed_raster, zoom_speed_gdf_extent],
             **(params_dict.get("zip_speed_raster_viewstate") or {}),
         )
         .call()
@@ -2736,22 +2697,6 @@ def main(params: Params):
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_season_layers)
     )
 
-    zoom_seasons_gdf_extent = (
-        custom_view_state_from_gdf.validate()
-        .set_task_instance_id("zoom_seasons_gdf_extent")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(max_zoom=20, **(params_dict.get("zoom_seasons_gdf_extent") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=assign_season_df)
-    )
-
     zip_seasonal_hr_with_viewstate = (
         zip_groupbykey.validate()
         .set_task_instance_id("zip_seasonal_hr_with_viewstate")
@@ -2765,7 +2710,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            sequences=[combined_ldx_seasonal_hr_layers, zoom_seasons_gdf_extent],
+            sequences=[combined_ldx_seasonal_hr_layers, zoom_speed_gdf_extent],
             **(params_dict.get("zip_seasonal_hr_with_viewstate") or {}),
         )
         .call()
@@ -3227,7 +3172,7 @@ def main(params: Params):
             config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 30000,
+                "wait_for_timeout": 10,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_speedmap_png") or {}),
@@ -3252,7 +3197,7 @@ def main(params: Params):
             config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 30000,
+                "wait_for_timeout": 10,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_day_night_png") or {}),
@@ -3277,7 +3222,7 @@ def main(params: Params):
             config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 30000,
+                "wait_for_timeout": 10,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_movement_png") or {}),
@@ -3302,7 +3247,7 @@ def main(params: Params):
             config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 30000,
+                "wait_for_timeout": 10,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_homerange_png") or {}),
@@ -3327,7 +3272,7 @@ def main(params: Params):
             config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 30000,
+                "wait_for_timeout": 10,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_raster_png") or {}),
@@ -3352,7 +3297,7 @@ def main(params: Params):
             config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 30000,
+                "wait_for_timeout": 10,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_seasonal_png") or {}),

@@ -1890,7 +1890,7 @@ zoom_speed_gdf_extent = (
         ],
         unpack_depth=1,
     )
-    .partial(max_zoom=20, **zoom_speed_gdf_extent_params)
+    .partial(max_zoom=20, padding_percent=0.25, **zoom_speed_gdf_extent_params)
     .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
 )
 
@@ -2264,34 +2264,6 @@ combined_ldx_daynight_layers = (
 
 
 # %% [markdown]
-# ## Zoom day-night gdf extent
-
-# %%
-# parameters
-
-zoom_dn_gdf_extent_params = dict()
-
-# %%
-# call the task
-
-
-zoom_dn_gdf_extent = (
-    custom_view_state_from_gdf.set_task_instance_id("zoom_dn_gdf_extent")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(max_zoom=20, **zoom_dn_gdf_extent_params)
-    .mapvalues(argnames=["gdf"], argvalues=apply_day_night_colormap)
-)
-
-
-# %% [markdown]
 # ## Combine day night layers with view state
 
 # %%
@@ -2315,7 +2287,7 @@ zip_day_night_with_viewstate = (
         unpack_depth=1,
     )
     .partial(
-        sequences=[combined_ldx_daynight_layers, zoom_dn_gdf_extent],
+        sequences=[combined_ldx_daynight_layers, zoom_speed_gdf_extent],
         **zip_day_night_with_viewstate_params,
     )
     .call()
@@ -2596,34 +2568,6 @@ combined_ldx_movement_layers = (
 
 
 # %% [markdown]
-# ## Zoom to movement gdf extent
-
-# %%
-# parameters
-
-zoom_mov_gdf_extent_params = dict()
-
-# %%
-# call the task
-
-
-zoom_mov_gdf_extent = (
-    custom_view_state_from_gdf.set_task_instance_id("zoom_mov_gdf_extent")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(max_zoom=20, **zoom_mov_gdf_extent_params)
-    .mapvalues(argnames=["gdf"], argvalues=sort_trajs_by_status)
-)
-
-
-# %% [markdown]
 # ## Combine movement tracks layers with view state
 
 # %%
@@ -2647,7 +2591,7 @@ zip_tracks_with_viewstate = (
         unpack_depth=1,
     )
     .partial(
-        sequences=[combined_ldx_movement_layers, zoom_mov_gdf_extent],
+        sequences=[combined_ldx_movement_layers, zoom_speed_gdf_extent],
         **zip_tracks_with_viewstate_params,
     )
     .call()
@@ -2850,6 +2794,39 @@ determine_seasonal_windows = (
         **determine_seasonal_windows_params,
     )
     .mapvalues(argnames=["roi"], argvalues=generate_etd)
+)
+
+
+# %% [markdown]
+# ## Persist seasonal windows csv
+
+# %%
+# parameters
+
+persist_ndvi_values_params = dict()
+
+# %%
+# call the task
+
+
+persist_ndvi_values = (
+    persist_df.set_task_instance_id("persist_ndvi_values")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filetype="csv",
+        filename=None,
+        **persist_ndvi_values_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=determine_seasonal_windows)
 )
 
 
@@ -3198,34 +3175,6 @@ combined_ldx_home_range_layers = (
 
 
 # %% [markdown]
-# ## Zoom to  home range gdf extent
-
-# %%
-# parameters
-
-zoom_hr_gdf_extent_params = dict()
-
-# %%
-# call the task
-
-
-zoom_hr_gdf_extent = (
-    custom_view_state_from_gdf.set_task_instance_id("zoom_hr_gdf_extent")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(max_zoom=20, **zoom_hr_gdf_extent_params)
-    .mapvalues(argnames=["gdf"], argvalues=filter_etd_cols)
-)
-
-
-# %% [markdown]
 # ## Combine home range layers with view state
 
 # %%
@@ -3249,7 +3198,7 @@ zip_hr_with_viewstate = (
         unpack_depth=1,
     )
     .partial(
-        sequences=[combined_ldx_home_range_layers, zoom_hr_gdf_extent],
+        sequences=[combined_ldx_home_range_layers, zoom_speed_gdf_extent],
         **zip_hr_with_viewstate_params,
     )
     .call()
@@ -3707,34 +3656,6 @@ combined_ldx_speed_raster = (
 
 
 # %% [markdown]
-# ## Zoom  mean speed raster to gdf extent
-
-# %%
-# parameters
-
-zoom_raster_gdf_extent_params = dict()
-
-# %%
-# call the task
-
-
-zoom_raster_gdf_extent = (
-    custom_view_state_from_gdf.set_task_instance_id("zoom_raster_gdf_extent")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(max_zoom=20, **zoom_raster_gdf_extent_params)
-    .mapvalues(argnames=["gdf"], argvalues=format_speed_raster_labels)
-)
-
-
-# %% [markdown]
 # ## Combine mean speed raster layer with view state
 
 # %%
@@ -3758,7 +3679,7 @@ zip_speed_raster_viewstate = (
         unpack_depth=1,
     )
     .partial(
-        sequences=[combined_ldx_speed_raster, zoom_raster_gdf_extent],
+        sequences=[combined_ldx_speed_raster, zoom_speed_gdf_extent],
         **zip_speed_raster_viewstate_params,
     )
     .call()
@@ -4102,34 +4023,6 @@ combined_ldx_seasonal_hr_layers = (
 
 
 # %% [markdown]
-# ## Zoom to seasons gdf extent
-
-# %%
-# parameters
-
-zoom_seasons_gdf_extent_params = dict()
-
-# %%
-# call the task
-
-
-zoom_seasons_gdf_extent = (
-    custom_view_state_from_gdf.set_task_instance_id("zoom_seasons_gdf_extent")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(max_zoom=20, **zoom_seasons_gdf_extent_params)
-    .mapvalues(argnames=["gdf"], argvalues=assign_season_df)
-)
-
-
-# %% [markdown]
 # ## Combine seasonal home range layers with view state
 
 # %%
@@ -4153,7 +4046,7 @@ zip_seasonal_hr_with_viewstate = (
         unpack_depth=1,
     )
     .partial(
-        sequences=[combined_ldx_seasonal_hr_layers, zoom_seasons_gdf_extent],
+        sequences=[combined_ldx_seasonal_hr_layers, zoom_speed_gdf_extent],
         **zip_seasonal_hr_with_viewstate_params,
     )
     .call()
@@ -4873,7 +4766,7 @@ generate_speedmap_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 30000,
+            "wait_for_timeout": 10,
             "max_concurrent_pages": 1,
         },
         **generate_speedmap_png_params,
@@ -4910,7 +4803,7 @@ generate_day_night_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 30000,
+            "wait_for_timeout": 10,
             "max_concurrent_pages": 1,
         },
         **generate_day_night_png_params,
@@ -4947,7 +4840,7 @@ generate_movement_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 30000,
+            "wait_for_timeout": 10,
             "max_concurrent_pages": 1,
         },
         **generate_movement_png_params,
@@ -4984,7 +4877,7 @@ generate_homerange_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 30000,
+            "wait_for_timeout": 10,
             "max_concurrent_pages": 1,
         },
         **generate_homerange_png_params,
@@ -5021,7 +4914,7 @@ generate_raster_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 30000,
+            "wait_for_timeout": 10,
             "max_concurrent_pages": 1,
         },
         **generate_raster_png_params,
@@ -5058,7 +4951,7 @@ generate_seasonal_png = (
         config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 30000,
+            "wait_for_timeout": 10,
             "max_concurrent_pages": 1,
         },
         **generate_seasonal_png_params,
