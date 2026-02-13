@@ -4832,7 +4832,7 @@ generate_speedmap_png = (
         screenshot_config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 10,
+            "wait_for_timeout": 40000,
             "max_concurrent_pages": 1,
         },
         **generate_speedmap_png_params,
@@ -4899,7 +4899,7 @@ generate_day_night_png = (
         screenshot_config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 10,
+            "wait_for_timeout": 40000,
             "max_concurrent_pages": 1,
         },
         **generate_day_night_png_params,
@@ -4967,7 +4967,7 @@ generate_movement_png = (
         screenshot_config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 10,
+            "wait_for_timeout": 40000,
             "max_concurrent_pages": 1,
         },
         **generate_movement_png_params,
@@ -5034,7 +5034,7 @@ generate_homerange_png = (
         screenshot_config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 10,
+            "wait_for_timeout": 40000,
             "max_concurrent_pages": 1,
         },
         **generate_homerange_png_params,
@@ -5102,7 +5102,7 @@ generate_raster_png = (
         screenshot_config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 10,
+            "wait_for_timeout": 40000,
             "max_concurrent_pages": 1,
         },
         **generate_raster_png_params,
@@ -5170,7 +5170,7 @@ generate_seasonal_png = (
         screenshot_config={
             "full_page": False,
             "device_scale_factor": 2.0,
-            "wait_for_timeout": 10,
+            "wait_for_timeout": 40000,
             "max_concurrent_pages": 1,
         },
         **generate_seasonal_png_params,

@@ -13,8 +13,8 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: ecoscope-workflows-ext-ste
-    version: "*"
-    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
+    version: "0.0.13.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
 rjsf-overrides:
   properties: 
@@ -1703,7 +1703,7 @@ workflow:
       screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 10
+        wait_for_timeout: 40000
         max_concurrent_pages: 1
     
     mapvalues:
@@ -1728,7 +1728,7 @@ workflow:
       screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 10
+        wait_for_timeout: 40000
         max_concurrent_pages: 1
     
     mapvalues:
@@ -1753,7 +1753,7 @@ workflow:
       screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 10
+        wait_for_timeout: 40000
         max_concurrent_pages: 1
     
     mapvalues:
@@ -1778,7 +1778,7 @@ workflow:
       screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 10
+        wait_for_timeout: 40000
         max_concurrent_pages: 1
     
     mapvalues:
@@ -1803,7 +1803,7 @@ workflow:
       screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 10
+        wait_for_timeout: 40000
         max_concurrent_pages: 1
     
     mapvalues:
@@ -1828,7 +1828,7 @@ workflow:
       screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 10
+        wait_for_timeout: 40000
         max_concurrent_pages: 1
     
     mapvalues:
