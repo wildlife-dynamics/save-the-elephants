@@ -703,11 +703,11 @@ def main(params: Params):
                         20,
                         255,
                     ],
-                    "get_size": 1500,
+                    "get_size": 1000,
                     "size_units": "meters",
-                    "size_min_pixels": 70,
-                    "size_max_pixels": 100,
-                    "size_scale": 2.25,
+                    "size_min_pixels": 40,
+                    "size_max_pixels": 75,
+                    "size_scale": 1.25,
                     "font_family": "Arial",
                     "font_weight": "normal",
                     "get_text_anchor": "middle",
@@ -792,9 +792,9 @@ def main(params: Params):
                             182,
                             151,
                         ],
-                        "opacity": 0.15,
+                        "opacity": 0.175,
                         "stroked": True,
-                        "get_line_width": 2.0,
+                        "get_line_width": 2.25,
                     },
                     "National Reserve": {
                         "get_fill_color": [
@@ -807,9 +807,9 @@ def main(params: Params):
                             167,
                             142,
                         ],
-                        "opacity": 0.15,
+                        "opacity": 0.175,
                         "stroked": True,
-                        "get_line_width": 2.0,
+                        "get_line_width": 2.25,
                     },
                     "National Park": {
                         "get_fill_color": [
@@ -822,9 +822,9 @@ def main(params: Params):
                             86,
                             49,
                         ],
-                        "opacity": 0.15,
+                        "opacity": 0.175,
                         "stroked": True,
-                        "get_line_width": 2.0,
+                        "get_line_width": 2.25,
                     },
                 },
                 "legends": {
@@ -1374,11 +1374,9 @@ def main(params: Params):
                 "df": DependsOn("merge_current_prev_trajs"),
                 "groupby_col": DependsOn("extract_grouper_names"),
                 "filter_col": "duration_status",
-                "criteria": "all",
-                "required_values": [
-                    "Previous tracks",
-                    "Current tracks",
-                ],
+                "criteria": "priority",
+                "priority_value": "Current tracks",
+                "required_values": None,
                 "min_count": None,
             }
             | (params_dict.get("filter_prev_groupers") or {}),
@@ -1652,7 +1650,7 @@ def main(params: Params):
             .set_executor("lithops"),
             partial={
                 "max_zoom": 20,
-                "padding_percent": 0.3,
+                "padding_percent": 0.35,
             }
             | (params_dict.get("zoom_speed_gdf_extent") or {}),
             method="mapvalues",

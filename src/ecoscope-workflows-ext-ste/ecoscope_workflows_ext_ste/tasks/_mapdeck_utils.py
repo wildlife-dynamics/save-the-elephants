@@ -215,34 +215,6 @@ def get_image_zoom_value(
     return zoom
 
 
-# @task
-# def custom_view_state_from_gdf(
-#     gdf: AnyGeoDataFrame,
-#     max_zoom: float = 20,
-# ) -> Annotated[ViewState, Field()]:
-#     import pydeck as pdk
-
-#     if gdf is None or gdf.empty:
-#         return ViewState()
-
-#     gdf = gdf.to_crs(epsg=4326)
-
-#     bounds = gdf.total_bounds
-#     bbox = [
-#         [bounds[0], bounds[1]],  # Northwest corner
-#         [bounds[2], bounds[3]],  # Southeast corner
-#     ]
-#     computed_zoom = pdk.data_utils.viewport_helpers.bbox_to_zoom_level(bbox)
-#     print(f"computed zoom: {computed_zoom}")
-#     modified_zoom = computed_zoom  - (computed_zoom * 0.0095)
-#     print(f"Modified zoom: {modified_zoom}")
-
-#     centerLon = (bounds[0] + bounds[2]) / 2
-#     centerLat = (bounds[1] + bounds[3]) / 2
-
-#     return ViewState(longitude=centerLon, latitude=centerLat, zoom=min(max_zoom, modified_zoom))
-
-
 @task
 def custom_view_state_from_gdf(
     gdf: AnyGeoDataFrame,

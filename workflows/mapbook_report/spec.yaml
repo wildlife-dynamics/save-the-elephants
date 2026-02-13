@@ -140,11 +140,11 @@ workflow:
         get_text: name 
         get_color: [20,20,20,255]
         
-        get_size: 1500
+        get_size: 1000 #1500
         size_units: meters 
-        size_min_pixels: 70 #65 
-        size_max_pixels: 100
-        size_scale: 2.25 
+        size_min_pixels: 40 #70 
+        size_max_pixels: 75 #100
+        size_scale: 1.25 #2.25 
 
         font_family: Arial 
         font_weight: normal
@@ -180,23 +180,23 @@ workflow:
         Community Conservancy:
           get_fill_color: [166,182,151]
           get_line_color: [166,182,151]
-          opacity: 0.15
+          opacity: 0.175
           stroked: true
-          get_line_width: 2.00 #1.85
+          get_line_width: 2.25 #1.85
           
         National Reserve:
           get_fill_color: [136,167,142]
           get_line_color: [136,167,142]
-          opacity: 0.15
+          opacity: 0.175
           stroked: true
-          get_line_width: 2.00
+          get_line_width: 2.25
 
         National Park: 
           get_fill_color: [17, 86, 49]
           get_line_color: [17, 86, 49]
-          opacity: 0.15
+          opacity: 0.175
           stroked: true
-          get_line_width: 2.00
+          get_line_width: 2.25 # 2.00
     
       legends: 
         title: "Land Use" 
@@ -442,10 +442,11 @@ workflow:
       df: ${{ workflow.merge_current_prev_trajs.return }}
       groupby_col: ${{ workflow.extract_grouper_names.return }}
       filter_col: duration_status 
-      criteria: all
-      required_values: 
-        - Previous tracks 
-        - Current tracks 
+      criteria: priority
+      priority_value: Current tracks
+      required_values: null
+        # - Previous tracks 
+        # - Current tracks 
       min_count: null
 
   - name: Add temporal index to combined trajectories
@@ -537,8 +538,6 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.apply_speed_colormap.return }}  
 
-
-
   - name: Generate speedmap layers 
     id: generate_speedmap_layers 
     task: create_path_layer 
@@ -571,7 +570,7 @@ workflow:
     task: custom_view_state_from_gdf
     partial: 
       max_zoom: 20
-      padding_percent: 0.30
+      padding_percent: 0.35
     mapvalues:
       argnames: gdf
       argvalues: ${{ workflow.filter_speed_cols.return }}
@@ -724,16 +723,6 @@ workflow:
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_day_night_layers.return }}
-
-  # - name: Zoom day-night gdf extent 
-  #   id: zoom_dn_gdf_extent
-  #   task: custom_view_state_from_gdf
-  #   partial: 
-  #     max_zoom: 20
-  #   mapvalues:
-  #     argnames: gdf
-  #     argvalues: 
-  #       - ${{ workflow.apply_day_night_colormap.return }}
 
   - name: Combine day night layers with view state 
     id: zip_day_night_with_viewstate
