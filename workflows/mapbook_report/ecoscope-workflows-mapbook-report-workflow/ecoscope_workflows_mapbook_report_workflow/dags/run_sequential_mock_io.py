@@ -3215,7 +3215,7 @@ def main(params: Params):
             screenshot_config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 10,
+                "wait_for_timeout": 40000,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_speedmap_png") or {}),
@@ -3259,7 +3259,7 @@ def main(params: Params):
             screenshot_config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 10,
+                "wait_for_timeout": 40000,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_day_night_png") or {}),
@@ -3303,7 +3303,7 @@ def main(params: Params):
             screenshot_config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 10,
+                "wait_for_timeout": 40000,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_movement_png") or {}),
@@ -3347,7 +3347,7 @@ def main(params: Params):
             screenshot_config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 10,
+                "wait_for_timeout": 40000,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_homerange_png") or {}),
@@ -3391,7 +3391,7 @@ def main(params: Params):
             screenshot_config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 10,
+                "wait_for_timeout": 40000,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_raster_png") or {}),
@@ -3437,7 +3437,7 @@ def main(params: Params):
             screenshot_config={
                 "full_page": False,
                 "device_scale_factor": 2.0,
-                "wait_for_timeout": 10,
+                "wait_for_timeout": 40000,
                 "max_concurrent_pages": 1,
             },
             **(params_dict.get("generate_seasonal_png") or {}),
