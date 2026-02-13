@@ -4,6 +4,9 @@ from pathlib import Path
 from typing import Union, Optional
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_ext_custom.tasks.io._html_to_png import ScreenshotConfig, html_to_png
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @task
@@ -35,7 +38,7 @@ def adjust_map_zoom_and_screenshot(
     """
     # Handle None input gracefully - skip processing
     if input_file is None:
-        print("Input_file is None - skipping processing")
+        logger.info("Input_file is None - skipping processing")
         return None
 
     input_path = Path(input_file)
@@ -48,10 +51,10 @@ def adjust_map_zoom_and_screenshot(
     if not input_path.is_file():
         raise ValueError(f"Input path is not a file: {input_path}")
 
-    print("\n=== Processing HTML file ===")
-    print(f"Input file: {input_path}")
-    print(f"Output dir: {output_dir}")
-    print(f"Target zoom: {zoom_value}")
+    logger.info("\n=== Processing HTML file ===")
+    logger.info(f"Input file: {input_path}")
+    logger.info(f"Output dir: {output_dir}")
+    logger.info(f"Target zoom: {zoom_value}")
 
     # Read the HTML file
     with open(input_path, "r", encoding="utf-8") as f:
@@ -68,8 +71,8 @@ def adjust_map_zoom_and_screenshot(
         )
 
     current_zoom = float(match.group(1))
-    print(f"Current zoom level: {current_zoom}")
-    print(f"New zoom value: {zoom_value}")
+    logger.info(f"Current zoom level: {current_zoom}")
+    logger.info(f"New zoom value: {zoom_value}")
 
     # Replace the zoom value
     new_html_content = re.sub(zoom_pattern, f'"zoom": {zoom_value}', html_content)
@@ -85,7 +88,7 @@ def adjust_map_zoom_and_screenshot(
         temp_file.write(new_html_content)
         temp_html_path = temp_file.name
 
-    print(f"Created temporary file: {temp_html_path}")
+    logger.info(f"Created temporary file: {temp_html_path}")
 
     try:
         # Use the existing html_to_png function to take screenshot
@@ -104,10 +107,10 @@ def adjust_map_zoom_and_screenshot(
         if png_path_obj.name != desired_png_name:
             png_path_obj.rename(desired_png_path)
             png_path = str(desired_png_path)
-            print(f"Renamed PNG to: {desired_png_name}")
+            logger.info(f"Renamed PNG to: {desired_png_name}")
 
-        print(f"\n✓ Successfully saved screenshot to: {png_path}")
-        print(f"✓ Zoom changed from {current_zoom} to {zoom_value}")
+        logger.info(f"\n Successfully saved screenshot to: {png_path}")
+        logger.info(f" Zoom changed from {current_zoom} to {zoom_value}")
 
         return png_path
 
@@ -116,4 +119,4 @@ def adjust_map_zoom_and_screenshot(
         temp_path = Path(temp_html_path)
         if temp_path.exists():
             temp_path.unlink()
-            print(f"✓ Temporary file removed: {temp_html_path}")
+            logger.info(f"Temporary file removed: {temp_html_path}")
