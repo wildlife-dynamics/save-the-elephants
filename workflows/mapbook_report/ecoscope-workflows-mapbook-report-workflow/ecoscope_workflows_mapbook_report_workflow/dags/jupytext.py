@@ -156,9 +156,6 @@ from ecoscope_workflows_ext_ste.tasks import generate_mcp_gdf as generate_mcp_gd
 from ecoscope_workflows_ext_ste.tasks import get_duration as get_duration
 from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 from ecoscope_workflows_ext_ste.tasks import (
-    get_image_zoom_value as get_image_zoom_value,
-)
-from ecoscope_workflows_ext_ste.tasks import (
     get_split_group_column as get_split_group_column,
 )
 from ecoscope_workflows_ext_ste.tasks import merge_mapbook_files as merge_mapbook_files
@@ -172,6 +169,7 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
 from ecoscope_workflows_ext_ste.tasks import set_custom_groupers as set_custom_groupers
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
+from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
 
 # %% [markdown]
@@ -1914,7 +1912,7 @@ gdf_image_extent_params = dict()
 
 
 gdf_image_extent = (
-    get_image_zoom_value.set_task_instance_id("gdf_image_extent")
+    view_state_deck_gdf.set_task_instance_id("gdf_image_extent")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -1924,7 +1922,7 @@ gdf_image_extent = (
         ],
         unpack_depth=1,
     )
-    .partial(**gdf_image_extent_params)
+    .partial(pitch=0, bearing=0, **gdf_image_extent_params)
     .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
 )
 
@@ -4765,11 +4763,8 @@ persist_cover_context = (
         template_path=download_mapbook_cover_page,
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         context=create_cover_tpl_context,
-<<<<<<< HEAD
-=======
         logo_width=1.34,
         logo_height=1.21,
->>>>>>> main
         filename="mapbook_context_page.docx",
         **persist_cover_context_params,
     )
@@ -4840,7 +4835,7 @@ generate_speedmap_png = (
         },
         **generate_speedmap_png_params,
     )
-    .mapvalues(argnames=["zoom_value", "input_file"], argvalues=zip_speed_value)
+    .mapvalues(argnames=["view_state", "input_file"], argvalues=zip_speed_value)
 )
 
 
@@ -4907,7 +4902,7 @@ generate_day_night_png = (
         },
         **generate_day_night_png_params,
     )
-    .mapvalues(argnames=["zoom_value", "input_file"], argvalues=zip_dn_value)
+    .mapvalues(argnames=["view_state", "input_file"], argvalues=zip_dn_value)
 )
 
 
@@ -4975,7 +4970,7 @@ generate_movement_png = (
         },
         **generate_movement_png_params,
     )
-    .mapvalues(argnames=["zoom_value", "input_file"], argvalues=zip_movement_value)
+    .mapvalues(argnames=["view_state", "input_file"], argvalues=zip_movement_value)
 )
 
 
@@ -5042,7 +5037,7 @@ generate_homerange_png = (
         },
         **generate_homerange_png_params,
     )
-    .mapvalues(argnames=["zoom_value", "input_file"], argvalues=zip_hr_value)
+    .mapvalues(argnames=["view_state", "input_file"], argvalues=zip_hr_value)
 )
 
 
@@ -5110,7 +5105,7 @@ generate_raster_png = (
         },
         **generate_raster_png_params,
     )
-    .mapvalues(argnames=["zoom_value", "input_file"], argvalues=zip_mean_speed_value)
+    .mapvalues(argnames=["view_state", "input_file"], argvalues=zip_mean_speed_value)
 )
 
 
@@ -5178,7 +5173,7 @@ generate_seasonal_png = (
         },
         **generate_seasonal_png_params,
     )
-    .mapvalues(argnames=["zoom_value", "input_file"], argvalues=zip_season_value)
+    .mapvalues(argnames=["view_state", "input_file"], argvalues=zip_season_value)
 )
 
 
