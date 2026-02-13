@@ -230,7 +230,7 @@ def main(params: Params):
                     "get_line_width": 1.25,
                 },
                 "legend": {
-                    "title": "Legend",
+                    "title": "",
                     "values": [
                         {
                             "label": "Area of Interest",
@@ -364,7 +364,7 @@ def main(params: Params):
                     "line_width_max_pixels": 5,
                 },
                 "legend": {
-                    "title": "",
+                    "title": "Legend",
                     "values": [
                         {
                             "label": "Aerial lines",

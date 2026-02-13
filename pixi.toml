@@ -17,6 +17,7 @@ yq = "*"
 hatch = "*"
 pip = "*"
 hatch-vcs = "*"
+playwright = ">=1.58.2,<2"
 
 [feature.compile.dependencies]
 # Include this if you add new tasks and the package has been built

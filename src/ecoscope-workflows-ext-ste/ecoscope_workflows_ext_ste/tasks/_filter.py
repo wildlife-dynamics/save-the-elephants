@@ -13,10 +13,13 @@ def filter_groups_by_value_criteria(
     df: Annotated[AnyDataFrame, Field(description="DataFrame to filter")],
     groupby_col: Annotated[str, Field(description="Column to group by")],
     filter_col: Annotated[str, Field(description="Column to check values in")],
-    criteria: Annotated[Literal["all", "any", "none", "exactly"], Field(description="Filtering strategy")] = "all",
+    criteria: Annotated[
+        Literal["all", "any", "none", "exactly", "priority"], Field(description="Filtering strategy")
+    ] = "all",
     required_values: Annotated[
         list[str] | None, Field(description="Values to check for (required for 'all', 'any', 'exactly' criteria)")
     ] = None,
+    priority_value: Annotated[str | None, Field(description="Must-have value for 'priority' criteria")] = None,
     min_count: Annotated[
         int | None, Field(description="Minimum number of unique values required in filter_col per group")
     ] = None,
@@ -29,6 +32,7 @@ def filter_groups_by_value_criteria(
     - 'any': Keep groups that have ANY of required_values
     - 'none': Keep groups that have NONE of required_values
     - 'exactly': Keep groups that have EXACTLY the required_values (no more, no less)
+    - 'priority': Keep groups that have the priority_value (must-have), regardless of other values
 
     Args:
         df: Input DataFrame
@@ -36,6 +40,7 @@ def filter_groups_by_value_criteria(
         filter_col: Column to check values in
         criteria: Filtering strategy
         required_values: List of values to check for
+        priority_value: Must-have value for 'priority' criteria
         min_count: Minimum number of unique values in filter_col (optional)
 
     Examples:
@@ -55,6 +60,15 @@ def filter_groups_by_value_criteria(
             filter_col='duration_status',
             criteria='any',
             required_values=['Current tracks', 'Previous tracks']
+        )
+
+        # Keep subjects that MUST have current tracks (may or may not have previous)
+        filter_groups_by_value_criteria(
+            df,
+            groupby_col='subject_name',
+            filter_col='duration_status',
+            criteria='priority',
+            priority_value='Current tracks'
         )
 
         # Keep subjects with at least 10 observations
@@ -78,6 +92,9 @@ def filter_groups_by_value_criteria(
 
     if criteria in ["all", "any", "none", "exactly"] and not required_values:
         raise ValueError(f"filter_groups_by_value_criteria: required_values needed for '{criteria}' criteria")
+
+    if criteria == "priority" and not priority_value:
+        raise ValueError("filter_groups_by_value_criteria: priority_value needed for 'priority' criteria")
 
     logger.info(f"Filtering groups by {groupby_col} using criteria '{criteria}' on {filter_col}")
 
@@ -103,6 +120,11 @@ def filter_groups_by_value_criteria(
     elif criteria == "exactly":
         # Keep groups that have EXACTLY the required values (no more, no less)
         keep_mask = group_values.apply(lambda x: x == required_set)
+
+    elif criteria == "priority":
+        # Keep groups that have the priority value (must-have)
+        keep_mask = group_values.apply(lambda x: priority_value in x)
+        logger.info(f"Applying priority filter: groups must contain '{priority_value}'")
 
     else:
         raise ValueError(f"Unknown criteria: {criteria}")
@@ -143,6 +165,6 @@ def filter_groups_by_value_criteria(
             count = group_counts[group]
             logger.info(f"  {group}: {group_vals} (n={count})")
 
-    logger.info(f"Rows: {len(df)}: {len(filtered_df)}")
+    logger.info(f"Rows: {len(df)} -> {len(filtered_df)}")
 
     return filtered_df

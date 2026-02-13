@@ -1,6 +1,6 @@
 workflow_details:
   description: ''
-  name: custom
+  name: custom ste mapbook workflow
 time_range:
   timezone:
     utc: '+00:00'
@@ -8,8 +8,8 @@ time_range:
     tzCode: UTC
     label: UTC
   time_format: '%d %b %Y %H:%M:%S'
-  since: '2025-05-01T09:40:00.000Z'
-  until: '2026-02-02T09:40:00.000Z'
+  since: '2025-03-01T09:40:00.000Z'
+  until: '2026-02-11T09:40:00.000Z'
 groupers:
   groupers:
     - subject_name
@@ -49,4 +49,4 @@ logo_path:
   input_method:
     file_path: /Users/tevintemu/Desktop/logo.png
 subject_group_var:
-  var: Elephants - STE
+  var: Elephants - ATE
