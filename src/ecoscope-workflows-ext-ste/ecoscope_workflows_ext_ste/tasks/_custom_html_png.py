@@ -51,7 +51,6 @@ def adjust_map_zoom_and_screenshot(
     if not input_path.is_file():
         raise ValueError(f"Input path is not a file: {input_path}")
 
-    logger.info("\n=== Processing HTML file ===")
     logger.info(f"Input file: {input_path}")
     logger.info(f"Output dir: {output_dir}")
 
@@ -69,26 +68,30 @@ def adjust_map_zoom_and_screenshot(
         logger.info(f"  Bearing: {view_state.bearing}")
 
         # Replace each view state parameter
-        replacements = {
-            r'"bearing":\s*(-?\d+\.?\d*)': f'"bearing": {view_state.bearing}',
-            r'"latitude":\s*(-?\d+\.?\d*)': f'"latitude": {view_state.latitude}',
-            r'"longitude":\s*(-?\d+\.?\d*)': f'"longitude": {view_state.longitude}',
-            r'"pitch":\s*(-?\d+\.?\d*)': f'"pitch": {view_state.pitch}',
-            r'"zoom":\s*(-?\d+\.?\d*)': f'"zoom": {view_state.zoom}',
+        view_params = {
+            "bearing": view_state.bearing,
+            "latitude": view_state.latitude,
+            "longitude": view_state.longitude,
+            "pitch": view_state.pitch,
+            "zoom": view_state.zoom,
         }
 
         new_html_content = html_content
-        for pattern, replacement in replacements.items():
+        params_found = 0
+
+        for param_name, param_value in view_params.items():
+            pattern = rf'"{param_name}":\s*(-?\d+\.?\d*)'
             match = re.search(pattern, new_html_content)
             if match:
-                logger.info(f"Found {pattern.split(':')[0].strip('r\"')} value: {match.group(1)}")
-                new_html_content = re.sub(pattern, replacement, new_html_content)
+                logger.info(f"Found {param_name} value: {match.group(1)}")
+                new_html_content = re.sub(pattern, f'"{param_name}": {param_value}', new_html_content)
+                params_found += 1
             else:
-                logger.warning(f"Could not find {pattern.split(':')[0].strip('r\"')} in HTML")
+                logger.warning(f"Could not find {param_name} in HTML")
 
-        if new_html_content == html_content:
+        if params_found == 0:
             raise ValueError(
-                f"Could not find view state parameters in the HTML file: {input_path}\n"
+                f"Could not find any view state parameters in the HTML file: {input_path}\n"
                 f"The file may not be a valid pydeck HTML map."
             )
     else:
@@ -127,7 +130,7 @@ def adjust_map_zoom_and_screenshot(
             png_path = str(desired_png_path)
             logger.info(f"Renamed PNG to: {desired_png_name}")
 
-        logger.info(f"\n✓ Successfully saved screenshot to: {png_path}")
+        logger.info(f"\n ßßSuccessfully saved screenshot to: {png_path}")
 
         return png_path
 
