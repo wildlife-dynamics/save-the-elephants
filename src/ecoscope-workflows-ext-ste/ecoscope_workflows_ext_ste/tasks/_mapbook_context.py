@@ -3,7 +3,7 @@ import uuid
 import logging
 from pathlib import Path
 from pydantic import Field
-from docx.shared import Cm
+from docx.shared import Inches, Cm
 from datetime import datetime
 from docxtpl import DocxTemplate, InlineImage
 from ecoscope_workflows_core.decorators import task
@@ -37,6 +37,18 @@ def create_context_page(
             description="Dictionary with context values for the template.",
         ),
     ],
+    logo_width: Annotated[
+        float,
+        Field(
+            description="Width of the logo in centimeters.",
+        ),
+    ] = 1.34,
+    logo_height: Annotated[
+        float,
+        Field(
+            description="Height of the logo in centimeters.",
+        ),
+    ] = 1.21,
     filename: Annotated[
         Optional[str],
         Field(
@@ -90,6 +102,8 @@ def create_context_page(
         context["org_logo"] = InlineImage(
             doc,
             context["org_logo_path"],
+            width=Inches(logo_width),
+            height=Inches(logo_height),
         )
     doc.render(context)
     doc.save(output_path)

@@ -13,8 +13,8 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.12.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    version: "*"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
     
 rjsf-overrides:
   properties: 
@@ -140,11 +140,11 @@ workflow:
         get_text: name 
         get_color: [20,20,20,255]
         
-        get_size: 1500
+        get_size: 1000 #1500
         size_units: meters 
-        size_min_pixels: 70 #65 
-        size_max_pixels: 100
-        size_scale: 2.25 
+        size_min_pixels: 40 #70 
+        size_max_pixels: 75 #100
+        size_scale: 1.25 #2.25 
 
         font_family: Arial 
         font_weight: normal
@@ -180,23 +180,23 @@ workflow:
         Community Conservancy:
           get_fill_color: [166,182,151]
           get_line_color: [166,182,151]
-          opacity: 0.15
+          opacity: 0.175
           stroked: true
-          get_line_width: 2.00 #1.85
+          get_line_width: 2.25 #1.85
           
         National Reserve:
           get_fill_color: [136,167,142]
           get_line_color: [136,167,142]
-          opacity: 0.15
+          opacity: 0.175
           stroked: true
-          get_line_width: 2.00
+          get_line_width: 2.25
 
         National Park: 
           get_fill_color: [17, 86, 49]
           get_line_color: [17, 86, 49]
-          opacity: 0.15
+          opacity: 0.175
           stroked: true
-          get_line_width: 2.00
+          get_line_width: 2.25 # 2.00
     
       legends: 
         title: "Land Use" 
@@ -442,10 +442,11 @@ workflow:
       df: ${{ workflow.merge_current_prev_trajs.return }}
       groupby_col: ${{ workflow.extract_grouper_names.return }}
       filter_col: duration_status 
-      criteria: all
-      required_values: 
-        - Previous tracks 
-        - Current tracks 
+      criteria: priority
+      priority_value: Current tracks
+      required_values: null
+        # - Previous tracks 
+        # - Current tracks 
       min_count: null
 
   - name: Add temporal index to combined trajectories
@@ -537,8 +538,6 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.apply_speed_colormap.return }}  
 
-
-
   - name: Generate speedmap layers 
     id: generate_speedmap_layers 
     task: create_path_layer 
@@ -571,10 +570,18 @@ workflow:
     task: custom_view_state_from_gdf
     partial: 
       max_zoom: 20
+      padding_percent: 0.35
     mapvalues:
       argnames: gdf
       argvalues: ${{ workflow.filter_speed_cols.return }}
     
+  - name: Zoom to gdf extent for image 
+    id: gdf_image_extent 
+    task: get_image_zoom_value
+    mapvalues:
+      argnames: gdf 
+      argvalues: ${{ workflow.filter_speed_cols.return }}
+
   - name: Combine ldx layers and speedmap layers 
     id: combined_ldx_speed_layers 
     task: combine_deckgl_map_layers
@@ -717,23 +724,13 @@ workflow:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_day_night_layers.return }}
 
-  - name: Zoom day-night gdf extent 
-    id: zoom_dn_gdf_extent
-    task: custom_view_state_from_gdf
-    partial: 
-      max_zoom: 20
-    mapvalues:
-      argnames: gdf
-      argvalues: 
-        - ${{ workflow.apply_day_night_colormap.return }}
-
   - name: Combine day night layers with view state 
     id: zip_day_night_with_viewstate
     task: zip_groupbykey 
     partial: 
       sequences: 
         - ${{ workflow.combined_ldx_daynight_layers.return }}
-        - ${{ workflow.zoom_dn_gdf_extent.return }}
+        - ${{ workflow.zoom_speed_gdf_extent.return }}
     
   - name: Draw day/night map
     id: draw_day_night_map 
@@ -843,15 +840,15 @@ workflow:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_track_layers.return }}
 
-  - name: Zoom to movement gdf extent 
-    id: zoom_mov_gdf_extent
-    task: custom_view_state_from_gdf
-    partial: 
-      max_zoom: 20
-    mapvalues:
-      argnames: gdf
-      argvalues: 
-        - ${{ workflow.sort_trajs_by_status.return }}
+  # - name: Zoom to movement gdf extent 
+  #   id: zoom_mov_gdf_extent
+  #   task: custom_view_state_from_gdf
+  #   partial: 
+  #     max_zoom: 20
+  #   mapvalues:
+  #     argnames: gdf
+  #     argvalues: 
+  #       - ${{ workflow.sort_trajs_by_status.return }}
 
   - name: Combine movement tracks layers with view state 
     id: zip_tracks_with_viewstate
@@ -859,7 +856,7 @@ workflow:
     partial: 
       sequences: 
         - ${{ workflow.combined_ldx_movement_layers.return }}
-        - ${{ workflow.zoom_mov_gdf_extent.return }}
+        - ${{ workflow.zoom_speed_gdf_extent.return }}
     
   - name: Draw movement tracks map
     id: draw_movement_tracks
@@ -943,6 +940,17 @@ workflow:
       argnames: roi 
       argvalues: ${{ workflow.generate_etd.return }}
   
+  - name: Persist seasonal windows csv 
+    id: persist_ndvi_values
+    task: persist_df 
+    partial: 
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filetype: csv
+      filename: null
+    mapvalues: 
+      argnames: df
+      argvalues: ${{ workflow.determine_seasonal_windows.return }}
+
   - name: Zip seasons with trajectories 
     id: zip_etd_with_traj 
     task: zip_groupbykey 
@@ -1082,15 +1090,15 @@ workflow:
       argnames: grouped_layers
       argvalues: ${{ workflow.zip_home_range_with_mcp_layer.return }}
   
-  - name: Zoom to  home range gdf extent 
-    id: zoom_hr_gdf_extent
-    task: custom_view_state_from_gdf
-    partial: 
-      max_zoom: 20
-    mapvalues:
-      argnames: gdf
-      argvalues: 
-        - ${{ workflow.filter_etd_cols.return }}
+  # - name: Zoom to  home range gdf extent 
+  #   id: zoom_hr_gdf_extent
+  #   task: custom_view_state_from_gdf
+  #   partial: 
+  #     max_zoom: 20
+  #   mapvalues:
+  #     argnames: gdf
+  #     argvalues: 
+  #       - ${{ workflow.filter_etd_cols.return }}
 
   - name: Combine home range layers with view state
     id: zip_hr_with_viewstate
@@ -1098,7 +1106,7 @@ workflow:
     partial: 
       sequences: 
         - ${{ workflow.combined_ldx_home_range_layers.return }}
-        - ${{ workflow.zoom_hr_gdf_extent.return }}
+        - ${{ workflow.zoom_speed_gdf_extent.return }}
 
   - name: Draw home range map
     id: draw_home_range_map
@@ -1284,15 +1292,15 @@ workflow:
       argnames: grouped_layers
       argvalues: ${{ workflow.create_mean_speed_raster_layer.return }}
 
-  - name: Zoom  mean speed raster to gdf extent 
-    id: zoom_raster_gdf_extent
-    task: custom_view_state_from_gdf
-    partial: 
-      max_zoom: 20
-    mapvalues:
-      argnames: gdf
-      argvalues: 
-        - ${{ workflow.format_speed_raster_labels.return }}
+  # - name: Zoom  mean speed raster to gdf extent 
+  #   id: zoom_raster_gdf_extent
+  #   task: custom_view_state_from_gdf
+  #   partial: 
+  #     max_zoom: 20
+  #   mapvalues:
+  #     argnames: gdf
+  #     argvalues: 
+  #       - ${{ workflow.format_speed_raster_labels.return }}
 
   - name: Combine mean speed raster layer with view state
     id: zip_speed_raster_viewstate
@@ -1300,7 +1308,7 @@ workflow:
     partial: 
       sequences: 
         - ${{ workflow.combined_ldx_speed_raster.return }}
-        - ${{ workflow.zoom_raster_gdf_extent.return }}
+        - ${{ workflow.zoom_speed_gdf_extent.return }}
   
   - name: Draw mean speed raster map
     id: draw_mean_speed_raster_map
@@ -1436,14 +1444,14 @@ workflow:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_season_layers.return }}
 
-  - name: Zoom to seasons gdf extent 
-    id: zoom_seasons_gdf_extent
-    task: custom_view_state_from_gdf
-    partial: 
-      max_zoom: 20
-    mapvalues:
-      argnames: gdf
-      argvalues: ${{ workflow.assign_season_df.return }}
+  # - name: Zoom to seasons gdf extent 
+  #   id: zoom_seasons_gdf_extent
+  #   task: custom_view_state_from_gdf
+  #   partial: 
+  #     max_zoom: 20
+  #   mapvalues:
+  #     argnames: gdf
+  #     argvalues: ${{ workflow.assign_season_df.return }}
 
   - name: Combine seasonal home range layers with view state
     id: zip_seasonal_hr_with_viewstate
@@ -1451,7 +1459,7 @@ workflow:
     partial: 
       sequences: 
         - ${{ workflow.combined_ldx_seasonal_hr_layers.return }}
-        - ${{ workflow.zoom_seasons_gdf_extent.return }}
+        - ${{ workflow.zoom_speed_gdf_extent.return }}
 
   - name: Draw seasonal home range map
     id: draw_seasonal_home_range_map
@@ -1674,97 +1682,160 @@ workflow:
       template_path: ${{ workflow.download_mapbook_cover_page.return }}
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       context: ${{ workflow.create_cover_tpl_context.return }}
+      logo_width: 1.34
+      logo_height: 1.21
       filename: mapbook_context_page.docx
+
+
+  - name: Combine speedmap path with zoom value 
+    id: zip_speed_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_speedmap_html.return }}
 
   - name: Convert speedmap html to png 
     id: generate_speedmap_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 30000
+        wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_speedmap_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_speed_value.return }}
+
+  - name: Combine daynight path with zoom value 
+    id: zip_dn_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_day_night_html.return }}
 
   - name: Convert day-night html to png 
     id: generate_day_night_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 30000
+        wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_day_night_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_dn_value.return }}
+
+  - name: Combine movement path with zoom value 
+    id: zip_movement_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_movement_tracks_html.return }}
 
   - name: Convert movement tracks html to png 
     id: generate_movement_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 30000
+        wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_movement_tracks_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_movement_value.return }}
+
+  - name: Combine hr path with zoom value 
+    id: zip_hr_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_homerange_html.return }}
 
   - name: Convert homerange html to png 
     id: generate_homerange_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 30000
+        wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_homerange_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_hr_value.return }}
+
+  - name: Combine mean speed raster path with zoom value 
+    id: zip_mean_speed_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_mean_speed_raster_html.return }}
 
   - name: Convert mean speed raster html to png 
     id: generate_raster_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 30000
+        wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_mean_speed_raster_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_mean_speed_value.return }}
+
+  - name: Combine seasonal hr  path with zoom value 
+    id: zip_season_value
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.gdf_image_extent.return }}
+        - ${{ workflow.persist_seasonal_home_range_html.return }}
 
   - name: Convert seasonal html to png 
     id: generate_seasonal_png 
-    task: html_to_png
+    task: adjust_map_zoom_and_screenshot
     partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      config: 
+      screenshot_config: 
         full_page: false
         device_scale_factor: 2.0
-        wait_for_timeout: 30000
+        wait_for_timeout: 10
         max_concurrent_pages: 1
     
     mapvalues:
-      argnames: html_path
-      argvalues: ${{ workflow.persist_seasonal_home_range_html.return }}
+      argnames: 
+        - zoom_value
+        - input_file
+      argvalues: ${{ workflow.zip_season_value.return }}
 
   # Create mapbook context 
   - name: Group grouper context values together 
