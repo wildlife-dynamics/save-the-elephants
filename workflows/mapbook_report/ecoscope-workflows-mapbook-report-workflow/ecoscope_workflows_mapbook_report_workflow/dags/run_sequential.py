@@ -1290,7 +1290,7 @@ def main(params: Params):
         )
         .partial(
             max_zoom=20,
-            padding_percent=0.35,
+            padding_percent=0.05,
             **(params_dict.get("zoom_speed_gdf_extent") or {}),
         )
         .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)

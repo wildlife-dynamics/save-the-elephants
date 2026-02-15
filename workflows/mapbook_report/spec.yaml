@@ -570,7 +570,7 @@ workflow:
     task: custom_view_state_from_gdf
     partial: 
       max_zoom: 20
-      padding_percent: 0.35
+      padding_percent: 0.05
     mapvalues:
       argnames: gdf
       argvalues: ${{ workflow.filter_speed_cols.return }}
