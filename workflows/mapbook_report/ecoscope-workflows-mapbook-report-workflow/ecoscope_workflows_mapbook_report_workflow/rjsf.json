@@ -140,7 +140,7 @@
             "var": {
               "title": "Subject Group Name",
               "type": "string",
-              "default": "subject_name"
+              "default": "Elephants"
             }
           },
           "required": [

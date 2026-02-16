@@ -221,7 +221,6 @@ def get_image_zoom_value(
 def custom_view_state_from_gdf(
     gdf: AnyGeoDataFrame,
     max_zoom: float = 20,
-    padding_percent: float = 0.15,  # Add 15% padding around bounds
 ) -> Annotated[ViewState, Field()]:
     import pydeck as pdk
 
@@ -231,20 +230,9 @@ def custom_view_state_from_gdf(
     gdf = gdf.to_crs(epsg=4326)
     bounds = gdf.total_bounds
 
-    # Add padding to bounds
-    width = bounds[2] - bounds[0]
-    height = bounds[3] - bounds[1]
-
-    padded_bounds = [
-        bounds[0] - (width * padding_percent),  # min_x
-        bounds[1] - (height * padding_percent),  # min_y
-        bounds[2] + (width * padding_percent),  # max_x
-        bounds[3] + (height * padding_percent),  # max_y
-    ]
-
     bbox = [
-        [padded_bounds[0], padded_bounds[1]],
-        [padded_bounds[2], padded_bounds[3]],
+        [bounds[0], bounds[1]],
+        [bounds[2], bounds[3]],
     ]
 
     computed_zoom = pdk.data_utils.viewport_helpers.bbox_to_zoom_level(bbox)

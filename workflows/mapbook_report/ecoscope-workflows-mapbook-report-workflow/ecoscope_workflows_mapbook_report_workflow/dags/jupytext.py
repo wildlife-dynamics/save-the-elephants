@@ -1719,6 +1719,370 @@ assign_duration_colors = (
 
 
 # %% [markdown]
+# ## Sort trajectories by duration status
+
+# %%
+# parameters
+
+sort_trajs_by_status_params = dict()
+
+# %%
+# call the task
+
+
+sort_trajs_by_status = (
+    sort_values.set_task_instance_id("sort_trajs_by_status")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        column_name="duration_status",
+        na_position="first",
+        ascending=False,
+        **sort_trajs_by_status_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=assign_duration_colors)
+)
+
+
+# %% [markdown]
+# ## Exclude unnecessary columns from movement gdf
+
+# %%
+# parameters
+
+filter_movement_cols_params = dict()
+
+# %%
+# call the task
+
+
+filter_movement_cols = (
+    filter_df_cols.set_task_instance_id("filter_movement_cols")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        columns=["duration_status", "duration_status_colors", "is_night", "geometry"],
+        **filter_movement_cols_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=sort_trajs_by_status)
+)
+
+
+# %% [markdown]
+# ## Create movement track layers
+
+# %%
+# parameters
+
+generate_track_layers_params = dict()
+
+# %%
+# call the task
+
+
+generate_track_layers = (
+    create_path_layer.set_task_instance_id("generate_track_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        layer_style={
+            "get_color": "duration_status_colors",
+            "get_width": 2.85,
+            "width_scale": 1,
+            "width_min_pixels": 2,
+            "width_max_pixels": 8,
+            "width_units": "pixels",
+            "cap_rounded": True,
+            "joint_rounded": True,
+            "billboard": False,
+            "opacity": 0.55,
+            "stroked": True,
+        },
+        legend={
+            "title": "Movement Tracks",
+            "label_column": "duration_status",
+            "color_column": "duration_status_colors",
+            "sort": "ascending",
+            "label_suffix": None,
+        },
+        **generate_track_layers_params,
+    )
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_movement_cols)
+)
+
+
+# %% [markdown]
+# ## Combine ldx layers and movement track layers
+
+# %%
+# parameters
+
+combined_ldx_movement_layers_params = dict()
+
+# %%
+# call the task
+
+
+combined_ldx_movement_layers = (
+    combine_deckgl_map_layers.set_task_instance_id("combined_ldx_movement_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
+        **combined_ldx_movement_layers_params,
+    )
+    .mapvalues(argnames=["grouped_layers"], argvalues=generate_track_layers)
+)
+
+
+# %% [markdown]
+# ## Zoom to gdf extent
+
+# %%
+# parameters
+
+zoom_to_envelope_params = dict(
+    expansion_factor=...,
+)
+
+# %%
+# call the task
+
+
+zoom_to_envelope = (
+    envelope_gdf.set_task_instance_id("zoom_to_envelope")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(**zoom_to_envelope_params)
+    .mapvalues(argnames=["gdf"], argvalues=filter_movement_cols)
+)
+
+
+# %% [markdown]
+# ## Zoom to gdf extent
+
+# %%
+# parameters
+
+zoom_speed_gdf_extent_params = dict()
+
+# %%
+# call the task
+
+
+zoom_speed_gdf_extent = (
+    custom_view_state_from_gdf.set_task_instance_id("zoom_speed_gdf_extent")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(max_zoom=20, **zoom_speed_gdf_extent_params)
+    .mapvalues(argnames=["gdf"], argvalues=zoom_to_envelope)
+)
+
+
+# %% [markdown]
+# ## Combine movement tracks layers with view state
+
+# %%
+# parameters
+
+zip_tracks_with_viewstate_params = dict()
+
+# %%
+# call the task
+
+
+zip_tracks_with_viewstate = (
+    zip_groupbykey.set_task_instance_id("zip_tracks_with_viewstate")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        sequences=[combined_ldx_movement_layers, zoom_speed_gdf_extent],
+        **zip_tracks_with_viewstate_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Draw movement tracks map
+
+# %%
+# parameters
+
+draw_movement_tracks_params = dict(
+    widget_id=...,
+)
+
+# %%
+# call the task
+
+
+draw_movement_tracks = (
+    draw_map.set_task_instance_id("draw_movement_tracks")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        tile_layers=configure_base_maps,
+        static=False,
+        title=None,
+        max_zoom=10,
+        legend_style={"placement": "bottom-right"},
+        **draw_movement_tracks_params,
+    )
+    .mapvalues(
+        argnames=["geo_layers", "view_state"], argvalues=zip_tracks_with_viewstate
+    )
+)
+
+
+# %% [markdown]
+# ## Persist movement tracks html
+
+# %%
+# parameters
+
+persist_movement_tracks_html_params = dict(
+    filename=...,
+)
+
+# %%
+# call the task
+
+
+persist_movement_tracks_html = (
+    persist_text.set_task_instance_id("persist_movement_tracks_html")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename_suffix="movement_tracks",
+        **persist_movement_tracks_html_params,
+    )
+    .mapvalues(argnames=["text"], argvalues=draw_movement_tracks)
+)
+
+
+# %% [markdown]
+# ## Create movement tracks widgets
+
+# %%
+# parameters
+
+create_movement_tracks_widgets_params = dict()
+
+# %%
+# call the task
+
+
+create_movement_tracks_widgets = (
+    create_map_widget_single_view.set_task_instance_id("create_movement_tracks_widgets")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            never,
+        ],
+        unpack_depth=1,
+    )
+    .partial(title="Movement Tracks", **create_movement_tracks_widgets_params)
+    .map(argnames=["view", "data"], argvalues=persist_movement_tracks_html)
+)
+
+
+# %% [markdown]
+# ## Merge movement tracks widgets
+
+# %%
+# parameters
+
+merge_movement_tracks_widgets_params = dict()
+
+# %%
+# call the task
+
+
+merge_movement_tracks_widgets = (
+    merge_widget_views.set_task_instance_id("merge_movement_tracks_widgets")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        widgets=create_movement_tracks_widgets, **merge_movement_tracks_widgets_params
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Sort trajectories by speed bins
 
 # %%
@@ -1869,64 +2233,6 @@ generate_speedmap_layers = (
         **generate_speedmap_layers_params,
     )
     .mapvalues(argnames=["geodataframe"], argvalues=filter_speed_cols)
-)
-
-
-# %% [markdown]
-# ## Zoom to gdf extent
-
-# %%
-# parameters
-
-zoom_to_envelope_params = dict(
-    expansion_factor=...,
-)
-
-# %%
-# call the task
-
-
-zoom_to_envelope = (
-    envelope_gdf.set_task_instance_id("zoom_to_envelope")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(**zoom_to_envelope_params)
-    .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
-)
-
-
-# %% [markdown]
-# ## Zoom to gdf extent
-
-# %%
-# parameters
-
-zoom_speed_gdf_extent_params = dict()
-
-# %%
-# call the task
-
-
-zoom_speed_gdf_extent = (
-    custom_view_state_from_gdf.set_task_instance_id("zoom_speed_gdf_extent")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(max_zoom=20, padding_percent=0.001, **zoom_speed_gdf_extent_params)
-    .mapvalues(argnames=["gdf"], argvalues=zoom_to_envelope)
 )
 
 
@@ -2481,312 +2787,6 @@ merge_day_night_widgets = (
         unpack_depth=1,
     )
     .partial(widgets=create_day_night_widgets, **merge_day_night_widgets_params)
-    .call()
-)
-
-
-# %% [markdown]
-# ## Sort trajectories by duration status
-
-# %%
-# parameters
-
-sort_trajs_by_status_params = dict()
-
-# %%
-# call the task
-
-
-sort_trajs_by_status = (
-    sort_values.set_task_instance_id("sort_trajs_by_status")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        column_name="duration_status",
-        na_position="first",
-        ascending=False,
-        **sort_trajs_by_status_params,
-    )
-    .mapvalues(argnames=["df"], argvalues=assign_duration_colors)
-)
-
-
-# %% [markdown]
-# ## Exclude unnecessary columns from movement gdf
-
-# %%
-# parameters
-
-filter_movement_cols_params = dict()
-
-# %%
-# call the task
-
-
-filter_movement_cols = (
-    filter_df_cols.set_task_instance_id("filter_movement_cols")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        columns=["duration_status", "duration_status_colors", "is_night", "geometry"],
-        **filter_movement_cols_params,
-    )
-    .mapvalues(argnames=["df"], argvalues=sort_trajs_by_status)
-)
-
-
-# %% [markdown]
-# ## Create movement track layers
-
-# %%
-# parameters
-
-generate_track_layers_params = dict()
-
-# %%
-# call the task
-
-
-generate_track_layers = (
-    create_path_layer.set_task_instance_id("generate_track_layers")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        layer_style={
-            "get_color": "duration_status_colors",
-            "get_width": 2.85,
-            "width_scale": 1,
-            "width_min_pixels": 2,
-            "width_max_pixels": 8,
-            "width_units": "pixels",
-            "cap_rounded": True,
-            "joint_rounded": True,
-            "billboard": False,
-            "opacity": 0.55,
-            "stroked": True,
-        },
-        legend={
-            "title": "Movement Tracks",
-            "label_column": "duration_status",
-            "color_column": "duration_status_colors",
-            "sort": "ascending",
-            "label_suffix": None,
-        },
-        **generate_track_layers_params,
-    )
-    .mapvalues(argnames=["geodataframe"], argvalues=filter_movement_cols)
-)
-
-
-# %% [markdown]
-# ## Combine ldx layers and movement track layers
-
-# %%
-# parameters
-
-combined_ldx_movement_layers_params = dict()
-
-# %%
-# call the task
-
-
-combined_ldx_movement_layers = (
-    combine_deckgl_map_layers.set_task_instance_id("combined_ldx_movement_layers")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
-        **combined_ldx_movement_layers_params,
-    )
-    .mapvalues(argnames=["grouped_layers"], argvalues=generate_track_layers)
-)
-
-
-# %% [markdown]
-# ## Combine movement tracks layers with view state
-
-# %%
-# parameters
-
-zip_tracks_with_viewstate_params = dict()
-
-# %%
-# call the task
-
-
-zip_tracks_with_viewstate = (
-    zip_groupbykey.set_task_instance_id("zip_tracks_with_viewstate")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        sequences=[combined_ldx_movement_layers, zoom_speed_gdf_extent],
-        **zip_tracks_with_viewstate_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Draw movement tracks map
-
-# %%
-# parameters
-
-draw_movement_tracks_params = dict(
-    widget_id=...,
-)
-
-# %%
-# call the task
-
-
-draw_movement_tracks = (
-    draw_map.set_task_instance_id("draw_movement_tracks")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        tile_layers=configure_base_maps,
-        static=False,
-        title=None,
-        max_zoom=10,
-        legend_style={"placement": "bottom-right"},
-        **draw_movement_tracks_params,
-    )
-    .mapvalues(
-        argnames=["geo_layers", "view_state"], argvalues=zip_tracks_with_viewstate
-    )
-)
-
-
-# %% [markdown]
-# ## Persist movement tracks html
-
-# %%
-# parameters
-
-persist_movement_tracks_html_params = dict(
-    filename=...,
-)
-
-# %%
-# call the task
-
-
-persist_movement_tracks_html = (
-    persist_text.set_task_instance_id("persist_movement_tracks_html")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="movement_tracks",
-        **persist_movement_tracks_html_params,
-    )
-    .mapvalues(argnames=["text"], argvalues=draw_movement_tracks)
-)
-
-
-# %% [markdown]
-# ## Create movement tracks widgets
-
-# %%
-# parameters
-
-create_movement_tracks_widgets_params = dict()
-
-# %%
-# call the task
-
-
-create_movement_tracks_widgets = (
-    create_map_widget_single_view.set_task_instance_id("create_movement_tracks_widgets")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            never,
-        ],
-        unpack_depth=1,
-    )
-    .partial(title="Movement Tracks", **create_movement_tracks_widgets_params)
-    .map(argnames=["view", "data"], argvalues=persist_movement_tracks_html)
-)
-
-
-# %% [markdown]
-# ## Merge movement tracks widgets
-
-# %%
-# parameters
-
-merge_movement_tracks_widgets_params = dict()
-
-# %%
-# call the task
-
-
-merge_movement_tracks_widgets = (
-    merge_widget_views.set_task_instance_id("merge_movement_tracks_widgets")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        widgets=create_movement_tracks_widgets, **merge_movement_tracks_widgets_params
-    )
     .call()
 )
 

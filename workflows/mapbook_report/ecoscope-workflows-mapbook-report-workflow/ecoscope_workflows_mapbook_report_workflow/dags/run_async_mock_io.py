@@ -245,12 +245,28 @@ def main(params: Params):
         "split_group_column": ["split_traj_by_group"],
         "split_comb_cols": ["split_comb_trajs"],
         "assign_duration_colors": ["split_comb_cols", "split_comb_trajs"],
+        "sort_trajs_by_status": ["assign_duration_colors"],
+        "filter_movement_cols": ["sort_trajs_by_status"],
+        "generate_track_layers": ["filter_movement_cols"],
+        "combined_ldx_movement_layers": [
+            "create_ldx_styled_layers",
+            "create_ldx_text_layer",
+            "generate_track_layers",
+        ],
+        "zoom_to_envelope": ["filter_movement_cols"],
+        "zoom_speed_gdf_extent": ["zoom_to_envelope"],
+        "zip_tracks_with_viewstate": [
+            "combined_ldx_movement_layers",
+            "zoom_speed_gdf_extent",
+        ],
+        "draw_movement_tracks": ["configure_base_maps", "zip_tracks_with_viewstate"],
+        "persist_movement_tracks_html": ["draw_movement_tracks"],
+        "create_movement_tracks_widgets": ["persist_movement_tracks_html"],
+        "merge_movement_tracks_widgets": ["create_movement_tracks_widgets"],
         "sort_trajs_by_speed": ["split_traj_by_group"],
         "apply_speed_colormap": ["sort_trajs_by_speed"],
         "filter_speed_cols": ["apply_speed_colormap"],
         "generate_speedmap_layers": ["filter_speed_cols"],
-        "zoom_to_envelope": ["filter_speed_cols"],
-        "zoom_speed_gdf_extent": ["zoom_to_envelope"],
         "gdf_image_extent": ["filter_speed_cols"],
         "combined_ldx_speed_layers": [
             "create_ldx_styled_layers",
@@ -282,22 +298,6 @@ def main(params: Params):
         "persist_day_night_html": ["draw_day_night_map"],
         "create_day_night_widgets": ["persist_day_night_html"],
         "merge_day_night_widgets": ["create_day_night_widgets"],
-        "sort_trajs_by_status": ["assign_duration_colors"],
-        "filter_movement_cols": ["sort_trajs_by_status"],
-        "generate_track_layers": ["filter_movement_cols"],
-        "combined_ldx_movement_layers": [
-            "create_ldx_styled_layers",
-            "create_ldx_text_layer",
-            "generate_track_layers",
-        ],
-        "zip_tracks_with_viewstate": [
-            "combined_ldx_movement_layers",
-            "zoom_speed_gdf_extent",
-        ],
-        "draw_movement_tracks": ["configure_base_maps", "zip_tracks_with_viewstate"],
-        "persist_movement_tracks_html": ["draw_movement_tracks"],
-        "create_movement_tracks_widgets": ["persist_movement_tracks_html"],
-        "merge_movement_tracks_widgets": ["create_movement_tracks_widgets"],
         "generate_etd": ["split_traj_by_group"],
         "determine_seasonal_windows": [
             "gee_project_name",
@@ -1525,6 +1525,286 @@ def main(params: Params):
                 "argvalues": DependsOn("split_comb_trajs"),
             },
         ),
+        "sort_trajs_by_status": Node(
+            async_task=sort_values.validate()
+            .set_task_instance_id("sort_trajs_by_status")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "column_name": "duration_status",
+                "na_position": "first",
+                "ascending": False,
+            }
+            | (params_dict.get("sort_trajs_by_status") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("assign_duration_colors"),
+            },
+        ),
+        "filter_movement_cols": Node(
+            async_task=filter_df_cols.validate()
+            .set_task_instance_id("filter_movement_cols")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "columns": [
+                    "duration_status",
+                    "duration_status_colors",
+                    "is_night",
+                    "geometry",
+                ],
+            }
+            | (params_dict.get("filter_movement_cols") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("sort_trajs_by_status"),
+            },
+        ),
+        "generate_track_layers": Node(
+            async_task=create_path_layer.validate()
+            .set_task_instance_id("generate_track_layers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "layer_style": {
+                    "get_color": "duration_status_colors",
+                    "get_width": 2.85,
+                    "width_scale": 1,
+                    "width_min_pixels": 2,
+                    "width_max_pixels": 8,
+                    "width_units": "pixels",
+                    "cap_rounded": True,
+                    "joint_rounded": True,
+                    "billboard": False,
+                    "opacity": 0.55,
+                    "stroked": True,
+                },
+                "legend": {
+                    "title": "Movement Tracks",
+                    "label_column": "duration_status",
+                    "color_column": "duration_status_colors",
+                    "sort": "ascending",
+                    "label_suffix": None,
+                },
+            }
+            | (params_dict.get("generate_track_layers") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["geodataframe"],
+                "argvalues": DependsOn("filter_movement_cols"),
+            },
+        ),
+        "combined_ldx_movement_layers": Node(
+            async_task=combine_deckgl_map_layers.validate()
+            .set_task_instance_id("combined_ldx_movement_layers")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "static_layers": [
+                    DependsOn("create_ldx_styled_layers"),
+                    DependsOn("create_ldx_text_layer"),
+                ],
+            }
+            | (params_dict.get("combined_ldx_movement_layers") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["grouped_layers"],
+                "argvalues": DependsOn("generate_track_layers"),
+            },
+        ),
+        "zoom_to_envelope": Node(
+            async_task=envelope_gdf.validate()
+            .set_task_instance_id("zoom_to_envelope")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial=(params_dict.get("zoom_to_envelope") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("filter_movement_cols"),
+            },
+        ),
+        "zoom_speed_gdf_extent": Node(
+            async_task=custom_view_state_from_gdf.validate()
+            .set_task_instance_id("zoom_speed_gdf_extent")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "max_zoom": 20,
+            }
+            | (params_dict.get("zoom_speed_gdf_extent") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("zoom_to_envelope"),
+            },
+        ),
+        "zip_tracks_with_viewstate": Node(
+            async_task=zip_groupbykey.validate()
+            .set_task_instance_id("zip_tracks_with_viewstate")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "sequences": [
+                    DependsOn("combined_ldx_movement_layers"),
+                    DependsOn("zoom_speed_gdf_extent"),
+                ],
+            }
+            | (params_dict.get("zip_tracks_with_viewstate") or {}),
+            method="call",
+        ),
+        "draw_movement_tracks": Node(
+            async_task=draw_map.validate()
+            .set_task_instance_id("draw_movement_tracks")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "tile_layers": DependsOn("configure_base_maps"),
+                "static": False,
+                "title": None,
+                "max_zoom": 10,
+                "legend_style": {
+                    "placement": "bottom-right",
+                },
+            }
+            | (params_dict.get("draw_movement_tracks") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["geo_layers", "view_state"],
+                "argvalues": DependsOn("zip_tracks_with_viewstate"),
+            },
+        ),
+        "persist_movement_tracks_html": Node(
+            async_task=persist_text.validate()
+            .set_task_instance_id("persist_movement_tracks_html")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filename_suffix": "movement_tracks",
+            }
+            | (params_dict.get("persist_movement_tracks_html") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["text"],
+                "argvalues": DependsOn("draw_movement_tracks"),
+            },
+        ),
+        "create_movement_tracks_widgets": Node(
+            async_task=create_map_widget_single_view.validate()
+            .set_task_instance_id("create_movement_tracks_widgets")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    never,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "title": "Movement Tracks",
+            }
+            | (params_dict.get("create_movement_tracks_widgets") or {}),
+            method="map",
+            kwargs={
+                "argnames": ["view", "data"],
+                "argvalues": DependsOn("persist_movement_tracks_html"),
+            },
+        ),
+        "merge_movement_tracks_widgets": Node(
+            async_task=merge_widget_views.validate()
+            .set_task_instance_id("merge_movement_tracks_widgets")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "widgets": DependsOn("create_movement_tracks_widgets"),
+            }
+            | (params_dict.get("merge_movement_tracks_widgets") or {}),
+            method="call",
+        ),
         "sort_trajs_by_speed": Node(
             async_task=sort_values.validate()
             .set_task_instance_id("sort_trajs_by_speed")
@@ -1652,50 +1932,6 @@ def main(params: Params):
             kwargs={
                 "argnames": ["geodataframe"],
                 "argvalues": DependsOn("filter_speed_cols"),
-            },
-        ),
-        "zoom_to_envelope": Node(
-            async_task=envelope_gdf.validate()
-            .set_task_instance_id("zoom_to_envelope")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial=(params_dict.get("zoom_to_envelope") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["gdf"],
-                "argvalues": DependsOn("filter_speed_cols"),
-            },
-        ),
-        "zoom_speed_gdf_extent": Node(
-            async_task=custom_view_state_from_gdf.validate()
-            .set_task_instance_id("zoom_speed_gdf_extent")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "max_zoom": 20,
-                "padding_percent": 0.001,
-            }
-            | (params_dict.get("zoom_speed_gdf_extent") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["gdf"],
-                "argvalues": DependsOn("zoom_to_envelope"),
             },
         ),
         "gdf_image_extent": Node(
@@ -2133,243 +2369,6 @@ def main(params: Params):
                 "widgets": DependsOn("create_day_night_widgets"),
             }
             | (params_dict.get("merge_day_night_widgets") or {}),
-            method="call",
-        ),
-        "sort_trajs_by_status": Node(
-            async_task=sort_values.validate()
-            .set_task_instance_id("sort_trajs_by_status")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "column_name": "duration_status",
-                "na_position": "first",
-                "ascending": False,
-            }
-            | (params_dict.get("sort_trajs_by_status") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("assign_duration_colors"),
-            },
-        ),
-        "filter_movement_cols": Node(
-            async_task=filter_df_cols.validate()
-            .set_task_instance_id("filter_movement_cols")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "columns": [
-                    "duration_status",
-                    "duration_status_colors",
-                    "is_night",
-                    "geometry",
-                ],
-            }
-            | (params_dict.get("filter_movement_cols") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["df"],
-                "argvalues": DependsOn("sort_trajs_by_status"),
-            },
-        ),
-        "generate_track_layers": Node(
-            async_task=create_path_layer.validate()
-            .set_task_instance_id("generate_track_layers")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "layer_style": {
-                    "get_color": "duration_status_colors",
-                    "get_width": 2.85,
-                    "width_scale": 1,
-                    "width_min_pixels": 2,
-                    "width_max_pixels": 8,
-                    "width_units": "pixels",
-                    "cap_rounded": True,
-                    "joint_rounded": True,
-                    "billboard": False,
-                    "opacity": 0.55,
-                    "stroked": True,
-                },
-                "legend": {
-                    "title": "Movement Tracks",
-                    "label_column": "duration_status",
-                    "color_column": "duration_status_colors",
-                    "sort": "ascending",
-                    "label_suffix": None,
-                },
-            }
-            | (params_dict.get("generate_track_layers") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["geodataframe"],
-                "argvalues": DependsOn("filter_movement_cols"),
-            },
-        ),
-        "combined_ldx_movement_layers": Node(
-            async_task=combine_deckgl_map_layers.validate()
-            .set_task_instance_id("combined_ldx_movement_layers")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "static_layers": [
-                    DependsOn("create_ldx_styled_layers"),
-                    DependsOn("create_ldx_text_layer"),
-                ],
-            }
-            | (params_dict.get("combined_ldx_movement_layers") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["grouped_layers"],
-                "argvalues": DependsOn("generate_track_layers"),
-            },
-        ),
-        "zip_tracks_with_viewstate": Node(
-            async_task=zip_groupbykey.validate()
-            .set_task_instance_id("zip_tracks_with_viewstate")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "sequences": [
-                    DependsOn("combined_ldx_movement_layers"),
-                    DependsOn("zoom_speed_gdf_extent"),
-                ],
-            }
-            | (params_dict.get("zip_tracks_with_viewstate") or {}),
-            method="call",
-        ),
-        "draw_movement_tracks": Node(
-            async_task=draw_map.validate()
-            .set_task_instance_id("draw_movement_tracks")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "tile_layers": DependsOn("configure_base_maps"),
-                "static": False,
-                "title": None,
-                "max_zoom": 10,
-                "legend_style": {
-                    "placement": "bottom-right",
-                },
-            }
-            | (params_dict.get("draw_movement_tracks") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["geo_layers", "view_state"],
-                "argvalues": DependsOn("zip_tracks_with_viewstate"),
-            },
-        ),
-        "persist_movement_tracks_html": Node(
-            async_task=persist_text.validate()
-            .set_task_instance_id("persist_movement_tracks_html")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "filename_suffix": "movement_tracks",
-            }
-            | (params_dict.get("persist_movement_tracks_html") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["text"],
-                "argvalues": DependsOn("draw_movement_tracks"),
-            },
-        ),
-        "create_movement_tracks_widgets": Node(
-            async_task=create_map_widget_single_view.validate()
-            .set_task_instance_id("create_movement_tracks_widgets")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    never,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "title": "Movement Tracks",
-            }
-            | (params_dict.get("create_movement_tracks_widgets") or {}),
-            method="map",
-            kwargs={
-                "argnames": ["view", "data"],
-                "argvalues": DependsOn("persist_movement_tracks_html"),
-            },
-        ),
-        "merge_movement_tracks_widgets": Node(
-            async_task=merge_widget_views.validate()
-            .set_task_instance_id("merge_movement_tracks_widgets")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "widgets": DependsOn("create_movement_tracks_widgets"),
-            }
-            | (params_dict.get("merge_movement_tracks_widgets") or {}),
             method="call",
         ),
         "generate_etd": Node(
