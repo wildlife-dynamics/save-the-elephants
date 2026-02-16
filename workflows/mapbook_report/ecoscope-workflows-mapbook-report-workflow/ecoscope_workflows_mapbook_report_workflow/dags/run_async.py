@@ -124,14 +124,12 @@ from ecoscope_workflows_ext_ste.tasks import (
     custom_trajectory_segment_filter as custom_trajectory_segment_filter,
 )
 from ecoscope_workflows_ext_ste.tasks import (
-    custom_view_state_from_gdf as custom_view_state_from_gdf,
-)
-from ecoscope_workflows_ext_ste.tasks import (
     dataframe_column_first_unique_str as dataframe_column_first_unique_str,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     determine_previous_period as determine_previous_period,
 )
+from ecoscope_workflows_ext_ste.tasks import envelope_gdf as envelope_gdf
 from ecoscope_workflows_ext_ste.tasks import extract_index_names as extract_index_names
 from ecoscope_workflows_ext_ste.tasks import (
     fetch_and_persist_file as fetch_and_persist_file,
@@ -1634,7 +1632,7 @@ def main(params: Params):
             },
         ),
         "zoom_speed_gdf_extent": Node(
-            async_task=custom_view_state_from_gdf.validate()
+            async_task=envelope_gdf.validate()
             .set_task_instance_id("zoom_speed_gdf_extent")
             .handle_errors()
             .with_tracing()
@@ -1646,11 +1644,7 @@ def main(params: Params):
                 unpack_depth=1,
             )
             .set_executor("lithops"),
-            partial={
-                "max_zoom": 20,
-                "padding_percent": 0.35,
-            }
-            | (params_dict.get("zoom_speed_gdf_extent") or {}),
+            partial=(params_dict.get("zoom_speed_gdf_extent") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["gdf"],
@@ -3910,8 +3904,6 @@ def main(params: Params):
                 "template_path": DependsOn("download_mapbook_cover_page"),
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
                 "context": DependsOn("create_cover_tpl_context"),
-                "logo_width": 1.34,
-                "logo_height": 1.21,
                 "filename": "mapbook_context_page.docx",
             }
             | (params_dict.get("persist_cover_context") or {}),
@@ -3957,7 +3949,7 @@ def main(params: Params):
                 "screenshot_config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 10,
+                    "wait_for_timeout": 40000,
                     "max_concurrent_pages": 1,
                 },
             }
@@ -4008,7 +4000,7 @@ def main(params: Params):
                 "screenshot_config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 10,
+                    "wait_for_timeout": 40000,
                     "max_concurrent_pages": 1,
                 },
             }
@@ -4059,7 +4051,7 @@ def main(params: Params):
                 "screenshot_config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 10,
+                    "wait_for_timeout": 40000,
                     "max_concurrent_pages": 1,
                 },
             }
@@ -4110,7 +4102,7 @@ def main(params: Params):
                 "screenshot_config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 10,
+                    "wait_for_timeout": 40000,
                     "max_concurrent_pages": 1,
                 },
             }
@@ -4161,7 +4153,7 @@ def main(params: Params):
                 "screenshot_config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 10,
+                    "wait_for_timeout": 40000,
                     "max_concurrent_pages": 1,
                 },
             }
@@ -4212,7 +4204,7 @@ def main(params: Params):
                 "screenshot_config": {
                     "full_page": False,
                     "device_scale_factor": 2.0,
-                    "wait_for_timeout": 10,
+                    "wait_for_timeout": 40000,
                     "max_concurrent_pages": 1,
                 },
             }

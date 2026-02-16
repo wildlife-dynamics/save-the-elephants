@@ -3,13 +3,13 @@ workflow_details:
   name: custom ste mapbook workflow
 time_range:
   timezone:
-    utc: '+00:00'
+    utc: '+03:00'
     name: UTC
     tzCode: UTC
     label: UTC
   time_format: '%d %b %Y %H:%M:%S'
-  since: '2025-03-01T09:40:00.000Z'
-  until: '2026-02-11T09:40:00.000Z'
+  since: '2025-03-01T12:00:00.000Z'
+  until: '2026-02-14T12:00:00.000Z'
 groupers:
   groupers:
     - subject_name
@@ -28,7 +28,7 @@ set_previous_period:
         name: UTC
         utc: '+03:00'
       time_format: '%d %b %Y %H:%M:%S'
-      since: '2024-09-01T09:40:00.000Z'
+      since: '2024-09-01T12:00:00.000Z'
 er_client_name:
   data_source:
     name: ate
@@ -49,4 +49,4 @@ logo_path:
   input_method:
     file_path: /Users/tevintemu/Desktop/logo.png
 subject_group_var:
-  var: Elephants - ATE
+  var: Elephants - STE

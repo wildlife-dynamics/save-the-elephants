@@ -35,6 +35,17 @@ class CustomTrajsFilter(BaseModel):
     max_speed_kmhr: float | None = Field(9.0, title="Max Speed Kmhr")
 
 
+class ZoomSpeedGdfExtent(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    expansion_factor: float | None = Field(
+        1.05,
+        description="Factor to expand the bounding box (e.g., 1.2 = 20% larger)",
+        title="Expansion Factor",
+    )
+
+
 class TimezoneInfo(BaseModel):
     label: str = Field(..., title="Label")
     tzCode: str = Field(..., title="Tzcode")
@@ -193,5 +204,8 @@ class Params(BaseModel):
     retrieve_ldx_db: RetrieveLdxDb | None = Field(None, title="Load landDx database")
     custom_trajs_filter: CustomTrajsFilter | None = Field(
         None, title="Trajectory Segment Filter"
+    )
+    zoom_speed_gdf_extent: ZoomSpeedGdfExtent | None = Field(
+        None, title="Zoom to gdf extent"
     )
     logo_path: LogoPath | None = Field(None, title="Report logo")

@@ -210,6 +210,20 @@
       "required": [],
       "title": "Trajectory Segment Filter"
     },
+    "zoom_speed_gdf_extent": {
+      "additionalProperties": false,
+      "properties": {
+        "expansion_factor": {
+          "default": 1.05,
+          "title": "Expansion Factor",
+          "type": "number",
+          "description": "Factor to expand the bounding box (e.g., 1.2 = 20% larger)"
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Zoom to gdf extent"
+    },
     "logo_path": {
       "additionalProperties": false,
       "properties": {
@@ -448,6 +462,7 @@
       "Subject Group",
       "retrieve_ldx_db",
       "custom_trajs_filter",
+      "zoom_speed_gdf_extent",
       "logo_path"
     ]
   },
