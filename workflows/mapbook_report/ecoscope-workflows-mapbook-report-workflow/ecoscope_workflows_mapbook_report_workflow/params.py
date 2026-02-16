@@ -35,7 +35,7 @@ class CustomTrajsFilter(BaseModel):
     max_speed_kmhr: float | None = Field(9.0, title="Max Speed Kmhr")
 
 
-class ZoomSpeedGdfExtent(BaseModel):
+class ZoomToEnvelope(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -205,7 +205,5 @@ class Params(BaseModel):
     custom_trajs_filter: CustomTrajsFilter | None = Field(
         None, title="Trajectory Segment Filter"
     )
-    zoom_speed_gdf_extent: ZoomSpeedGdfExtent | None = Field(
-        None, title="Zoom to gdf extent"
-    )
+    zoom_to_envelope: ZoomToEnvelope | None = Field(None, title="Zoom to gdf extent")
     logo_path: LogoPath | None = Field(None, title="Report logo")

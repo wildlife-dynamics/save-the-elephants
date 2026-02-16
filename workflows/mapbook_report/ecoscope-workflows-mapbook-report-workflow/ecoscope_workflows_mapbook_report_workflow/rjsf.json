@@ -210,7 +210,7 @@
       "required": [],
       "title": "Trajectory Segment Filter"
     },
-    "zoom_speed_gdf_extent": {
+    "zoom_to_envelope": {
       "additionalProperties": false,
       "properties": {
         "expansion_factor": {
@@ -462,7 +462,7 @@
       "Subject Group",
       "retrieve_ldx_db",
       "custom_trajs_filter",
-      "zoom_speed_gdf_extent",
+      "zoom_to_envelope",
       "logo_path"
     ]
   },

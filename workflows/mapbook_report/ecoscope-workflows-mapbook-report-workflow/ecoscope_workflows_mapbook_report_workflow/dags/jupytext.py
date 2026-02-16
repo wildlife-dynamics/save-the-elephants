@@ -133,6 +133,9 @@ from ecoscope_workflows_ext_ste.tasks import (
     custom_trajectory_segment_filter as custom_trajectory_segment_filter,
 )
 from ecoscope_workflows_ext_ste.tasks import (
+    custom_view_state_from_gdf as custom_view_state_from_gdf,
+)
+from ecoscope_workflows_ext_ste.tasks import (
     dataframe_column_first_unique_str as dataframe_column_first_unique_str,
 )
 from ecoscope_workflows_ext_ste.tasks import (
@@ -1875,7 +1878,7 @@ generate_speedmap_layers = (
 # %%
 # parameters
 
-zoom_speed_gdf_extent_params = dict(
+zoom_to_envelope_params = dict(
     expansion_factor=...,
 )
 
@@ -1883,8 +1886,8 @@ zoom_speed_gdf_extent_params = dict(
 # call the task
 
 
-zoom_speed_gdf_extent = (
-    envelope_gdf.set_task_instance_id("zoom_speed_gdf_extent")
+zoom_to_envelope = (
+    envelope_gdf.set_task_instance_id("zoom_to_envelope")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -1894,8 +1897,36 @@ zoom_speed_gdf_extent = (
         ],
         unpack_depth=1,
     )
-    .partial(**zoom_speed_gdf_extent_params)
+    .partial(**zoom_to_envelope_params)
     .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
+)
+
+
+# %% [markdown]
+# ## Zoom to gdf extent
+
+# %%
+# parameters
+
+zoom_speed_gdf_extent_params = dict()
+
+# %%
+# call the task
+
+
+zoom_speed_gdf_extent = (
+    custom_view_state_from_gdf.set_task_instance_id("zoom_speed_gdf_extent")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(max_zoom=20, padding_percent=0.001, **zoom_speed_gdf_extent_params)
+    .mapvalues(argnames=["gdf"], argvalues=zoom_to_envelope)
 )
 
 

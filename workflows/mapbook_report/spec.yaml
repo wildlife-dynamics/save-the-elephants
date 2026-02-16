@@ -19,7 +19,7 @@ requirements:
 rjsf-overrides:
   properties: 
     Subject Group.properties.subject_group_var.properties.var.title: Subject Group Name
-    Subject Group.properties.subject_group_var.properties.var.default: subject_name
+    Subject Group.properties.subject_group_var.properties.var.default: Elephants
 
   $defs:
     # Restrict category options to Subject Name ,Subject Sex and Subject Subtype
@@ -564,24 +564,24 @@ workflow:
       argnames: geodataframe
       argvalues: ${{ workflow.filter_speed_cols.return }}
   
-  # # should be used globally 
-  # - name: Zoom to gdf extent 
-  #   id: zoom_speed_gdf_extent
-  #   task: custom_view_state_from_gdf
-  #   partial: 
-  #     max_zoom: 20
-  #     padding_percent: 0.05
-  #   mapvalues:
-  #     argnames: gdf
-  #     argvalues: ${{ workflow.filter_speed_cols.return }}
-    
   - name: Zoom to gdf extent 
-    id: zoom_speed_gdf_extent 
+    id: zoom_to_envelope 
     task: envelope_gdf
     mapvalues: 
       argnames: gdf 
       argvalues: ${{ workflow.filter_speed_cols.return }}
 
+  # should be used globally 
+  - name: Zoom to gdf extent 
+    id: zoom_speed_gdf_extent
+    task: custom_view_state_from_gdf
+    partial: 
+      max_zoom: 20
+      padding_percent: 0.001
+    mapvalues:
+      argnames: gdf
+      argvalues: ${{ workflow.zoom_to_envelope.return }}
+    
   - name: Zoom to gdf extent for image 
     id: gdf_image_extent 
     task: view_state_deck_gdf

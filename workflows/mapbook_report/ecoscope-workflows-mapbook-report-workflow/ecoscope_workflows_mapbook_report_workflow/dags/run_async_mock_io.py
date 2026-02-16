@@ -148,6 +148,9 @@ from ecoscope_workflows_ext_ste.tasks import (
     custom_determine_season_windows as custom_determine_season_windows,
 )
 from ecoscope_workflows_ext_ste.tasks import (
+    custom_view_state_from_gdf as custom_view_state_from_gdf,
+)
+from ecoscope_workflows_ext_ste.tasks import (
     dataframe_column_first_unique_str as dataframe_column_first_unique_str,
 )
 from ecoscope_workflows_ext_ste.tasks import envelope_gdf as envelope_gdf
@@ -246,7 +249,8 @@ def main(params: Params):
         "apply_speed_colormap": ["sort_trajs_by_speed"],
         "filter_speed_cols": ["apply_speed_colormap"],
         "generate_speedmap_layers": ["filter_speed_cols"],
-        "zoom_speed_gdf_extent": ["filter_speed_cols"],
+        "zoom_to_envelope": ["filter_speed_cols"],
+        "zoom_speed_gdf_extent": ["zoom_to_envelope"],
         "gdf_image_extent": ["filter_speed_cols"],
         "combined_ldx_speed_layers": [
             "create_ldx_styled_layers",
@@ -1650,8 +1654,28 @@ def main(params: Params):
                 "argvalues": DependsOn("filter_speed_cols"),
             },
         ),
-        "zoom_speed_gdf_extent": Node(
+        "zoom_to_envelope": Node(
             async_task=envelope_gdf.validate()
+            .set_task_instance_id("zoom_to_envelope")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial=(params_dict.get("zoom_to_envelope") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("filter_speed_cols"),
+            },
+        ),
+        "zoom_speed_gdf_extent": Node(
+            async_task=custom_view_state_from_gdf.validate()
             .set_task_instance_id("zoom_speed_gdf_extent")
             .handle_errors()
             .with_tracing()
@@ -1663,11 +1687,15 @@ def main(params: Params):
                 unpack_depth=1,
             )
             .set_executor("lithops"),
-            partial=(params_dict.get("zoom_speed_gdf_extent") or {}),
+            partial={
+                "max_zoom": 20,
+                "padding_percent": 0.001,
+            }
+            | (params_dict.get("zoom_speed_gdf_extent") or {}),
             method="mapvalues",
             kwargs={
                 "argnames": ["gdf"],
-                "argvalues": DependsOn("filter_speed_cols"),
+                "argvalues": DependsOn("zoom_to_envelope"),
             },
         ),
         "gdf_image_extent": Node(

@@ -123,6 +123,9 @@ from ecoscope_workflows_ext_ste.tasks import (
     custom_trajectory_segment_filter as custom_trajectory_segment_filter,
 )
 from ecoscope_workflows_ext_ste.tasks import (
+    custom_view_state_from_gdf as custom_view_state_from_gdf,
+)
+from ecoscope_workflows_ext_ste.tasks import (
     dataframe_column_first_unique_str as dataframe_column_first_unique_str,
 )
 from ecoscope_workflows_ext_ste.tasks import (
@@ -1272,8 +1275,24 @@ def main(params: Params):
         .mapvalues(argnames=["geodataframe"], argvalues=filter_speed_cols)
     )
 
-    zoom_speed_gdf_extent = (
+    zoom_to_envelope = (
         envelope_gdf.validate()
+        .set_task_instance_id("zoom_to_envelope")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params_dict.get("zoom_to_envelope") or {}))
+        .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
+    )
+
+    zoom_speed_gdf_extent = (
+        custom_view_state_from_gdf.validate()
         .set_task_instance_id("zoom_speed_gdf_extent")
         .handle_errors()
         .with_tracing()
@@ -1284,8 +1303,12 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("zoom_speed_gdf_extent") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
+        .partial(
+            max_zoom=20,
+            padding_percent=0.001,
+            **(params_dict.get("zoom_speed_gdf_extent") or {}),
+        )
+        .mapvalues(argnames=["gdf"], argvalues=zoom_to_envelope)
     )
 
     gdf_image_extent = (
