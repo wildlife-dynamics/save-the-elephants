@@ -1896,7 +1896,7 @@ zoom_speed_gdf_extent = (
         ],
         unpack_depth=1,
     )
-    .partial(max_zoom=20, padding_percent=0.35, **zoom_speed_gdf_extent_params)
+    .partial(max_zoom=20, padding_percent=0.05, **zoom_speed_gdf_extent_params)
     .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
 )
 
