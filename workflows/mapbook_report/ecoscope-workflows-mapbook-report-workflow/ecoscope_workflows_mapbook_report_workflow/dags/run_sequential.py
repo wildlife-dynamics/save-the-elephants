@@ -13,6 +13,7 @@ from ecoscope_workflows_core.tasks.config import (
     set_workflow_details as set_workflow_details,
 )
 from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
+from ecoscope_workflows_core.tasks.groupby import set_groupers as set_groupers
 from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
 from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.io import set_er_connection as set_er_connection
@@ -158,7 +159,6 @@ from ecoscope_workflows_ext_ste.tasks import (
     retrieve_feature_gdf as retrieve_feature_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
-from ecoscope_workflows_ext_ste.tasks import set_custom_groupers as set_custom_groupers
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
@@ -202,7 +202,7 @@ def main(params: Params):
     )
 
     groupers = (
-        set_custom_groupers.validate()
+        set_groupers.validate()
         .set_task_instance_id("groupers")
         .handle_errors()
         .with_tracing()
@@ -322,6 +322,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
+            filter="clean",
             client=er_client_name,
             time_range=time_range,
             subject_group_name=subject_group_var,
@@ -665,6 +666,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
+            filter="clean",
             client=er_client_name,
             time_range=set_previous_period,
             subject_group_name=subject_group_var,
@@ -786,6 +788,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
+            raise_if_not_found=True,
             df=add_temporal_prev_index_to_traj,
             drop_columns=[],
             retain_columns=[],
@@ -842,6 +845,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
+            raise_if_not_found=True,
             df=classify_trajectories_speed_bins,
             drop_columns=[],
             retain_columns=[],
