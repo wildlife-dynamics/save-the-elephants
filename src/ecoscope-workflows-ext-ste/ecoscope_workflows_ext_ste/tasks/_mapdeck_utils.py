@@ -21,6 +21,8 @@ from ecoscope_workflows_ext_custom.tasks.results._map import (
     create_geojson_layer,
     create_scatterplot_layer,
 )
+from shapely.geometry import box
+import geopandas as gpd
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +221,6 @@ def get_image_zoom_value(
 def custom_view_state_from_gdf(
     gdf: AnyGeoDataFrame,
     max_zoom: float = 20,
-    padding_percent: float = 0.15,  # Add 15% padding around bounds
 ) -> Annotated[ViewState, Field()]:
     import pydeck as pdk
 
@@ -229,20 +230,9 @@ def custom_view_state_from_gdf(
     gdf = gdf.to_crs(epsg=4326)
     bounds = gdf.total_bounds
 
-    # Add padding to bounds
-    width = bounds[2] - bounds[0]
-    height = bounds[3] - bounds[1]
-
-    padded_bounds = [
-        bounds[0] - (width * padding_percent),  # min_x
-        bounds[1] - (height * padding_percent),  # min_y
-        bounds[2] + (width * padding_percent),  # max_x
-        bounds[3] + (height * padding_percent),  # max_y
-    ]
-
     bbox = [
-        [padded_bounds[0], padded_bounds[1]],
-        [padded_bounds[2], padded_bounds[3]],
+        [bounds[0], bounds[1]],
+        [bounds[2], bounds[3]],
     ]
 
     computed_zoom = pdk.data_utils.viewport_helpers.bbox_to_zoom_level(bbox)
@@ -539,3 +529,66 @@ def create_deckgl_layers_from_gdf_dict(
 
     logger.info("Created %d layers from gdf_dict", len(layers))
     return layers
+
+
+@task
+def envelope_gdf(
+    gdf: Annotated[
+        AnyGeoDataFrame,
+        Field(description="Input GeoDataFrame to create envelope from"),
+    ],
+    expansion_factor: Annotated[
+        float,
+        Field(description="Factor to expand the bounding box (e.g., 1.2 = 20% larger)"),
+    ] = 1.05,
+) -> Annotated[
+    AnyGeoDataFrame,
+    Field(description="GeoDataFrame containing the expanded envelope/bounding box"),
+]:
+    """
+    Create an expanded envelope (bounding box) around all geometries in a GeoDataFrame.
+
+    Args:
+        gdf: Input GeoDataFrame
+        expansion_factor: Multiplier for expanding the bounding box (> 0)
+            - 1.0 = no expansion
+            - 1.2 = 20% larger
+            - 0.8 = 20% smaller
+
+    Returns:
+        GeoDataFrame with a single polygon representing the expanded envelope
+    """
+    if expansion_factor <= 0:
+        raise ValueError("expansion_factor must be greater than 0")
+
+    # Get the envelope (bounding box) of all geometries combined
+    envelope = gdf.union_all().envelope
+
+    # Get the bounds of the envelope
+    minx, miny, maxx, maxy = envelope.bounds
+
+    # Calculate center point
+    center_x = (minx + maxx) / 2
+    center_y = (miny + maxy) / 2
+
+    # Calculate current width and height
+    width = maxx - minx
+    height = maxy - miny
+
+    # Apply expansion factor
+    new_width = width * expansion_factor
+    new_height = height * expansion_factor
+
+    # Calculate new bounds centered on the original center
+    new_minx = center_x - new_width / 2
+    new_maxx = center_x + new_width / 2
+    new_miny = center_y - new_height / 2
+    new_maxy = center_y + new_height / 2
+
+    # Create expanded bounding box
+    expanded_envelope = box(new_minx, new_miny, new_maxx, new_maxy)
+
+    # Convert to GeoDataFrame with same CRS as input
+    envelope_gdf = gpd.GeoDataFrame({"geometry": [expanded_envelope]}, crs=gdf.crs)
+
+    return envelope_gdf

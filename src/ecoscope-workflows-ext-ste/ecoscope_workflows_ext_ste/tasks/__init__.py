@@ -25,6 +25,7 @@ from ._mapdeck_utils import (
     create_deckgl_layers_from_gdf_dict,
     custom_view_state_from_gdf,
     get_image_zoom_value,
+    envelope_gdf,
 )
 from ._groupers import (
     get_split_group_column,
@@ -50,6 +51,7 @@ from ._aerial_lines import validate_polygon_geometry, draw_survey_lines, transfo
 from ._custom_html_png import adjust_map_zoom_and_screenshot
 
 __all__ = [
+    "envelope_gdf",
     "get_image_zoom_value",
     "adjust_map_zoom_and_screenshot",
     "fetch_and_persist_file",

@@ -1,40 +1,29 @@
 workflow_details:
   description: ''
-  name: custom ste mapbook workflow
+  name: custom
 time_range:
   timezone:
-    utc: '+00:00'
-    name: UTC
-    tzCode: UTC
     label: UTC
+    tzCode: UTC
+    name: UTC
+    utc: '+03:00'
   time_format: '%d %b %Y %H:%M:%S'
-  since: '2025-03-01T09:40:00.000Z'
-  until: '2026-02-11T09:40:00.000Z'
+  since: '2026-01-01T17:36:00.000Z'
+  until: '2026-02-15T17:36:00.000Z'
 groupers:
   groupers:
     - subject_name
-# configure_base_maps:
-#   base_maps:
-#     - url: >-
-#         https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}
-#       opacity: 1
-#       max_zoom: 20
 set_previous_period:
   option:
-    time_range:
-      timezone:
-        label: UTC
-        tzCode: UTC
-        name: UTC
-        utc: '+03:00'
-      time_format: '%d %b %Y %H:%M:%S'
-      since: '2024-09-01T09:40:00.000Z'
+    custom: Same as current period
 er_client_name:
   data_source:
-    name: ate
+    name: ste
 gee_project_name:
   data_source:
     name: ecoscope_poc
+subject_group_var:
+  var: ecoscope
 retrieve_ldx_db:
   input_method:
     file_path: /Users/tevintemu/Desktop/Ecoscope/shapefiles/landDx.gpkg
@@ -45,8 +34,8 @@ custom_trajs_filter:
   max_time_secs: 21600
   min_speed_kmhr: 0.01
   max_speed_kmhr: 9
+zoom_to_envelope:
+  expansion_factor: 0.90
 logo_path:
   input_method:
     file_path: /Users/tevintemu/Desktop/logo.png
-subject_group_var:
-  var: Elephants - ATE
