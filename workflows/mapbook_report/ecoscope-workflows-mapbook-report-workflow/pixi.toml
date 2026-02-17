@@ -32,8 +32,13 @@ version = "0.0.23.*"
 channel = "https://repo.prefix.dev/ecoscope-workflows-custom/"
 
 [dependencies.ecoscope-workflows-ext-ste]
+<<<<<<< HEAD
 version = "*"
 channel = "file:///tmp/ecoscope-workflows-custom/release/artifacts/"
+=======
+version = "0.0.14.*"
+channel = "https://repo.prefix.dev/ecoscope-workflows-custom/"
+>>>>>>> main
 
 [feature.runner.dependencies.ecoscope-workflows-runner]
 version = "0.20.6.*"
