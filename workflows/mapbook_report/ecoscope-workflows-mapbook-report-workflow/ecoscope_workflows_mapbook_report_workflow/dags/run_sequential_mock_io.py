@@ -1310,6 +1310,22 @@ def main(params: Params):
         .mapvalues(argnames=["gdf"], argvalues=filter_movement_cols)
     )
 
+    gdf_image_extent = (
+        view_state_deck_gdf.validate()
+        .set_task_instance_id("gdf_image_extent")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(pitch=0, bearing=0, **(params_dict.get("gdf_image_extent") or {}))
+        .mapvalues(argnames=["gdf"], argvalues=filter_movement_cols)
+    )
+
     zoom_speed_gdf_extent = (
         custom_view_state_from_gdf.validate()
         .set_task_instance_id("zoom_speed_gdf_extent")
@@ -1531,22 +1547,6 @@ def main(params: Params):
             **(params_dict.get("generate_speedmap_layers") or {}),
         )
         .mapvalues(argnames=["geodataframe"], argvalues=filter_speed_cols)
-    )
-
-    gdf_image_extent = (
-        view_state_deck_gdf.validate()
-        .set_task_instance_id("gdf_image_extent")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(pitch=0, bearing=0, **(params_dict.get("gdf_image_extent") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
     )
 
     combined_ldx_speed_layers = (

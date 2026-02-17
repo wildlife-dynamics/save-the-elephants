@@ -1898,6 +1898,34 @@ zoom_to_envelope = (
 
 
 # %% [markdown]
+# ## Zoom to gdf extent for image
+
+# %%
+# parameters
+
+gdf_image_extent_params = dict()
+
+# %%
+# call the task
+
+
+gdf_image_extent = (
+    view_state_deck_gdf.set_task_instance_id("gdf_image_extent")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(pitch=0, bearing=0, **gdf_image_extent_params)
+    .mapvalues(argnames=["gdf"], argvalues=filter_movement_cols)
+)
+
+
+# %% [markdown]
 # ## Zoom to gdf extent
 
 # %%
@@ -2237,34 +2265,6 @@ generate_speedmap_layers = (
         **generate_speedmap_layers_params,
     )
     .mapvalues(argnames=["geodataframe"], argvalues=filter_speed_cols)
-)
-
-
-# %% [markdown]
-# ## Zoom to gdf extent for image
-
-# %%
-# parameters
-
-gdf_image_extent_params = dict()
-
-# %%
-# call the task
-
-
-gdf_image_extent = (
-    view_state_deck_gdf.set_task_instance_id("gdf_image_extent")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(pitch=0, bearing=0, **gdf_image_extent_params)
-    .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
 )
 
 

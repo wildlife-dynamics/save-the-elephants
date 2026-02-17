@@ -254,6 +254,7 @@ def main(params: Params):
             "generate_track_layers",
         ],
         "zoom_to_envelope": ["filter_movement_cols"],
+        "gdf_image_extent": ["filter_movement_cols"],
         "zoom_speed_gdf_extent": ["zoom_to_envelope"],
         "zip_tracks_with_viewstate": [
             "combined_ldx_movement_layers",
@@ -267,7 +268,6 @@ def main(params: Params):
         "apply_speed_colormap": ["sort_trajs_by_speed"],
         "filter_speed_cols": ["apply_speed_colormap"],
         "generate_speedmap_layers": ["filter_speed_cols"],
-        "gdf_image_extent": ["filter_speed_cols"],
         "combined_ldx_speed_layers": [
             "create_ldx_styled_layers",
             "create_ldx_text_layer",
@@ -1670,6 +1670,30 @@ def main(params: Params):
                 "argvalues": DependsOn("filter_movement_cols"),
             },
         ),
+        "gdf_image_extent": Node(
+            async_task=view_state_deck_gdf.validate()
+            .set_task_instance_id("gdf_image_extent")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "pitch": 0,
+                "bearing": 0,
+            }
+            | (params_dict.get("gdf_image_extent") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["gdf"],
+                "argvalues": DependsOn("filter_movement_cols"),
+            },
+        ),
         "zoom_speed_gdf_extent": Node(
             async_task=custom_view_state_from_gdf.validate()
             .set_task_instance_id("zoom_speed_gdf_extent")
@@ -1935,30 +1959,6 @@ def main(params: Params):
             method="mapvalues",
             kwargs={
                 "argnames": ["geodataframe"],
-                "argvalues": DependsOn("filter_speed_cols"),
-            },
-        ),
-        "gdf_image_extent": Node(
-            async_task=view_state_deck_gdf.validate()
-            .set_task_instance_id("gdf_image_extent")
-            .handle_errors()
-            .with_tracing()
-            .skipif(
-                conditions=[
-                    any_is_empty_df,
-                    any_dependency_skipped,
-                ],
-                unpack_depth=1,
-            )
-            .set_executor("lithops"),
-            partial={
-                "pitch": 0,
-                "bearing": 0,
-            }
-            | (params_dict.get("gdf_image_extent") or {}),
-            method="mapvalues",
-            kwargs={
-                "argnames": ["gdf"],
                 "argvalues": DependsOn("filter_speed_cols"),
             },
         ),
