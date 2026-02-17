@@ -2,7 +2,6 @@ version: 6
 environments:
   default:
     channels:
-    - url: file:///tmp/ecoscope-workflows-custom/release/artifacts/
     - url: https://repo.prefix.dev/ecoscope-workflows-custom/
     - url: https://repo.prefix.dev/ecoscope-workflows/
     - url: https://conda.anaconda.org/conda-forge/
@@ -109,6 +108,7 @@ environments:
       - conda: https://repo.prefix.dev/ecoscope-workflows/noarch/ecoscope-workflows-core-0.20.6-pyh4616a5c_0.conda
       - conda: https://repo.prefix.dev/ecoscope-workflows-custom/noarch/ecoscope-workflows-ext-custom-0.0.23-pyh4616a5c_0.conda
       - conda: https://repo.prefix.dev/ecoscope-workflows/noarch/ecoscope-workflows-ext-ecoscope-0.20.6-pyh4616a5c_0.conda
+      - conda: https://repo.prefix.dev/ecoscope-workflows-custom/noarch/ecoscope-workflows-ext-ste-0.0.14-pyh4616a5c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/epoxy-1.5.10-hb03c661_2.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/executing-2.2.1-pyhd8ed1ab_0.conda
@@ -506,7 +506,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-ng-2.2.5-hde8ca8f_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstandard-0.25.0-py312h5253ce2_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb78ec9c_6.conda
-      - conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.14.dev9+g4cedc2904.d20260216-pyh4616a5c_0.conda
       osx-64:
       - conda: https://conda.anaconda.org/conda-forge/osx-64/_openmp_mutex-4.5-7_kmp_llvm.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/_python_abi3_support-1.0-hd8ed1ab_2.conda
@@ -606,6 +605,7 @@ environments:
       - conda: https://repo.prefix.dev/ecoscope-workflows/noarch/ecoscope-workflows-core-0.20.6-pyh4616a5c_0.conda
       - conda: https://repo.prefix.dev/ecoscope-workflows-custom/noarch/ecoscope-workflows-ext-custom-0.0.23-pyh4616a5c_0.conda
       - conda: https://repo.prefix.dev/ecoscope-workflows/noarch/ecoscope-workflows-ext-ecoscope-0.20.6-pyh4616a5c_0.conda
+      - conda: https://repo.prefix.dev/ecoscope-workflows-custom/noarch/ecoscope-workflows-ext-ste-0.0.14-pyh4616a5c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/epoxy-1.5.10-h8616949_2.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/executing-2.2.1-pyhd8ed1ab_0.conda
@@ -970,7 +970,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zlib-ng-2.2.5-h55e386d_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zstandard-0.25.0-py312h01f6755_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zstd-1.5.7-h3eecb57_6.conda
-      - conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.14.dev9+g4cedc2904.d20260216-pyh4616a5c_0.conda
       osx-arm64:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/_openmp_mutex-4.5-7_kmp_llvm.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/_python_abi3_support-1.0-hd8ed1ab_2.conda
@@ -1070,6 +1069,7 @@ environments:
       - conda: https://repo.prefix.dev/ecoscope-workflows/noarch/ecoscope-workflows-core-0.20.6-pyh4616a5c_0.conda
       - conda: https://repo.prefix.dev/ecoscope-workflows-custom/noarch/ecoscope-workflows-ext-custom-0.0.23-pyh4616a5c_0.conda
       - conda: https://repo.prefix.dev/ecoscope-workflows/noarch/ecoscope-workflows-ext-ecoscope-0.20.6-pyh4616a5c_0.conda
+      - conda: https://repo.prefix.dev/ecoscope-workflows-custom/noarch/ecoscope-workflows-ext-ste-0.0.14-pyh4616a5c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/epoxy-1.5.10-hc919400_2.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/executing-2.2.1-pyhd8ed1ab_0.conda
@@ -1434,7 +1434,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-ng-2.2.5-h3470cca_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstandard-0.25.0-py312h37e1c23_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hbf9d68e_6.conda
-      - conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.14.dev9+g4cedc2904.d20260216-pyh4616a5c_0.conda
       win-64:
       - conda: https://conda.anaconda.org/conda-forge/win-64/_libavif_api-1.3.0-h57928b3_3.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/_openmp_mutex-4.5-20_gnu.conda
@@ -1531,6 +1530,7 @@ environments:
       - conda: https://repo.prefix.dev/ecoscope-workflows/noarch/ecoscope-workflows-core-0.20.6-pyh4616a5c_0.conda
       - conda: https://repo.prefix.dev/ecoscope-workflows-custom/noarch/ecoscope-workflows-ext-custom-0.0.23-pyh4616a5c_0.conda
       - conda: https://repo.prefix.dev/ecoscope-workflows/noarch/ecoscope-workflows-ext-ecoscope-0.20.6-pyh4616a5c_0.conda
+      - conda: https://repo.prefix.dev/ecoscope-workflows-custom/noarch/ecoscope-workflows-ext-ste-0.0.14-pyh4616a5c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/executing-2.2.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/flask-3.1.2-pyhd8ed1ab_0.conda
@@ -1888,10 +1888,8 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/zlib-1.3.1-h2466b09_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/zlib-ng-2.2.5-h32d8bfd_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-h534d264_6.conda
-      - conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.14.dev9+g4cedc2904.d20260216-pyh4616a5c_0.conda
   runner:
     channels:
-    - url: file:///tmp/ecoscope-workflows-custom/release/artifacts/
     - url: https://repo.prefix.dev/ecoscope-workflows-custom/
     - url: https://repo.prefix.dev/ecoscope-workflows/
     - url: https://conda.anaconda.org/conda-forge/
@@ -1928,7 +1926,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-0.115.14-pyhe01879c_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.21-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.23-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/frozenlist-1.7.0-py313h6b9daa2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-auth-5.4.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-pubsub-6.3.0-pyhd8ed1ab_0.conda
@@ -2017,7 +2015,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/tenacity-9.1.4-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/tk-8.6.13-noxft_h366c992_103.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tomli-2.4.0-pyhcf101f3_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.23.1-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.24.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.15.0-h396c80c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-inspection-0.4.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing_extensions-4.15.0-pyhcf101f3_0.conda
@@ -2063,7 +2061,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-0.115.14-pyhe01879c_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.21-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.23-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/frozenlist-1.7.0-py313haf29b43_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-auth-5.4.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-pubsub-6.3.0-pyhd8ed1ab_0.conda
@@ -2147,7 +2145,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/tenacity-9.1.4-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/tk-8.6.13-h7142dee_3.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tomli-2.4.0-pyhcf101f3_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.23.1-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.24.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.15.0-h396c80c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-inspection-0.4.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing_extensions-4.15.0-pyhcf101f3_0.conda
@@ -2193,7 +2191,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-0.115.14-pyhe01879c_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.21-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.23-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/frozenlist-1.7.0-py313hf28abc0_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-auth-5.4.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-pubsub-6.3.0-pyhd8ed1ab_0.conda
@@ -2278,7 +2276,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/tenacity-9.1.4-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/tk-8.6.13-h010d191_3.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tomli-2.4.0-pyhcf101f3_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.23.1-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.24.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.15.0-h396c80c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-inspection-0.4.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing_extensions-4.15.0-pyhcf101f3_0.conda
@@ -2325,7 +2323,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-0.115.14-pyhe01879c_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.21-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.23-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/frozenlist-1.7.0-py313h0c48a3b_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-auth-5.4.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-pubsub-6.3.0-pyhd8ed1ab_0.conda
@@ -2407,7 +2405,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/tenacity-9.1.4-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/tk-8.6.13-h6ed50ae_3.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tomli-2.4.0-pyhcf101f3_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.23.1-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.24.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.15.0-h396c80c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-inspection-0.4.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing_extensions-4.15.0-pyhcf101f3_0.conda
@@ -2429,7 +2427,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-h534d264_6.conda
   test:
     channels:
-    - url: file:///tmp/ecoscope-workflows-custom/release/artifacts/
     - url: https://repo.prefix.dev/ecoscope-workflows-custom/
     - url: https://repo.prefix.dev/ecoscope-workflows/
     - url: https://conda.anaconda.org/conda-forge/
@@ -2492,7 +2489,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-0.115.14-pyhe01879c_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.21-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.23-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/frozenlist-1.7.0-py313h6b9daa2_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-auth-5.4.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-pubsub-6.3.0-pyhd8ed1ab_0.conda
@@ -2669,7 +2666,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/tifffile-2026.2.15-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/tk-8.6.13-noxft_h366c992_103.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tomli-2.4.0-pyhcf101f3_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.23.1-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.24.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.15.0-h396c80c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-inspection-0.4.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing_extensions-4.15.0-pyhcf101f3_0.conda
@@ -2747,7 +2744,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-0.115.14-pyhe01879c_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.21-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.23-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/frozenlist-1.7.0-py313haf29b43_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-auth-5.4.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-pubsub-6.3.0-pyhd8ed1ab_0.conda
@@ -2917,7 +2914,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/tifffile-2026.2.15-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/tk-8.6.13-h7142dee_3.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tomli-2.4.0-pyhcf101f3_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.23.1-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.24.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.15.0-h396c80c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-inspection-0.4.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing_extensions-4.15.0-pyhcf101f3_0.conda
@@ -2995,7 +2992,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-0.115.14-pyhe01879c_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.21-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.23-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/frozenlist-1.7.0-py313hf28abc0_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-auth-5.4.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-pubsub-6.3.0-pyhd8ed1ab_0.conda
@@ -3166,7 +3163,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/tifffile-2026.2.15-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/tk-8.6.13-h010d191_3.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tomli-2.4.0-pyhcf101f3_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.23.1-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.24.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.15.0-h396c80c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-inspection-0.4.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing_extensions-4.15.0-pyhcf101f3_0.conda
@@ -3244,7 +3241,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/email_validator-2.3.0-hd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-0.115.14-pyhe01879c_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.21-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.23-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/frozenlist-1.7.0-py313h0c48a3b_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-auth-5.4.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/gcloud-aio-pubsub-6.3.0-pyhd8ed1ab_0.conda
@@ -3406,7 +3403,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/tifffile-2026.2.15-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/tk-8.6.13-h6ed50ae_3.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tomli-2.4.0-pyhcf101f3_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.23.1-pyhcf101f3_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.24.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.15.0-h396c80c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing-inspection-0.4.2-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/typing_extensions-4.15.0-pyhcf101f3_0.conda
@@ -7591,10 +7588,9 @@ packages:
   license: BSD-3-Clause
   size: 3127945
   timestamp: 1768815598078
-- conda: /tmp/ecoscope-workflows-custom/release/artifacts/noarch/ecoscope-workflows-ext-ste-0.0.14.dev9+g4cedc2904.d20260216-pyh4616a5c_0.conda
-  subdir: noarch
-  sha256: 62d141b052e6f73fdadb2c8e18511a1f5bcb2375f78793c67bc3bbde2b149154
-  md5: 8d3566ae83737df7c0b24fb42d7dcc6b
+- conda: https://repo.prefix.dev/ecoscope-workflows-custom/noarch/ecoscope-workflows-ext-ste-0.0.14-pyh4616a5c_0.conda
+  sha256: 3b5d526a3c532dcccac3e3761a9c4eff4d095ad281d73102330dbf1a124942e6
+  md5: d630e65545631432a3c5df7a99d590b2
   depends:
   - python
   - ecoscope
@@ -7610,10 +7606,9 @@ packages:
   - playwright
   - setuptools <=81.0.0
   - pillow
-  channel: file:///tmp/ecoscope-workflows-custom/release/artifacts
   license: BSD-3-Clause
-  size: 37050
-  timestamp: 1771264855229
+  size: 37741
+  timestamp: 1771304898645
 - conda: https://repo.prefix.dev/ecoscope-workflows/noarch/ecoscope-workflows-runner-0.20.6-pyh4616a5c_0.conda
   sha256: 46f1df2538b9ed6be2c986ff86a694002a7f99664663082ff71d7be52a6f15a7
   depends:
@@ -7731,9 +7726,9 @@ packages:
   license_family: MIT
   size: 78363
   timestamp: 1750986285010
-- conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.21-pyhcf101f3_0.conda
-  sha256: cfaa276cea0f630e3053c8c2b2c19716edf2f5ac52ede4aafcf87dc674ee5897
-  md5: a604f77cc79c83c567b9a26acc8917a1
+- conda: https://conda.anaconda.org/conda-forge/noarch/fastapi-cli-0.0.23-pyhcf101f3_0.conda
+  sha256: cb60fc8c96dcd2a6335914d4d6d7d5f5549c9e1ff4533be28ba699e648babf37
+  md5: 442ec6511754418c87a84bc1dc0c5384
   depends:
   - python >=3.10
   - rich-toolkit >=0.14.8
@@ -7742,9 +7737,8 @@ packages:
   - uvicorn-standard >=0.15.0
   - python
   license: MIT
-  license_family: MIT
-  size: 19107
-  timestamp: 1770860157174
+  size: 18920
+  timestamp: 1771293215825
 - conda: https://conda.anaconda.org/conda-forge/noarch/flask-3.1.2-pyhd8ed1ab_0.conda
   sha256: 8a97eba37e0723720706d4636cc89c6b07eea1b7cc66fd8994fa8983a81ed988
   md5: ba67a9febeda36948fee26a3dec3d914
@@ -22651,20 +22645,19 @@ packages:
   license_family: MIT
   size: 37088
   timestamp: 1771119690965
-- conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.23.1-pyhcf101f3_0.conda
-  sha256: d89149cbb4244e4a0aa0f836a4f75b1e4c26e8e33bcda041f91b67e193b40c68
-  md5: bac7249fa4302ee17e1ae0aa17991732
+- conda: https://conda.anaconda.org/conda-forge/noarch/typer-0.24.0-pyhcf101f3_0.conda
+  sha256: e1116d08e6a55b2b42a090130c268f75211ad8e6a8e7749e977924de3864d487
+  md5: 10870929f587540c5802cd9b071cba5c
   depends:
   - annotated-doc >=0.0.2
-  - click >=8.0.0
+  - click >=8.2.1
   - python >=3.10
-  - rich >=10.11.0
+  - rich >=12.3.0
   - shellingham >=1.3.0
   - python
   license: MIT
-  license_family: MIT
-  size: 119515
-  timestamp: 1770989162958
+  size: 117860
+  timestamp: 1771292312899
 - conda: https://conda.anaconda.org/conda-forge/noarch/typing-extensions-4.15.0-h396c80c_0.conda
   sha256: 7c2df5721c742c2a47b2c8f960e718c930031663ac1174da67c1ed5999f7938c
   md5: edd329d7d3a4ab45dcf905899a7a6115
