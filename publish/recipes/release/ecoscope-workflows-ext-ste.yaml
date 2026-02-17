@@ -36,6 +36,7 @@ requirements:
     - docxcompose
     - playwright
     - setuptools <=81.0.0
+    - pillow
 
 about:
   license: BSD-3-Clause

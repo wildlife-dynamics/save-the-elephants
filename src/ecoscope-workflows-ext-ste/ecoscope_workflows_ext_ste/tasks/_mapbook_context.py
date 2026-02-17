@@ -13,8 +13,40 @@ from ecoscope_workflows_core.tasks.transformation._unit import Quantity
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
 from ecoscope_workflows_core.annotations import AnyDataFrame
 from ecoscope_workflows_core.skip import SKIP_SENTINEL, SkipSentinel
+from PIL import Image
 
 logger = logging.getLogger(__name__)
+
+
+def get_image_dimensions_from_pixels(
+    image_path: str,
+    dpi: int = 96,
+    max_dimension_inches: float = 1.5,
+) -> tuple[float, float]:
+    """
+    Calculate image dimensions in inches based on pixel dimensions,
+    scaled so the largest dimension fits within max_dimension_inches.
+    Preserves aspect ratio for both wide and square images.
+    """
+    with Image.open(image_path) as img:
+        width_pixels, height_pixels = img.size
+
+        # Get DPI from image metadata
+        image_dpi = img.info.get("dpi", (dpi, dpi))
+        if isinstance(image_dpi, tuple):
+            dpi_x, dpi_y = image_dpi
+        else:
+            dpi_x = dpi_y = dpi
+
+    width_inches = width_pixels / dpi_x
+    height_inches = height_pixels / dpi_y
+
+    if width_inches > height_inches:
+        scale_factor = max_dimension_inches / width_inches
+    else:
+        scale_factor = max_dimension_inches / height_inches
+
+    return width_inches * scale_factor, height_inches * scale_factor
 
 
 @task
@@ -37,18 +69,6 @@ def create_context_page(
             description="Dictionary with context values for the template.",
         ),
     ],
-    logo_width: Annotated[
-        float,
-        Field(
-            description="Width of the logo in centimeters.",
-        ),
-    ] = 1.34,
-    logo_height: Annotated[
-        float,
-        Field(
-            description="Height of the logo in centimeters.",
-        ),
-    ] = 1.21,
     filename: Annotated[
         Optional[str],
         Field(
@@ -69,8 +89,6 @@ def create_context_page(
         template_path (str): Path to the .docx template file.
         output_dir (str): Directory to save the generated .docx file.
         context (dict): Dictionary with context values for the template.
-        logo_width_cm (float): Width of the logo in centimeters. Default is 7.7.
-        logo_height_cm (float): Height of the logo in centimeters. Default is 1.93.
         filename (str, optional): Optional filename for the generated file.
             If not provided, a random UUID-based filename will be generated.
 
@@ -99,11 +117,19 @@ def create_context_page(
 
     doc = DocxTemplate(template_path)
     if "org_logo_path" in context and os.path.exists(context["org_logo_path"]):
+        width, height = get_image_dimensions_from_pixels(
+            context["org_logo_path"],
+            dpi=125,
+            max_dimension_inches=1.5,  # Adjust this value as needed
+        )
+
+        print(f"width:{width}, height:{height}")
+
         context["org_logo"] = InlineImage(
             doc,
             context["org_logo_path"],
-            width=Inches(logo_width),
-            height=Inches(logo_height),
+            width=Inches(width),
+            height=Inches(height),
         )
     doc.render(context)
     doc.save(output_path)
