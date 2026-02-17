@@ -66,7 +66,17 @@
         "groupers": {
           "default": null,
           "items": {
-            "$ref": "#/$defs/ValueGrouper",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ValueGrouper"
+              },
+              {
+                "$ref": "#/$defs/TemporalGrouper"
+              },
+              {
+                "$ref": "#/$defs/SpatialGrouper"
+              }
+            ],
             "title": "Group by"
           },
           "title": " ",
@@ -275,23 +285,92 @@
       "title": "TimezoneInfo",
       "type": "object"
     },
-    "ValueGrouper": {
-      "oneOf": [
-        {
-          "const": "subject_name",
-          "title": "Subject Name"
-        },
-        {
-          "const": "subject_sex",
-          "title": "Subject Sex"
-        },
-        {
-          "const": "subject_subtype",
-          "title": "Subject Subtype"
+    "SpatialGrouper": {
+      "properties": {
+        "spatial_index_name": {
+          "title": "Spatial Regions",
+          "type": "string"
         }
+      },
+      "required": [
+        "spatial_index_name"
+      ],
+      "title": "Spatial",
+      "type": "object"
+    },
+    "TemporalGrouper": {
+      "properties": {
+        "temporal_index": {
+          "oneOf": [
+            {
+              "const": "%Y",
+              "title": "Year (example: 2024)"
+            },
+            {
+              "const": "%B",
+              "title": "Month (example: September)"
+            },
+            {
+              "const": "%Y-%m",
+              "title": "Year and Month (example: 2023-01)"
+            },
+            {
+              "const": "%j",
+              "title": "Day of the year as a number (example: 365)"
+            },
+            {
+              "const": "%d",
+              "title": "Day of the month as a number (example: 31)"
+            },
+            {
+              "const": "%A",
+              "title": "Day of the week (example: Sunday)"
+            },
+            {
+              "const": "%H",
+              "title": "Hour (24-hour clock) as number (example: 22)"
+            },
+            {
+              "const": "%Y-%m-%d",
+              "title": "Date (example: 2025-01-31)"
+            }
+          ],
+          "title": "Time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "temporal_index"
+      ],
+      "title": "Time",
+      "type": "object"
+    },
+    "ValueGrouper": {
+      "properties": {
+        "index_name": {
+          "oneOf": [
+            {
+              "const": "subject_name",
+              "title": "Subject Name"
+            },
+            {
+              "const": "subject_sex",
+              "title": "Subject Sex"
+            },
+            {
+              "const": "subject_subtype",
+              "title": "Subject Subtype"
+            }
+          ],
+          "title": "Category",
+          "type": "string"
+        }
+      },
+      "required": [
+        "index_name"
       ],
       "title": "Category",
-      "type": "string"
+      "type": "object"
     },
     "PreviousCustomTimeRangeOption": {
       "description": "User selects a predefined previous period via the enum.",

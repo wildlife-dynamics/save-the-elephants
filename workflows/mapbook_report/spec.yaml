@@ -23,7 +23,7 @@ rjsf-overrides:
 
   $defs:
     # Restrict category options to Subject Name ,Subject Sex and Subject Subtype
-    ValueGrouper.oneOf:
+    ValueGrouper.properties.index_name.oneOf:
       - const: subject_name
         title: Subject Name
 
@@ -50,7 +50,7 @@ workflow:
 
   - name: Configure grouping strategy 
     id: groupers 
-    task: set_custom_groupers
+    task: set_groupers
   
   - name: Configure base map layers 
     id: configure_base_maps 
@@ -88,6 +88,7 @@ workflow:
     id: subject_observations 
     task: get_subjectgroup_observations 
     partial: 
+      filter: clean
       client: ${{ workflow.er_client_name.return }}
       time_range: ${{ workflow.time_range.return }}
       subject_group_name: ${{ workflow.subject_group_var.return }}
@@ -265,6 +266,7 @@ workflow:
     id: previous_observations 
     task: get_subjectgroup_observations 
     partial: 
+      filter: clean
       client: ${{ workflow.er_client_name.return }}
       time_range: ${{ workflow.set_previous_period.return }}
       subject_group_name: ${{ workflow.subject_group_var.return }}
@@ -323,6 +325,7 @@ workflow:
     id: rename_prev_traj_cols 
     task: map_columns 
     partial:
+      raise_if_not_found: true 
       df: ${{ workflow.add_temporal_prev_index_to_traj.return }}
       drop_columns: []
       retain_columns: [] 
@@ -354,6 +357,7 @@ workflow:
     id: rename_traj_cols 
     task: map_columns 
     partial:
+      raise_if_not_found: true
       df: ${{ workflow.classify_trajectories_speed_bins.return }}
       drop_columns: []
       retain_columns: [] 
