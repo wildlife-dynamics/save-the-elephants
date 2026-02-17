@@ -23,6 +23,7 @@ from ecoscope_workflows_core.tasks.config import (
     set_workflow_details as set_workflow_details,
 )
 from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
+from ecoscope_workflows_core.tasks.groupby import set_groupers as set_groupers
 from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
 from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.io import set_er_connection as set_er_connection
@@ -168,7 +169,6 @@ from ecoscope_workflows_ext_ste.tasks import (
     retrieve_feature_gdf as retrieve_feature_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
-from ecoscope_workflows_ext_ste.tasks import set_custom_groupers as set_custom_groupers
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
@@ -253,7 +253,7 @@ groupers_params = dict(
 
 
 groupers = (
-    set_custom_groupers.set_task_instance_id("groupers")
+    set_groupers.set_task_instance_id("groupers")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -449,6 +449,7 @@ subject_observations = (
         unpack_depth=1,
     )
     .partial(
+        filter="clean",
         client=er_client_name,
         time_range=time_range,
         subject_group_name=subject_group_var,
@@ -960,6 +961,7 @@ previous_observations = (
         unpack_depth=1,
     )
     .partial(
+        filter="clean",
         client=er_client_name,
         time_range=set_previous_period,
         subject_group_name=subject_group_var,
@@ -1138,6 +1140,7 @@ rename_prev_traj_cols = (
         unpack_depth=1,
     )
     .partial(
+        raise_if_not_found=True,
         df=add_temporal_prev_index_to_traj,
         drop_columns=[],
         retain_columns=[],
@@ -1218,6 +1221,7 @@ rename_traj_cols = (
         unpack_depth=1,
     )
     .partial(
+        raise_if_not_found=True,
         df=classify_trajectories_speed_bins,
         drop_columns=[],
         retain_columns=[],
@@ -1894,6 +1898,34 @@ zoom_to_envelope = (
 
 
 # %% [markdown]
+# ## Zoom to gdf extent for image
+
+# %%
+# parameters
+
+gdf_image_extent_params = dict()
+
+# %%
+# call the task
+
+
+gdf_image_extent = (
+    view_state_deck_gdf.set_task_instance_id("gdf_image_extent")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(pitch=0, bearing=0, **gdf_image_extent_params)
+    .mapvalues(argnames=["gdf"], argvalues=filter_movement_cols)
+)
+
+
+# %% [markdown]
 # ## Zoom to gdf extent
 
 # %%
@@ -2233,34 +2265,6 @@ generate_speedmap_layers = (
         **generate_speedmap_layers_params,
     )
     .mapvalues(argnames=["geodataframe"], argvalues=filter_speed_cols)
-)
-
-
-# %% [markdown]
-# ## Zoom to gdf extent for image
-
-# %%
-# parameters
-
-gdf_image_extent_params = dict()
-
-# %%
-# call the task
-
-
-gdf_image_extent = (
-    view_state_deck_gdf.set_task_instance_id("gdf_image_extent")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(pitch=0, bearing=0, **gdf_image_extent_params)
-    .mapvalues(argnames=["gdf"], argvalues=filter_speed_cols)
 )
 
 

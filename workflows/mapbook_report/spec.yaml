@@ -1,19 +1,19 @@
 id: mapbook_report
 requirements:
   - name: ecoscope-workflows-core
-    version: "0.20.6.*"
+    version: "0.22.9.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-ecoscope
-    version: "0.20.6.*"
+    version: "0.22.9.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.23.*"
+    version: "0.0.27.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.14.*"
+    version: "0.0.15.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
 rjsf-overrides:
@@ -23,7 +23,7 @@ rjsf-overrides:
 
   $defs:
     # Restrict category options to Subject Name ,Subject Sex and Subject Subtype
-    ValueGrouper.oneOf:
+    ValueGrouper.properties.index_name.oneOf:
       - const: subject_name
         title: Subject Name
 
@@ -50,7 +50,7 @@ workflow:
 
   - name: Configure grouping strategy 
     id: groupers 
-    task: set_custom_groupers
+    task: set_groupers
   
   - name: Configure base map layers 
     id: configure_base_maps 
@@ -88,6 +88,7 @@ workflow:
     id: subject_observations 
     task: get_subjectgroup_observations 
     partial: 
+      filter: clean
       client: ${{ workflow.er_client_name.return }}
       time_range: ${{ workflow.time_range.return }}
       subject_group_name: ${{ workflow.subject_group_var.return }}
@@ -265,6 +266,7 @@ workflow:
     id: previous_observations 
     task: get_subjectgroup_observations 
     partial: 
+      filter: clean
       client: ${{ workflow.er_client_name.return }}
       time_range: ${{ workflow.set_previous_period.return }}
       subject_group_name: ${{ workflow.subject_group_var.return }}
@@ -323,6 +325,7 @@ workflow:
     id: rename_prev_traj_cols 
     task: map_columns 
     partial:
+      raise_if_not_found: true 
       df: ${{ workflow.add_temporal_prev_index_to_traj.return }}
       drop_columns: []
       retain_columns: [] 
@@ -354,6 +357,7 @@ workflow:
     id: rename_traj_cols 
     task: map_columns 
     partial:
+      raise_if_not_found: true
       df: ${{ workflow.classify_trajectories_speed_bins.return }}
       drop_columns: []
       retain_columns: [] 
@@ -561,6 +565,16 @@ workflow:
       argnames: gdf 
       argvalues: ${{ workflow.filter_movement_cols.return }}
 
+  - name: Zoom to gdf extent for image 
+    id: gdf_image_extent 
+    task: view_state_deck_gdf
+    partial:
+      pitch: 0 
+      bearing: 0 
+    mapvalues:
+      argnames: gdf 
+      argvalues: ${{ workflow.filter_movement_cols.return }}
+
   # should be used globally 
   - name: Zoom to gdf extent 
     id: zoom_speed_gdf_extent
@@ -695,16 +709,6 @@ workflow:
       argnames: geodataframe
       argvalues: ${{ workflow.filter_speed_cols.return }}
   
-  - name: Zoom to gdf extent for image 
-    id: gdf_image_extent 
-    task: view_state_deck_gdf
-    partial:
-      pitch: 0 
-      bearing: 0 
-    mapvalues:
-      argnames: gdf 
-      argvalues: ${{ workflow.filter_speed_cols.return }}
-
   - name: Combine ldx layers and speedmap layers 
     id: combined_ldx_speed_layers 
     task: combine_deckgl_map_layers

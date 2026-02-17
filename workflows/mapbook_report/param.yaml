@@ -1,6 +1,6 @@
 workflow_details:
   description: ''
-  name: custom
+  name: sef
 time_range:
   timezone:
     label: UTC
@@ -8,11 +8,11 @@ time_range:
     name: UTC
     utc: '+03:00'
   time_format: '%d %b %Y %H:%M:%S'
-  since: '2026-01-01T17:36:00.000Z'
-  until: '2026-02-15T17:36:00.000Z'
+  since: '2026-01-01T17:59:00.000Z'
+  until: '2026-02-16T17:59:00.000Z'
 groupers:
   groupers:
-    - subject_name
+    - index_name: subject_name
 set_previous_period:
   option:
     custom: Same as current period
@@ -35,7 +35,7 @@ custom_trajs_filter:
   min_speed_kmhr: 0.01
   max_speed_kmhr: 9
 zoom_to_envelope:
-  expansion_factor: 0.90
+  expansion_factor: 1.05
 logo_path:
   input_method:
     file_path: /Users/tevintemu/Desktop/logo.png
