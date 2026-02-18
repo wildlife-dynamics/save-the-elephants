@@ -2833,6 +2833,39 @@ generate_etd = (
 
 
 # %% [markdown]
+# ## Persist etd gdf
+
+# %%
+# parameters
+
+persist_etd_gdf_params = dict()
+
+# %%
+# call the task
+
+
+persist_etd_gdf = (
+    persist_df.set_task_instance_id("persist_etd_gdf")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filetype="geoparquet",
+        filename=None,
+        **persist_etd_gdf_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=generate_etd)
+)
+
+
+# %% [markdown]
 # ## Determine seasonal windows
 
 # %%
@@ -2981,6 +3014,39 @@ generate_mcp = (
     )
     .partial(planar_crs="ESRI:53042", **generate_mcp_params)
     .mapvalues(argnames=["gdf"], argvalues=split_traj_by_group)
+)
+
+
+# %% [markdown]
+# ## Persist mcp gdf
+
+# %%
+# parameters
+
+persist_mcp_gdf_params = dict()
+
+# %%
+# call the task
+
+
+persist_mcp_gdf = (
+    persist_df.set_task_instance_id("persist_mcp_gdf")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filetype="geoparquet",
+        filename=None,
+        **persist_mcp_gdf_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=generate_mcp)
 )
 
 
@@ -3944,6 +4010,39 @@ convert_season_to_string = (
     )
     .partial(columns=["season"], **convert_season_to_string_params)
     .mapvalues(argnames=["df"], argvalues=seasonal_home_range)
+)
+
+
+# %% [markdown]
+# ## Persist seasonal etd gdf
+
+# %%
+# parameters
+
+persist_seasonal_etd_gdf_params = dict()
+
+# %%
+# call the task
+
+
+persist_seasonal_etd_gdf = (
+    persist_df.set_task_instance_id("persist_seasonal_etd_gdf")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filetype="geoparquet",
+        filename=None,
+        **persist_seasonal_etd_gdf_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=convert_season_to_string)
 )
 
 

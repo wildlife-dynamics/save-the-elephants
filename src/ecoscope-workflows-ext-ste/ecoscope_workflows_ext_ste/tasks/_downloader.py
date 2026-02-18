@@ -26,7 +26,7 @@ class DownloadFile(BaseModel):
         str,
         Field(
             title="URL",
-            description="URL to download the shapefile from (supports .gpkg, .shp and .geoparquet)",
+            description="URL to download a file",
         ),
     ]
 
@@ -38,7 +38,7 @@ class LocalFile(BaseModel):
         str,
         Field(
             title="Local file path",
-            description="Path to the local shapefile or archive on the filesystem",
+            description="Path to a local file",
         ),
     ]
 

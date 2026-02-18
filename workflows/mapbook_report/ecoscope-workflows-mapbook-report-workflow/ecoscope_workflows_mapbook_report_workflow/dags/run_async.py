@@ -280,6 +280,7 @@ def main(params: Params):
         "create_day_night_widgets": ["persist_day_night_html"],
         "merge_day_night_widgets": ["create_day_night_widgets"],
         "generate_etd": ["split_traj_by_group"],
+        "persist_etd_gdf": ["generate_etd"],
         "determine_seasonal_windows": [
             "gee_project_name",
             "time_range",
@@ -289,6 +290,7 @@ def main(params: Params):
         "zip_etd_with_traj": ["determine_seasonal_windows", "split_traj_by_group"],
         "add_season_labels": ["zip_etd_with_traj"],
         "generate_mcp": ["split_traj_by_group"],
+        "persist_mcp_gdf": ["generate_mcp"],
         "apply_etd_colormap": ["generate_etd"],
         "filter_etd_cols": ["apply_etd_colormap"],
         "generate_home_range_layers": ["filter_etd_cols"],
@@ -337,6 +339,7 @@ def main(params: Params):
         "merge_mean_speed_raster_widgets": ["create_mean_speed_raster_widgets"],
         "seasonal_home_range": ["add_season_labels"],
         "convert_season_to_string": ["seasonal_home_range"],
+        "persist_seasonal_etd_gdf": ["convert_season_to_string"],
         "assign_season_df": ["convert_season_to_string"],
         "filter_season_cols": ["assign_season_df"],
         "generate_season_layers": ["filter_season_cols"],
@@ -2395,6 +2398,31 @@ def main(params: Params):
                 "argvalues": DependsOn("split_traj_by_group"),
             },
         ),
+        "persist_etd_gdf": Node(
+            async_task=persist_df.validate()
+            .set_task_instance_id("persist_etd_gdf")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filetype": "geoparquet",
+                "filename": None,
+            }
+            | (params_dict.get("persist_etd_gdf") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("generate_etd"),
+            },
+        ),
         "determine_seasonal_windows": Node(
             async_task=custom_determine_season_windows.validate()
             .set_task_instance_id("determine_seasonal_windows")
@@ -2507,6 +2535,31 @@ def main(params: Params):
             kwargs={
                 "argnames": ["gdf"],
                 "argvalues": DependsOn("split_traj_by_group"),
+            },
+        ),
+        "persist_mcp_gdf": Node(
+            async_task=persist_df.validate()
+            .set_task_instance_id("persist_mcp_gdf")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filetype": "geoparquet",
+                "filename": None,
+            }
+            | (params_dict.get("persist_mcp_gdf") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("generate_mcp"),
             },
         ),
         "apply_etd_colormap": Node(
@@ -3292,6 +3345,31 @@ def main(params: Params):
             kwargs={
                 "argnames": ["df"],
                 "argvalues": DependsOn("seasonal_home_range"),
+            },
+        ),
+        "persist_seasonal_etd_gdf": Node(
+            async_task=persist_df.validate()
+            .set_task_instance_id("persist_seasonal_etd_gdf")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+                "filetype": "geoparquet",
+                "filename": None,
+            }
+            | (params_dict.get("persist_seasonal_etd_gdf") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("convert_season_to_string"),
             },
         ),
         "assign_season_df": Node(
