@@ -9,12 +9,12 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.27.*"
+    version: "0.0.28.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
     
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.15.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    version: "*"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
     
 rjsf-overrides:
   properties: 
@@ -929,6 +929,17 @@ workflow:
       argnames: trajectory_gdf 
       argvalues: ${{ workflow.split_traj_by_group.return }}
 
+  - name: Persist etd gdf
+    id: persist_etd_gdf
+    task: persist_df 
+    partial: 
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filetype: geoparquet
+      filename: null
+    mapvalues: 
+      argnames: df
+      argvalues: ${{ workflow.generate_etd.return }}
+
   - name: Determine seasonal windows 
     id: determine_seasonal_windows 
     task: custom_determine_season_windows
@@ -976,6 +987,17 @@ workflow:
       argnames: gdf 
       argvalues: ${{ workflow.split_traj_by_group.return }}
   
+  - name: Persist mcp gdf
+    id: persist_mcp_gdf
+    task: persist_df 
+    partial: 
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filetype: geoparquet
+      filename: null
+    mapvalues: 
+      argnames: df
+      argvalues: ${{ workflow.generate_mcp.return }}
+
   - name: Apply colormap to home range percentiles 
     id: apply_etd_colormap 
     task: apply_color_map
@@ -1359,7 +1381,18 @@ workflow:
     mapvalues:
       argnames: df
       argvalues: ${{ workflow.seasonal_home_range.return }}
-      
+
+  - name: Persist seasonal etd gdf
+    id: persist_seasonal_etd_gdf
+    task: persist_df 
+    partial: 
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      filetype: geoparquet
+      filename: null
+    mapvalues: 
+      argnames: df
+      argvalues: ${{ workflow.convert_season_to_string.return }}
+
   - name: Assign season colors to dataframe 
     id: assign_season_df
     task: assign_season_colors
