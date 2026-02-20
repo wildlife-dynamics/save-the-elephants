@@ -1,0 +1,36 @@
+workflow_details:
+  description: ''
+  name: general
+time_range:
+  timezone:
+    label: UTC
+    tzCode: UTC
+    name: UTC
+    utc: '+03:00'
+  time_format: '%d %b %Y %H:%M:%S'
+  since: '2025-12-01T07:29:00.000Z'
+  until: '2026-02-01T07:30:00.000Z'
+set_previous_period:
+  option:
+    custom: Same as current period
+er_client_name:
+  data_source:
+    name: ymep
+gee_project_name:
+  data_source:
+    name: ecoscope_poc
+subject_group_var:
+  var: MEP_Elephants_Greater_Mara
+retrieve_ldx_db:
+  input_method:
+    file_path: /Users/tevintemu/Desktop/Ecoscope/shapefiles/landDx.gpkg
+custom_trajs_filter:
+  min_length_meters: 0.001
+  max_length_meters: 5000
+  min_time_secs: 1
+  max_time_secs: 21600
+  min_speed_kmhr: 0.01
+  max_speed_kmhr: 9
+get_events_data:
+  event_types:
+    - mep_elephant_sighting

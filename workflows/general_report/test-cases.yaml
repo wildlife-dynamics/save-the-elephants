@@ -1,0 +1,103 @@
+all-grouper:
+  name: All Grouper
+  description: A demonstration of a workflow with no grouping.
+  params:
+    workflow_details:
+      description: ''
+      name: cus
+    time_range:
+      timezone:
+        label: UTC
+        tzCode: UTC
+        name: UTC
+        utc: '+00:00'
+      time_format: '%d %b %Y %H:%M:%S'
+      since: '2008-02-02T10:34:00.000Z'
+      until: '2013-02-03T10:34:00.000Z'
+    groupers:
+      groupers: []
+    configure_base_maps:
+      base_maps:
+        - url: >-
+            https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}
+          opacity: 1
+          max_zoom: 20
+    set_previous_period:
+      option:
+        custom: Previous 3 months
+    er_client_name:
+      data_source:
+        name: ste
+    gee_project_name:
+      data_source:
+        name: ecoscope_poc
+    retrieve_ldx_db:
+      input_method:
+        url: >-
+          https://www.dropbox.com/scl/fi/v9maw2jeg1zptv68qtpv3/landDx.gpkg?rlkey=kez5vsbxkgha2emfy5kzwa5n1&st=98v4anq3&dl=0
+    custom_trajs_filter:
+      min_length_meters: 0.001
+      max_length_meters: 5000
+      min_time_secs: 1
+      max_time_secs: 21600
+      min_speed_kmhr: 0.01
+      max_speed_kmhr: 9
+    logo_path:
+      input_method:
+        url: >-
+          https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=dyayk2n2&dl=0
+    subject_group_var:
+      var: elephants
+
+
+value-grouper:
+  name: Value Grouper
+  description: A demonstration of a workflow grouped by a value.
+  params:
+    workflow_details:
+      description: ''
+      name: cus
+    time_range:
+      timezone:
+        label: UTC
+        tzCode: UTC
+        name: UTC
+        utc: '+00:00'
+      time_format: '%d %b %Y %H:%M:%S'
+      since: '2008-02-02T10:34:00.000Z'
+      until: '2013-02-03T10:34:00.000Z'
+    groupers:
+      groupers:
+        - subject_name
+    configure_base_maps:
+      base_maps:
+        - url: >-
+            https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}
+          opacity: 1
+          max_zoom: 20
+    set_previous_period:
+      option:
+        custom: Previous 3 months
+    er_client_name:
+      data_source:
+        name: ste
+    gee_project_name:
+      data_source:
+        name: ecoscope_poc
+    retrieve_ldx_db:
+      input_method:
+        url: >-
+          https://www.dropbox.com/scl/fi/v9maw2jeg1zptv68qtpv3/landDx.gpkg?rlkey=kez5vsbxkgha2emfy5kzwa5n1&st=98v4anq3&dl=0
+    custom_trajs_filter:
+      min_length_meters: 0.001
+      max_length_meters: 5000
+      min_time_secs: 1
+      max_time_secs: 21600
+      min_speed_kmhr: 0.01
+      max_speed_kmhr: 9
+    logo_path:
+      input_method:
+        url: >-
+          https://www.dropbox.com/scl/fi/1gn84pq9c7tedgg3k90qt/save-the-elephants.jpg?rlkey=ump7g2hcc2pn0pd5nst203c7w&st=dyayk2n2&dl=0
+    subject_group_var:
+      var: elephants

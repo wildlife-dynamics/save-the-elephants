@@ -1,0 +1,427 @@
+{
+  "properties": {
+    "workflow_details": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Workflow Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Workflow Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object",
+      "description": "Add information that will help to differentiate this workflow from another.",
+      "title": "Set workflow details"
+    },
+    "time_range": {
+      "additionalProperties": false,
+      "properties": {
+        "since": {
+          "format": "date-time",
+          "title": "Since",
+          "type": "string",
+          "description": "The start time"
+        },
+        "until": {
+          "format": "date-time",
+          "title": "Until",
+          "type": "string",
+          "description": "The end time"
+        },
+        "timezone": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TimezoneInfo"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        },
+        "time_format": {
+          "default": "%d %b %Y %H:%M:%S",
+          "title": "Time Format",
+          "type": "string",
+          "description": "The time format",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [
+        "since",
+        "until"
+      ],
+      "type": "object",
+      "description": "Choose the period of time to analyze.",
+      "title": "Define analysis time range"
+    },
+    "set_previous_period": {
+      "additionalProperties": false,
+      "properties": {
+        "option": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PreviousCustomTimeRangeOption"
+            },
+            {
+              "$ref": "#/$defs/PreviousTimeRangeOption"
+            }
+          ],
+          "title": "Option"
+        }
+      },
+      "required": [
+        "option"
+      ],
+      "type": "object",
+      "title": "Set previous period range"
+    },
+    "er_client_name": {
+      "additionalProperties": false,
+      "properties": {
+        "data_source": {
+          "$ref": "#/$defs/EarthRangerConnection",
+          "title": "",
+          "description": "Select one of your configured data sources."
+        }
+      },
+      "required": [
+        "data_source"
+      ],
+      "type": "object",
+      "title": "Connect to earth ranger"
+    },
+    "gee_project_name": {
+      "additionalProperties": false,
+      "properties": {
+        "data_source": {
+          "$ref": "#/$defs/GoogleEarthEngineConnection",
+          "title": "",
+          "description": "Select one of your configured data sources."
+        }
+      },
+      "required": [
+        "data_source"
+      ],
+      "type": "object",
+      "title": "Connect to earth engine"
+    },
+    "Subject Group": {
+      "type": "object",
+      "description": "Choose subject group to analyze",
+      "ecoscope:task_group": true,
+      "properties": {
+        "subject_group_var": {
+          "additionalProperties": false,
+          "properties": {
+            "var": {
+              "title": "Subject Group Name",
+              "type": "string",
+              "default": "Elephants"
+            }
+          },
+          "required": [
+            "var"
+          ],
+          "type": "object",
+          "title": ""
+        }
+      }
+    },
+    "retrieve_ldx_db": {
+      "additionalProperties": false,
+      "properties": {
+        "input_method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DownloadFile"
+            },
+            {
+              "$ref": "#/$defs/LocalFile"
+            }
+          ],
+          "title": "Input Method"
+        }
+      },
+      "required": [
+        "input_method"
+      ],
+      "type": "object",
+      "title": "Load landDx database"
+    },
+    "custom_trajs_filter": {
+      "additionalProperties": false,
+      "properties": {
+        "min_length_meters": {
+          "default": 0.001,
+          "title": "Min Length Meters",
+          "type": "number"
+        },
+        "max_length_meters": {
+          "default": 5000,
+          "title": "Max Length Meters",
+          "type": "number"
+        },
+        "min_time_secs": {
+          "default": 1,
+          "title": "Min Time Secs",
+          "type": "number"
+        },
+        "max_time_secs": {
+          "default": 21600,
+          "title": "Max Time Secs",
+          "type": "number"
+        },
+        "min_speed_kmhr": {
+          "default": 0.01,
+          "title": "Min Speed Kmhr",
+          "type": "number"
+        },
+        "max_speed_kmhr": {
+          "default": 9.0,
+          "title": "Max Speed Kmhr",
+          "type": "number"
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Trajectory Segment Filter"
+    },
+    "get_events_data": {
+      "additionalProperties": false,
+      "properties": {
+        "event_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Types",
+          "type": "array",
+          "description": "Specify the event type(s) to analyze (optional). Leave this section empty to analyze all event types."
+        }
+      },
+      "required": [
+        "event_types"
+      ],
+      "type": "object",
+      "title": "Retrieve all events"
+    }
+  },
+  "$defs": {
+    "TimezoneInfo": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "tzCode": {
+          "title": "Tzcode",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "utc": {
+          "title": "Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "tzCode",
+        "name",
+        "utc"
+      ],
+      "title": "TimezoneInfo",
+      "type": "object"
+    },
+    "PreviousCustomTimeRangeOption": {
+      "description": "User selects a predefined previous period via the enum.",
+      "properties": {
+        "custom": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/PreviousPeriodType"
+            }
+          ],
+          "description": "Select the previous period type"
+        }
+      },
+      "required": [
+        "custom"
+      ],
+      "title": "Choose which period you'd like to select your date from",
+      "type": "object"
+    },
+    "PreviousPeriodType": {
+      "description": "Enum for previous period selection options.",
+      "enum": [
+        "Same as current period",
+        "Previous month",
+        "Previous 3 months",
+        "Previous 6 months",
+        "Previous year"
+      ],
+      "title": "PreviousPeriodType",
+      "type": "string"
+    },
+    "PreviousTimeRange": {
+      "description": "Manual previous period selection.\n\nOnly `since` is provided by the user. `until` is always derived\nfrom the current period's start when converting to a TimeRange,\nenforcing the invariant that the previous period ends exactly\nwhere the current one begins.",
+      "properties": {
+        "since": {
+          "description": "The start time of the previous period",
+          "format": "date-time",
+          "title": "Since",
+          "type": "string"
+        },
+        "timezone": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TimezoneInfo"
+            }
+          ],
+          "default": {
+            "label": "UTC",
+            "tzCode": "UTC",
+            "name": "UTC",
+            "utc": "+00:00"
+          },
+          "description": "Timezone (defaults to UTC)"
+        },
+        "time_format": {
+          "default": "%d %b %Y %H:%M:%S",
+          "description": "The time format",
+          "title": "Time Format",
+          "type": "string"
+        }
+      },
+      "required": [
+        "since"
+      ],
+      "title": "PreviousTimeRange",
+      "type": "object"
+    },
+    "PreviousTimeRangeOption": {
+      "description": "User manually specifies a start date for the previous period.",
+      "properties": {
+        "time_range": {
+          "$ref": "#/$defs/PreviousTimeRange"
+        }
+      },
+      "required": [
+        "time_range"
+      ],
+      "title": "Enter the start date you'd like the previous period to begin from",
+      "type": "object"
+    },
+    "EarthRangerConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "EarthRangerConnection",
+      "type": "object"
+    },
+    "GoogleEarthEngineConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "GoogleEarthEngineConnection",
+      "type": "object"
+    },
+    "DownloadFile": {
+      "properties": {
+        "url": {
+          "description": "URL to download a file",
+          "title": "URL",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "Download from URL",
+      "type": "object"
+    },
+    "LocalFile": {
+      "properties": {
+        "file_path": {
+          "description": "Path to a local file",
+          "title": "Local file path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file_path"
+      ],
+      "title": "Use local file",
+      "type": "object"
+    },
+    "ValueGrouper": {
+      "properties": {
+        "index_name": {
+          "oneOf": [
+            {
+              "const": "subject_name",
+              "title": "Subject Name"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "uiSchema": {
+    "workflow_details": {
+      "ui:order": [
+        "name",
+        "description"
+      ]
+    },
+    "time_range": {
+      "ui:order": [
+        "since",
+        "until",
+        "timezone",
+        "time_format"
+      ]
+    },
+    "custom_trajs_filter": {
+      "ui:order": [
+        "min_length_meters",
+        "max_length_meters",
+        "min_time_secs",
+        "max_time_secs",
+        "min_speed_kmhr",
+        "max_speed_kmhr"
+      ]
+    },
+    "ui:order": [
+      "workflow_details",
+      "time_range",
+      "set_previous_period",
+      "er_client_name",
+      "gee_project_name",
+      "Subject Group",
+      "retrieve_ldx_db",
+      "custom_trajs_filter",
+      "get_events_data"
+    ]
+  },
+  "additionalProperties": false
+}
