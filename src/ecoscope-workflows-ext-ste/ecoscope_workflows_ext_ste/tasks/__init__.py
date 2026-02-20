@@ -46,11 +46,15 @@ from ._mapbook_context import (
 )
 
 from ._preprocess import custom_trajectory_segment_filter
-from ._filter import filter_groups_by_value_criteria
+from ._filter import filter_groups_by_value_criteria, filter_df_values
 from ._aerial_lines import validate_polygon_geometry, draw_survey_lines, transform_gdf_crs
 from ._custom_html_png import adjust_map_zoom_and_screenshot
 
+from ._hex_rgba import convert_hex_to_rgba
+
 __all__ = [
+    "filter_df_values",
+    "convert_hex_to_rgba",
     "envelope_gdf",
     "get_image_zoom_value",
     "adjust_map_zoom_and_screenshot",
