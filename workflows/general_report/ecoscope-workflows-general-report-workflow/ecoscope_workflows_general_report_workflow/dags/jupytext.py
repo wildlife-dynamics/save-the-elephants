@@ -18,6 +18,7 @@ from ecoscope_workflows_core.tasks.config import (
 )
 from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
 from ecoscope_workflows_core.tasks.groupby import set_groupers as set_groupers
+from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
 from ecoscope_workflows_core.tasks.io import persist_text as persist_text
 from ecoscope_workflows_core.tasks.io import set_er_connection as set_er_connection
 from ecoscope_workflows_core.tasks.io import set_gee_connection as set_gee_connection
@@ -29,7 +30,11 @@ from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_d
 from ecoscope_workflows_core.tasks.transformation import (
     add_temporal_index as add_temporal_index,
 )
+from ecoscope_workflows_core.tasks.transformation import filter_df as filter_df
 from ecoscope_workflows_core.tasks.transformation import map_columns as map_columns
+from ecoscope_workflows_core.tasks.transformation import (
+    map_values_with_unit as map_values_with_unit,
+)
 from ecoscope_workflows_core.tasks.transformation import sort_values as sort_values
 from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
 from ecoscope_workflows_ext_custom.tasks.results import (
@@ -50,6 +55,9 @@ from ecoscope_workflows_ext_custom.tasks.transformation import (
 )
 from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
     calculate_elliptical_time_density as calculate_elliptical_time_density,
+)
+from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
+    create_meshgrid as create_meshgrid,
 )
 from ecoscope_workflows_ext_ecoscope.tasks.io import get_events as get_events
 from ecoscope_workflows_ext_ecoscope.tasks.io import (
@@ -75,9 +83,16 @@ from ecoscope_workflows_ext_ste.tasks import (
     annotate_gdf_dict_with_geom_type as annotate_gdf_dict_with_geom_type,
 )
 from ecoscope_workflows_ext_ste.tasks import (
+    assign_season_colors as assign_season_colors,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    calculate_seasonal_home_range as calculate_seasonal_home_range,
+)
+from ecoscope_workflows_ext_ste.tasks import (
     combine_deckgl_map_layers as combine_deckgl_map_layers,
 )
 from ecoscope_workflows_ext_ste.tasks import convert_hex_to_rgba as convert_hex_to_rgba
+from ecoscope_workflows_ext_ste.tasks import convert_to_str as convert_to_str
 from ecoscope_workflows_ext_ste.tasks import create_column as create_column
 from ecoscope_workflows_ext_ste.tasks import (
     create_custom_text_layer as create_custom_text_layer,
@@ -102,16 +117,29 @@ from ecoscope_workflows_ext_ste.tasks import filter_df_values as filter_df_value
 from ecoscope_workflows_ext_ste.tasks import (
     generate_ecograph_raster as generate_ecograph_raster,
 )
+from ecoscope_workflows_ext_ste.tasks import (
+    generate_protected_column as generate_protected_column,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    get_day_night_dominance as get_day_night_dominance,
+)
 from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
+from ecoscope_workflows_ext_ste.tasks import (
+    get_grid_night_fixes as get_grid_night_fixes,
+)
 from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple_df
 from ecoscope_workflows_ext_ste.tasks import (
     modify_status_colors as modify_status_colors,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    plot_fix_protection_status as plot_fix_protection_status,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     retrieve_feature_gdf as retrieve_feature_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
+from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
 
 # %% [markdown]
 # ## Set workflow details
@@ -201,7 +229,7 @@ groupers = (
         ],
         unpack_depth=1,
     )
-    .partial(groupers=[], **groupers_params)
+    .partial(groupers=[{"index_name": "subject_name"}], **groupers_params)
     .call()
 )
 
@@ -235,7 +263,12 @@ configure_base_maps = (
                 "url": "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
                 "opacity": 1,
                 "max_zoom": 20,
-            }
+            },
+            {
+                "url": "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places_Alternate/MapServer/tile/{z}/{y}/{x}",
+                "opacity": 1,
+                "max_zoom": 20,
+            },
         ],
         **configure_base_maps_params,
     )
@@ -1178,40 +1211,6 @@ rename_traj_cols = (
 
 
 # %% [markdown]
-# ## Persist trajectories as geoparquet
-
-# %%
-# parameters
-
-persist_trajs_geoparquet_params = dict()
-
-# %%
-# call the task
-
-
-persist_trajs_geoparquet = (
-    persist_df.set_task_instance_id("persist_trajs_geoparquet")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        df=rename_traj_cols,
-        filetype="geoparquet",
-        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename="trajectories",
-        **persist_trajs_geoparquet_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
 # ## Persist previous period trajectories as geoparquet
 
 # %%
@@ -1269,7 +1268,7 @@ persist_relocs_geoparquet = (
         unpack_depth=1,
     )
     .partial(
-        df=subject_reloc,
+        df=annotate_day_night,
         filetype="geoparquet",
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         filename="relocations",
@@ -1667,7 +1666,7 @@ draw_movement_tracks = (
 # parameters
 
 persist_movement_tracks_html_params = dict(
-    filename=...,
+    filename_suffix=...,
 )
 
 # %%
@@ -1687,7 +1686,7 @@ persist_movement_tracks_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="movement_tracks",
+        filename="movement_tracks.html",
         text=draw_movement_tracks,
         **persist_movement_tracks_html_params,
     )
@@ -1895,7 +1894,7 @@ draw_collared_map = (
 # parameters
 
 persist_collared_points_html_params = dict(
-    filename=...,
+    filename_suffix=...,
 )
 
 # %%
@@ -1915,7 +1914,7 @@ persist_collared_points_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="collared_points",
+        filename="collared_points.html",
         text=draw_collared_map,
         **persist_collared_points_html_params,
     )
@@ -2115,7 +2114,7 @@ draw_subject_tracks = (
 # parameters
 
 persist_subject_tracks_html_params = dict(
-    filename=...,
+    filename_suffix=...,
 )
 
 # %%
@@ -2135,7 +2134,7 @@ persist_subject_tracks_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="subject_tracks",
+        filename="subject_tracks.html",
         text=draw_subject_tracks,
         **persist_subject_tracks_html_params,
     )
@@ -2508,7 +2507,7 @@ draw_home_range_map = (
 # parameters
 
 persist_homerange_html_params = dict(
-    filename=...,
+    filename_suffix=...,
 )
 
 # %%
@@ -2528,7 +2527,7 @@ persist_homerange_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="overall_homerange",
+        filename="overall_homerange.html",
         text=draw_home_range_map,
         **persist_homerange_html_params,
     )
@@ -2728,7 +2727,7 @@ draw_filtered_hr_map = (
 # parameters
 
 persist_filtered_hr_html_params = dict(
-    filename=...,
+    filename_suffix=...,
 )
 
 # %%
@@ -2748,7 +2747,7 @@ persist_filtered_hr_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="filtered_homerange",
+        filename="filtered_homerange.html",
         text=draw_filtered_hr_map,
         **persist_filtered_hr_html_params,
     )
@@ -2827,7 +2826,7 @@ extract_raster = (
 
 
 # %% [markdown]
-# ## Sortfeatures by value
+# ## Sort features by value
 
 # %%
 # parameters
@@ -3091,7 +3090,7 @@ draw_recursion_map = (
 # parameters
 
 persist_recursion_html_params = dict(
-    filename=...,
+    filename_suffix=...,
 )
 
 # %%
@@ -3111,7 +3110,7 @@ persist_recursion_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="recursion_events",
+        filename="recursion_events.html",
         text=draw_recursion_map,
         **persist_recursion_html_params,
     )
@@ -3120,19 +3119,19 @@ persist_recursion_html = (
 
 
 # %% [markdown]
-# ## Persist seasonal trajectories as geoparquet
+# ## Persist trajectories as geoparquet
 
 # %%
 # parameters
 
-persist_strajs_geoparquet_params = dict()
+persist_trajs_geoparquet_params = dict()
 
 # %%
 # call the task
 
 
-persist_strajs_geoparquet = (
-    persist_df.set_task_instance_id("persist_strajs_geoparquet")
+persist_trajs_geoparquet = (
+    persist_df.set_task_instance_id("persist_trajs_geoparquet")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -3146,27 +3145,27 @@ persist_strajs_geoparquet = (
         df=add_season_labels,
         filetype="geoparquet",
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename="seasonal_trajectories",
-        **persist_strajs_geoparquet_params,
+        filename="trajectories",
+        **persist_trajs_geoparquet_params,
     )
     .call()
 )
 
 
 # %% [markdown]
-# ## Persist seasonal trajectories as csv
+# ## Retrieve dry trajs only
 
 # %%
 # parameters
 
-persist_strajs_csv_params = dict()
+filter_dry_df_params = dict()
 
 # %%
 # call the task
 
 
-persist_strajs_csv = (
-    persist_df.set_task_instance_id("persist_strajs_csv")
+filter_dry_df = (
+    filter_df.set_task_instance_id("filter_dry_df")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -3177,13 +3176,2611 @@ persist_strajs_csv = (
         unpack_depth=1,
     )
     .partial(
+        column_name="season",
+        op="equal",
+        value="dry",
         df=add_season_labels,
-        filetype="csv",
-        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename="seasonal_trajectories",
-        **persist_strajs_csv_params,
+        reset_index=False,
+        **filter_dry_df_params,
     )
     .call()
+)
+
+
+# %% [markdown]
+# ## Generate dry season mean speed raster
+
+# %%
+# parameters
+
+generate_dry_speed_raster_params = dict()
+
+# %%
+# call the task
+
+
+generate_dry_speed_raster = (
+    generate_ecograph_raster.set_task_instance_id("generate_dry_speed_raster")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        step_length=500,
+        dist_col="dist_meters",
+        interpolation="mean",
+        movement_covariate="speed",
+        radius=2,
+        cutoff=None,
+        tortuosity_length=3,
+        resolution=None,
+        network_metric=None,
+        output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename=None,
+        gdf=filter_dry_df,
+        **generate_dry_speed_raster_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Extract features from dry season mean speed raster
+
+# %%
+# parameters
+
+extract_dry_rasters_params = dict()
+
+# %%
+# call the task
+
+
+extract_dry_rasters = (
+    retrieve_feature_gdf.set_task_instance_id("extract_dry_rasters")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(file_path=generate_dry_speed_raster, **extract_dry_rasters_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Sort dry speed features by value
+
+# %%
+# parameters
+
+sort_dry_speed_features_params = dict()
+
+# %%
+# call the task
+
+
+sort_dry_speed_features = (
+    sort_values.set_task_instance_id("sort_dry_speed_features")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        column_name="value",
+        na_position="last",
+        ascending=True,
+        df=extract_dry_rasters,
+        **sort_dry_speed_features_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Apply classification to dry speed raster features
+
+# %%
+# parameters
+
+apply_classification_dry_params = dict()
+
+# %%
+# call the task
+
+
+apply_classification_dry = (
+    apply_classification.set_task_instance_id("apply_classification_dry")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        input_column_name="value",
+        output_column_name="value_bins",
+        classification_options={"scheme": "natural_breaks", "k": 6},
+        label_options={"label_range": False, "label_decimals": 1},
+        df=sort_dry_speed_features,
+        **apply_classification_dry_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Apply colormap to dry speed raster bins
+
+# %%
+# parameters
+
+apply_dry_raster_colormap_params = dict()
+
+# %%
+# call the task
+
+
+apply_dry_raster_colormap = (
+    apply_color_map.set_task_instance_id("apply_dry_raster_colormap")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        input_column_name="value_bins",
+        output_column_name="speedraster_bins_colormap",
+        colormap=["#1a9850", "#91cf60", "#d9ef8b", "#fee08b", "#fc8d59", "#d73027"],
+        df=apply_classification_dry,
+        **apply_dry_raster_colormap_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Format dry speed raster bin labels
+
+# %%
+# parameters
+
+format_dry_raster_labels_params = dict()
+
+# %%
+# call the task
+
+
+format_dry_raster_labels = (
+    map_values_with_unit.set_task_instance_id("format_dry_raster_labels")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        input_column_name="value_bins",
+        output_column_name="bins_formatted",
+        original_unit="km/h",
+        new_unit="km/h",
+        decimal_places=1,
+        df=apply_dry_raster_colormap,
+        **format_dry_raster_labels_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Create dry mean speed raster layer
+
+# %%
+# parameters
+
+create_dry_speed_raster_layer_params = dict()
+
+# %%
+# call the task
+
+
+create_dry_speed_raster_layer = (
+    create_geojson_layer.set_task_instance_id("create_dry_speed_raster_layer")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        layer_style={
+            "filled": True,
+            "stroked": False,
+            "extruded": False,
+            "wireframe": False,
+            "get_fill_color": "speedraster_bins_colormap",
+            "get_line_color": "speedraster_bins_colormap",
+            "opacity": 0.55,
+            "get_line_width": 1.55,
+            "get_elevation": 0,
+            "get_point_radius": 1,
+            "line_width_units": "pixels",
+            "line_width_scale": 1,
+            "line_width_min_pixels": 1,
+            "line_width_max_pixels": 5,
+        },
+        legend={
+            "title": "Mean Speed Raster (km/h)",
+            "label_column": "bins_formatted",
+            "color_column": "speedraster_bins_colormap",
+            "sort": "ascending",
+            "label_suffix": None,
+        },
+        geodataframe=format_dry_raster_labels,
+        **create_dry_speed_raster_layer_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Combine ldx layers and dry mean speed raster layer
+
+# %%
+# parameters
+
+combined_dry_speed_raster_params = dict()
+
+# %%
+# call the task
+
+
+combined_dry_speed_raster = (
+    combine_deckgl_map_layers.set_task_instance_id("combined_dry_speed_raster")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
+        grouped_layers=create_dry_speed_raster_layer,
+        **combined_dry_speed_raster_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zoom to gdf extent
+
+# %%
+# parameters
+
+dry_view_state_params = dict()
+
+# %%
+# call the task
+
+
+dry_view_state = (
+    view_state_deck_gdf.set_task_instance_id("dry_view_state")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(gdf=format_dry_raster_labels, pitch=0, bearing=0, **dry_view_state_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Draw dry season mean speed raster map
+
+# %%
+# parameters
+
+draw_dry_raster_map_params = dict(
+    widget_id=...,
+)
+
+# %%
+# call the task
+
+
+draw_dry_raster_map = (
+    draw_map.set_task_instance_id("draw_dry_raster_map")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        tile_layers=configure_base_maps,
+        static=False,
+        title=None,
+        max_zoom=10,
+        legend_style={"placement": "bottom-right"},
+        geo_layers=combined_dry_speed_raster,
+        view_state=dry_view_state,
+        **draw_dry_raster_map_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Persist dry season mean speed raster map html
+
+# %%
+# parameters
+
+persist_dry_raster_html_params = dict(
+    filename_suffix=...,
+)
+
+# %%
+# call the task
+
+
+persist_dry_raster_html = (
+    persist_text.set_task_instance_id("persist_dry_raster_html")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="dry_mean_speed_raster_map.html",
+        text=draw_dry_raster_map,
+        **persist_dry_raster_html_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Retrieve wet trajs only
+
+# %%
+# parameters
+
+filter_wet_df_params = dict()
+
+# %%
+# call the task
+
+
+filter_wet_df = (
+    filter_df.set_task_instance_id("filter_wet_df")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        column_name="season",
+        op="equal",
+        value="wet",
+        df=add_season_labels,
+        reset_index=False,
+        **filter_wet_df_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Generate wet season mean speed raster
+
+# %%
+# parameters
+
+generate_wet_speed_raster_params = dict()
+
+# %%
+# call the task
+
+
+generate_wet_speed_raster = (
+    generate_ecograph_raster.set_task_instance_id("generate_wet_speed_raster")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        step_length=500,
+        dist_col="dist_meters",
+        interpolation="mean",
+        movement_covariate="speed",
+        radius=2,
+        cutoff=None,
+        tortuosity_length=3,
+        resolution=None,
+        network_metric=None,
+        output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename=None,
+        gdf=filter_wet_df,
+        **generate_wet_speed_raster_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Extract features from wet season mean speed raster
+
+# %%
+# parameters
+
+extract_wet_rasters_params = dict()
+
+# %%
+# call the task
+
+
+extract_wet_rasters = (
+    retrieve_feature_gdf.set_task_instance_id("extract_wet_rasters")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(file_path=generate_wet_speed_raster, **extract_wet_rasters_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Sort wet speed features by value
+
+# %%
+# parameters
+
+sort_wet_speed_features_params = dict()
+
+# %%
+# call the task
+
+
+sort_wet_speed_features = (
+    sort_values.set_task_instance_id("sort_wet_speed_features")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        column_name="value",
+        na_position="last",
+        ascending=True,
+        df=extract_wet_rasters,
+        **sort_wet_speed_features_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Apply classification to wet speed raster features
+
+# %%
+# parameters
+
+apply_classification_wet_params = dict()
+
+# %%
+# call the task
+
+
+apply_classification_wet = (
+    apply_classification.set_task_instance_id("apply_classification_wet")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        input_column_name="value",
+        output_column_name="value_bins",
+        classification_options={"scheme": "natural_breaks", "k": 6},
+        label_options={"label_range": False, "label_decimals": 1},
+        df=sort_wet_speed_features,
+        **apply_classification_wet_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Apply colormap to wet speed raster bins
+
+# %%
+# parameters
+
+apply_wet_raster_colormap_params = dict()
+
+# %%
+# call the task
+
+
+apply_wet_raster_colormap = (
+    apply_color_map.set_task_instance_id("apply_wet_raster_colormap")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        input_column_name="value_bins",
+        output_column_name="speedraster_bins_colormap",
+        colormap=["#1a9850", "#91cf60", "#d9ef8b", "#fee08b", "#fc8d59", "#d73027"],
+        df=apply_classification_wet,
+        **apply_wet_raster_colormap_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Format wet speed raster bin labels
+
+# %%
+# parameters
+
+format_wet_raster_labels_params = dict()
+
+# %%
+# call the task
+
+
+format_wet_raster_labels = (
+    map_values_with_unit.set_task_instance_id("format_wet_raster_labels")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        input_column_name="value_bins",
+        output_column_name="bins_formatted",
+        original_unit="km/h",
+        new_unit="km/h",
+        decimal_places=1,
+        df=apply_wet_raster_colormap,
+        **format_wet_raster_labels_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Create wet mean speed raster layer
+
+# %%
+# parameters
+
+create_wet_speed_raster_layer_params = dict()
+
+# %%
+# call the task
+
+
+create_wet_speed_raster_layer = (
+    create_geojson_layer.set_task_instance_id("create_wet_speed_raster_layer")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        layer_style={
+            "filled": True,
+            "stroked": False,
+            "extruded": False,
+            "wireframe": False,
+            "get_fill_color": "speedraster_bins_colormap",
+            "get_line_color": "speedraster_bins_colormap",
+            "opacity": 0.55,
+            "get_line_width": 1.55,
+            "get_elevation": 0,
+            "get_point_radius": 1,
+            "line_width_units": "pixels",
+            "line_width_scale": 1,
+            "line_width_min_pixels": 1,
+            "line_width_max_pixels": 5,
+        },
+        legend={
+            "title": "Mean Speed Raster (km/h)",
+            "label_column": "bins_formatted",
+            "color_column": "speedraster_bins_colormap",
+            "sort": "ascending",
+            "label_suffix": None,
+        },
+        geodataframe=format_wet_raster_labels,
+        **create_wet_speed_raster_layer_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Combine ldx layers and wet mean speed raster layer
+
+# %%
+# parameters
+
+combined_wet_speed_raster_params = dict()
+
+# %%
+# call the task
+
+
+combined_wet_speed_raster = (
+    combine_deckgl_map_layers.set_task_instance_id("combined_wet_speed_raster")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
+        grouped_layers=create_wet_speed_raster_layer,
+        **combined_wet_speed_raster_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zoom to gdf extent
+
+# %%
+# parameters
+
+wet_view_state_params = dict()
+
+# %%
+# call the task
+
+
+wet_view_state = (
+    view_state_deck_gdf.set_task_instance_id("wet_view_state")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(gdf=format_wet_raster_labels, pitch=0, bearing=0, **wet_view_state_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Draw wet season mean speed raster map
+
+# %%
+# parameters
+
+draw_wet_raster_map_params = dict(
+    widget_id=...,
+)
+
+# %%
+# call the task
+
+
+draw_wet_raster_map = (
+    draw_map.set_task_instance_id("draw_wet_raster_map")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        tile_layers=configure_base_maps,
+        static=False,
+        title=None,
+        max_zoom=10,
+        legend_style={"placement": "bottom-right"},
+        geo_layers=combined_wet_speed_raster,
+        view_state=wet_view_state,
+        **draw_wet_raster_map_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Persist wet season mean speed raster map html
+
+# %%
+# parameters
+
+persist_wet_raster_html_params = dict(
+    filename_suffix=...,
+)
+
+# %%
+# call the task
+
+
+persist_wet_raster_html = (
+    persist_text.set_task_instance_id("persist_wet_raster_html")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="wet_mean_speed_raster_map.html",
+        text=draw_wet_raster_map,
+        **persist_wet_raster_html_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Generate meshgrid
+
+# %%
+# parameters
+
+generate_meshgrid_params = dict()
+
+# %%
+# call the task
+
+
+generate_meshgrid = (
+    create_meshgrid.set_task_instance_id("generate_meshgrid")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        aoi=annotate_day_night,
+        auto_scale_or_custom_cell_size={"auto_scale_or_custom": "Auto-scale"},
+        crs="ESRI:53042",
+        intersecting_only=False,
+        **generate_meshgrid_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Generate day night time dominance
+
+# %%
+# parameters
+
+day_night_dominance_params = dict()
+
+# %%
+# call the task
+
+
+day_night_dominance = (
+    get_day_night_dominance.set_task_instance_id("day_night_dominance")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        points_gdf=annotate_day_night,
+        grid_gdf=generate_meshgrid,
+        **day_night_dominance_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Sort day night dominance by duration status
+
+# %%
+# parameters
+
+sort_dn_by_status_params = dict()
+
+# %%
+# call the task
+
+
+sort_dn_by_status = (
+    sort_values.set_task_instance_id("sort_dn_by_status")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        column_name="is_night_majority",
+        na_position="first",
+        ascending=False,
+        df=day_night_dominance,
+        **sort_dn_by_status_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Apply colormap to day night
+
+# %%
+# parameters
+
+apply_dn_colormap_params = dict()
+
+# %%
+# call the task
+
+
+apply_dn_colormap = (
+    apply_color_map.set_task_instance_id("apply_dn_colormap")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        input_column_name="is_night_majority",
+        output_column_name="dn_colors",
+        colormap=["#6495ed", "#00008b"],
+        df=sort_dn_by_status,
+        **apply_dn_colormap_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Create day night dominance layers
+
+# %%
+# parameters
+
+generate_dn_layers_params = dict()
+
+# %%
+# call the task
+
+
+generate_dn_layers = (
+    create_geojson_layer.set_task_instance_id("generate_dn_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        layer_style={
+            "filled": True,
+            "stroked": True,
+            "extruded": False,
+            "wireframe": False,
+            "get_fill_color": "dn_colors",
+            "get_line_color": "dn_colors",
+            "opacity": 0.55,
+            "get_line_width": 1.55,
+            "get_elevation": 0,
+            "get_point_radius": 1,
+            "line_width_units": "pixels",
+            "line_width_scale": 1,
+            "line_width_min_pixels": 1,
+            "line_width_max_pixels": 5,
+        },
+        legend={
+            "title": "Time of day dominance",
+            "label_column": "is_night_majority",
+            "color_column": "dn_colors",
+            "sort": "ascending",
+            "label_suffix": None,
+        },
+        geodataframe=apply_dn_colormap,
+        **generate_dn_layers_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Combine ldx layers and time of day layers
+
+# %%
+# parameters
+
+combined_ldx_dn_layers_params = dict()
+
+# %%
+# call the task
+
+
+combined_ldx_dn_layers = (
+    combine_deckgl_map_layers.set_task_instance_id("combined_ldx_dn_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
+        grouped_layers=generate_dn_layers,
+        **combined_ldx_dn_layers_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zoom to gdf extent
+
+# %%
+# parameters
+
+dn_view_state_params = dict()
+
+# %%
+# call the task
+
+
+dn_view_state = (
+    view_state_deck_gdf.set_task_instance_id("dn_view_state")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(gdf=apply_dn_colormap, pitch=0, bearing=0, **dn_view_state_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Draw time of day dominance map
+
+# %%
+# parameters
+
+draw_dn_map_params = dict(
+    widget_id=...,
+)
+
+# %%
+# call the task
+
+
+draw_dn_map = (
+    draw_map.set_task_instance_id("draw_dn_map")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        tile_layers=configure_base_maps,
+        static=False,
+        title=None,
+        max_zoom=10,
+        legend_style={"placement": "bottom-right"},
+        geo_layers=combined_ldx_dn_layers,
+        view_state=dn_view_state,
+        **draw_dn_map_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Persist time of day dominance html
+
+# %%
+# parameters
+
+persist_dn_html_params = dict(
+    filename_suffix=...,
+)
+
+# %%
+# call the task
+
+
+persist_dn_html = (
+    persist_text.set_task_instance_id("persist_dn_html")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="time_of_day_dominance.html",
+        text=draw_dn_map,
+        **persist_dn_html_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Get grid night fixes
+
+# %%
+# parameters
+
+get_night_fixes_params = dict()
+
+# %%
+# call the task
+
+
+get_night_fixes = (
+    get_grid_night_fixes.set_task_instance_id("get_night_fixes")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        points_gdf=annotate_day_night,
+        grid_gdf=generate_meshgrid,
+        threshold=0.65,
+        **get_night_fixes_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Sort night fixes by duration status
+
+# %%
+# parameters
+
+sort_night_by_status_params = dict()
+
+# %%
+# call the task
+
+
+sort_night_by_status = (
+    sort_values.set_task_instance_id("sort_night_by_status")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        column_name="night_activity",
+        na_position="first",
+        ascending=False,
+        df=get_night_fixes,
+        **sort_night_by_status_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Apply colormap to night fixes
+
+# %%
+# parameters
+
+apply_night_colormap_params = dict()
+
+# %%
+# call the task
+
+
+apply_night_colormap = (
+    apply_color_map.set_task_instance_id("apply_night_colormap")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        input_column_name="night_activity",
+        output_column_name="night_colors",
+        colormap=["#6495ed", "#00008b"],
+        df=sort_night_by_status,
+        **apply_night_colormap_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Create night fixes layers
+
+# %%
+# parameters
+
+generate_night_layers_params = dict()
+
+# %%
+# call the task
+
+
+generate_night_layers = (
+    create_geojson_layer.set_task_instance_id("generate_night_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        layer_style={
+            "filled": True,
+            "stroked": True,
+            "extruded": False,
+            "wireframe": False,
+            "get_fill_color": "night_colors",
+            "get_line_color": "night_colors",
+            "opacity": 0.55,
+            "get_line_width": 1.55,
+            "get_elevation": 0,
+            "get_point_radius": 1,
+            "line_width_units": "pixels",
+            "line_width_scale": 1,
+            "line_width_min_pixels": 1,
+            "line_width_max_pixels": 5,
+        },
+        legend={
+            "title": "Night fixes (65%)",
+            "label_column": "night_activity",
+            "color_column": "night_colors",
+            "sort": "ascending",
+            "label_suffix": None,
+        },
+        geodataframe=apply_night_colormap,
+        **generate_night_layers_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Combine ldx layers and night fixes layers
+
+# %%
+# parameters
+
+combined_ldx_night_layers_params = dict()
+
+# %%
+# call the task
+
+
+combined_ldx_night_layers = (
+    combine_deckgl_map_layers.set_task_instance_id("combined_ldx_night_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
+        grouped_layers=generate_night_layers,
+        **combined_ldx_night_layers_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zoom to gdf extent
+
+# %%
+# parameters
+
+night_view_state_params = dict()
+
+# %%
+# call the task
+
+
+night_view_state = (
+    view_state_deck_gdf.set_task_instance_id("night_view_state")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(gdf=apply_night_colormap, pitch=0, bearing=0, **night_view_state_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Draw night fixes map
+
+# %%
+# parameters
+
+draw_night_map_params = dict(
+    widget_id=...,
+)
+
+# %%
+# call the task
+
+
+draw_night_map = (
+    draw_map.set_task_instance_id("draw_night_map")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        tile_layers=configure_base_maps,
+        static=False,
+        title=None,
+        max_zoom=10,
+        legend_style={"placement": "bottom-right"},
+        geo_layers=combined_ldx_night_layers,
+        view_state=night_view_state,
+        **draw_night_map_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Persist night fixes html
+
+# %%
+# parameters
+
+persist_night_html_params = dict(
+    filename_suffix=...,
+)
+
+# %%
+# call the task
+
+
+persist_night_html = (
+    persist_text.set_task_instance_id("persist_night_html")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="night_fixes.html",
+        text=draw_night_map,
+        **persist_night_html_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Determine protected areas
+
+# %%
+# parameters
+
+protected_areas_params = dict()
+
+# %%
+# call the task
+
+
+protected_areas = (
+    generate_protected_column.set_task_instance_id("protected_areas")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        trajs_gdf=add_season_labels,
+        pa_gdf=filter_ldx_cols,
+        column="type",
+        **protected_areas_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Filter protected areas
+
+# %%
+# parameters
+
+filter_pa_params = dict()
+
+# %%
+# call the task
+
+
+filter_pa = (
+    filter_df.set_task_instance_id("filter_pa")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        df=protected_areas,
+        column_name="protection_status",
+        op="equal",
+        value="Protected",
+        reset_index=False,
+        **filter_pa_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Generate protected areas etd
+
+# %%
+# parameters
+
+generate_pa_etd_params = dict()
+
+# %%
+# call the task
+
+
+generate_pa_etd = (
+    calculate_elliptical_time_density.set_task_instance_id("generate_pa_etd")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        auto_scale_or_custom_cell_size={"auto_scale_or_customize": "Auto-scale"},
+        crs="ESRI:53042",
+        percentiles=[50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
+        nodata_value="nan",
+        band_count=1,
+        max_speed_factor=1.05,
+        expansion_factor=1.3,
+        trajectory_gdf=filter_pa,
+        **generate_pa_etd_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Persist protected areas etd gdf
+
+# %%
+# parameters
+
+persist_pa_etd_gdf_params = dict()
+
+# %%
+# call the task
+
+
+persist_pa_etd_gdf = (
+    persist_df.set_task_instance_id("persist_pa_etd_gdf")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filetype="geoparquet",
+        filename="protected_areas_home_range_etd",
+        df=generate_pa_etd,
+        **persist_pa_etd_gdf_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Apply colormap to protected areas percentiles
+
+# %%
+# parameters
+
+apply_pa_etd_colormap_params = dict()
+
+# %%
+# call the task
+
+
+apply_pa_etd_colormap = (
+    apply_color_map.set_task_instance_id("apply_pa_etd_colormap")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        input_column_name="percentile",
+        output_column_name="etd_percentile_colors",
+        colormap="RdYlGn",
+        df=generate_pa_etd,
+        **apply_pa_etd_colormap_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Create protected areas layers
+
+# %%
+# parameters
+
+generate_pa_layers_params = dict()
+
+# %%
+# call the task
+
+
+generate_pa_layers = (
+    create_geojson_layer.set_task_instance_id("generate_pa_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        layer_style={
+            "filled": True,
+            "stroked": True,
+            "extruded": False,
+            "wireframe": False,
+            "get_fill_color": "etd_percentile_colors",
+            "get_line_color": "etd_percentile_colors",
+            "opacity": 0.55,
+            "get_line_width": 1.55,
+            "get_elevation": 0,
+            "get_point_radius": 1,
+            "line_width_units": "pixels",
+            "line_width_scale": 1,
+            "line_width_min_pixels": 1,
+            "line_width_max_pixels": 5,
+        },
+        legend={
+            "title": "Home Range Percentiles",
+            "label_column": "percentile",
+            "color_column": "etd_percentile_colors",
+            "sort": "ascending",
+            "label_suffix": None,
+        },
+        geodataframe=apply_pa_etd_colormap,
+        **generate_pa_layers_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Combine ldx layers and protected areas layers
+
+# %%
+# parameters
+
+combined_ldx_pa_layers_params = dict()
+
+# %%
+# call the task
+
+
+combined_ldx_pa_layers = (
+    combine_deckgl_map_layers.set_task_instance_id("combined_ldx_pa_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
+        grouped_layers=generate_pa_layers,
+        **combined_ldx_pa_layers_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zoom to gdf extent
+
+# %%
+# parameters
+
+overall_pa_view_state_params = dict()
+
+# %%
+# call the task
+
+
+overall_pa_view_state = (
+    view_state_deck_gdf.set_task_instance_id("overall_pa_view_state")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        gdf=apply_pa_etd_colormap, pitch=0, bearing=0, **overall_pa_view_state_params
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Draw protected areas map
+
+# %%
+# parameters
+
+draw_pa_map_params = dict(
+    widget_id=...,
+)
+
+# %%
+# call the task
+
+
+draw_pa_map = (
+    draw_map.set_task_instance_id("draw_pa_map")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        tile_layers=configure_base_maps,
+        static=False,
+        title=None,
+        max_zoom=10,
+        legend_style={"placement": "bottom-right"},
+        geo_layers=combined_ldx_pa_layers,
+        view_state=overall_pa_view_state,
+        **draw_pa_map_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Persist protected areas html
+
+# %%
+# parameters
+
+persist_pa_html_params = dict(
+    filename_suffix=...,
+)
+
+# %%
+# call the task
+
+
+persist_pa_html = (
+    persist_text.set_task_instance_id("persist_pa_html")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="protected_areas.html",
+        text=draw_pa_map,
+        **persist_pa_html_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Filter unprotected areas
+
+# %%
+# parameters
+
+filter_unprotected_params = dict()
+
+# %%
+# call the task
+
+
+filter_unprotected = (
+    filter_df.set_task_instance_id("filter_unprotected")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        df=protected_areas,
+        column_name="protection_status",
+        op="equal",
+        value="Unprotected",
+        reset_index=False,
+        **filter_unprotected_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Generate unprotected areas etd
+
+# %%
+# parameters
+
+generate_unprotected_etd_params = dict()
+
+# %%
+# call the task
+
+
+generate_unprotected_etd = (
+    calculate_elliptical_time_density.set_task_instance_id("generate_unprotected_etd")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        auto_scale_or_custom_cell_size={"auto_scale_or_customize": "Auto-scale"},
+        crs="ESRI:53042",
+        percentiles=[50.0, 60.0, 70.0, 80.0, 90.0, 95.0, 99.9],
+        nodata_value="nan",
+        band_count=1,
+        max_speed_factor=1.05,
+        expansion_factor=1.3,
+        trajectory_gdf=filter_unprotected,
+        **generate_unprotected_etd_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Persist unprotected areas etd gdf
+
+# %%
+# parameters
+
+persist_unprotected_etd_gdf_params = dict()
+
+# %%
+# call the task
+
+
+persist_unprotected_etd_gdf = (
+    persist_df.set_task_instance_id("persist_unprotected_etd_gdf")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filetype="geoparquet",
+        filename="unprotected_areas_home_range_etd",
+        df=generate_unprotected_etd,
+        **persist_unprotected_etd_gdf_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Apply colormap to unprotected areas percentiles
+
+# %%
+# parameters
+
+apply_unprotected_etd_colormap_params = dict()
+
+# %%
+# call the task
+
+
+apply_unprotected_etd_colormap = (
+    apply_color_map.set_task_instance_id("apply_unprotected_etd_colormap")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        input_column_name="percentile",
+        output_column_name="etd_percentile_colors",
+        colormap="RdYlGn",
+        df=generate_unprotected_etd,
+        **apply_unprotected_etd_colormap_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Create unprotected areas layers
+
+# %%
+# parameters
+
+generate_unprotected_layers_params = dict()
+
+# %%
+# call the task
+
+
+generate_unprotected_layers = (
+    create_geojson_layer.set_task_instance_id("generate_unprotected_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        layer_style={
+            "filled": True,
+            "stroked": True,
+            "extruded": False,
+            "wireframe": False,
+            "get_fill_color": "etd_percentile_colors",
+            "get_line_color": "etd_percentile_colors",
+            "opacity": 0.55,
+            "get_line_width": 1.55,
+            "get_elevation": 0,
+            "get_point_radius": 1,
+            "line_width_units": "pixels",
+            "line_width_scale": 1,
+            "line_width_min_pixels": 1,
+            "line_width_max_pixels": 5,
+        },
+        legend={
+            "title": "Home Range Percentiles",
+            "label_column": "percentile",
+            "color_column": "etd_percentile_colors",
+            "sort": "ascending",
+            "label_suffix": None,
+        },
+        geodataframe=apply_unprotected_etd_colormap,
+        **generate_unprotected_layers_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Combine ldx layers and unprotected areas layers
+
+# %%
+# parameters
+
+combined_ldx_unprotected_layers_params = dict()
+
+# %%
+# call the task
+
+
+combined_ldx_unprotected_layers = (
+    combine_deckgl_map_layers.set_task_instance_id("combined_ldx_unprotected_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
+        grouped_layers=generate_unprotected_layers,
+        **combined_ldx_unprotected_layers_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Zoom to gdf extent
+
+# %%
+# parameters
+
+overall_unprotected_view_state_params = dict()
+
+# %%
+# call the task
+
+
+overall_unprotected_view_state = (
+    view_state_deck_gdf.set_task_instance_id("overall_unprotected_view_state")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        gdf=apply_unprotected_etd_colormap,
+        pitch=0,
+        bearing=0,
+        **overall_unprotected_view_state_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Draw unprotected areas map
+
+# %%
+# parameters
+
+draw_unprotected_map_params = dict(
+    widget_id=...,
+)
+
+# %%
+# call the task
+
+
+draw_unprotected_map = (
+    draw_map.set_task_instance_id("draw_unprotected_map")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        tile_layers=configure_base_maps,
+        static=False,
+        title=None,
+        max_zoom=10,
+        legend_style={"placement": "bottom-right"},
+        geo_layers=combined_ldx_unprotected_layers,
+        view_state=overall_unprotected_view_state,
+        **draw_unprotected_map_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Persist unprotected areas html
+
+# %%
+# parameters
+
+persist_unprotected_html_params = dict(
+    filename_suffix=...,
+)
+
+# %%
+# call the task
+
+
+persist_unprotected_html = (
+    persist_text.set_task_instance_id("persist_unprotected_html")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="unprotected_areas.html",
+        text=draw_unprotected_map,
+        **persist_unprotected_html_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Plot protection status bar chart
+
+# %%
+# parameters
+
+plot_fix_protection_bar_params = dict()
+
+# %%
+# call the task
+
+
+plot_fix_protection_bar = (
+    plot_fix_protection_status.set_task_instance_id("plot_fix_protection_bar")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(gdf=protected_areas, **plot_fix_protection_bar_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Persist protection status bar chart
+
+# %%
+# parameters
+
+persist_protection_bar_params = dict(
+    filename_suffix=...,
+)
+
+# %%
+# call the task
+
+
+persist_protection_bar = (
+    persist_text.set_task_instance_id("persist_protection_bar")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename="protection_status_bar.html",
+        text=plot_fix_protection_bar,
+        **persist_protection_bar_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Split trajectories by group
+
+# %%
+# parameters
+
+split_traj_by_group_params = dict()
+
+# %%
+# call the task
+
+
+split_traj_by_group = (
+    split_groups.set_task_instance_id("split_traj_by_group")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(df=add_season_labels, groupers=groupers, **split_traj_by_group_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Calculate seasonal home range
+
+# %%
+# parameters
+
+seasonal_home_range_params = dict()
+
+# %%
+# call the task
+
+
+seasonal_home_range = (
+    calculate_seasonal_home_range.set_task_instance_id("seasonal_home_range")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        groupby_cols=["season"],
+        percentiles=[99.9],
+        auto_scale_or_custom_cell_size={"auto_scale_or_custom": "Auto-scale"},
+        **seasonal_home_range_params,
+    )
+    .mapvalues(argnames=["gdf"], argvalues=split_traj_by_group)
+)
+
+
+# %% [markdown]
+# ## Convert season column to string
+
+# %%
+# parameters
+
+convert_season_to_string_params = dict()
+
+# %%
+# call the task
+
+
+convert_season_to_string = (
+    convert_to_str.set_task_instance_id("convert_season_to_string")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(columns=["season"], **convert_season_to_string_params)
+    .mapvalues(argnames=["df"], argvalues=seasonal_home_range)
+)
+
+
+# %% [markdown]
+# ## Persist seasonal etd gdf
+
+# %%
+# parameters
+
+persist_seasonal_etd_gdf_params = dict()
+
+# %%
+# call the task
+
+
+persist_seasonal_etd_gdf = (
+    persist_df.set_task_instance_id("persist_seasonal_etd_gdf")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filetype="geoparquet",
+        filename=None,
+        **persist_seasonal_etd_gdf_params,
+    )
+    .mapvalues(argnames=["df"], argvalues=convert_season_to_string)
+)
+
+
+# %% [markdown]
+# ## Assign season colors to dataframe
+
+# %%
+# parameters
+
+assign_season_df_params = dict()
+
+# %%
+# call the task
+
+
+assign_season_df = (
+    assign_season_colors.set_task_instance_id("assign_season_df")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(seasons_column="season", **assign_season_df_params)
+    .mapvalues(argnames=["gdf"], argvalues=convert_season_to_string)
+)
+
+
+# %% [markdown]
+# ## Exclude unnecessary columns from mean speed raster gdf
+
+# %%
+# parameters
+
+filter_season_cols_params = dict()
+
+# %%
+# call the task
+
+
+filter_season_cols = (
+    filter_df_cols.set_task_instance_id("filter_season_cols")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        columns=["season_colors", "season", "geometry"], **filter_season_cols_params
+    )
+    .mapvalues(argnames=["df"], argvalues=assign_season_df)
+)
+
+
+# %% [markdown]
+# ## Create seasonal home range layers
+
+# %%
+# parameters
+
+generate_season_layers_params = dict()
+
+# %%
+# call the task
+
+
+generate_season_layers = (
+    create_geojson_layer.set_task_instance_id("generate_season_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        layer_style={
+            "filled": True,
+            "stroked": True,
+            "extruded": False,
+            "wireframe": False,
+            "get_fill_color": "season_colors",
+            "get_line_color": "season_colors",
+            "opacity": 0.55,
+            "get_line_width": 0.35,
+            "get_elevation": 0,
+            "get_point_radius": 1,
+            "line_width_units": "pixels",
+            "line_width_scale": 1,
+            "line_width_min_pixels": 1,
+            "line_width_max_pixels": 5,
+        },
+        legend={
+            "title": "Seasonal Home Range",
+            "label_column": "season",
+            "color_column": "season_colors",
+            "sort": "ascending",
+            "label_suffix": None,
+        },
+        **generate_season_layers_params,
+    )
+    .mapvalues(argnames=["geodataframe"], argvalues=filter_season_cols)
+)
+
+
+# %% [markdown]
+# ## Combine ldx layers and seasonal home range layers
+
+# %%
+# parameters
+
+combined_ldx_seasonal_hr_layers_params = dict()
+
+# %%
+# call the task
+
+
+combined_ldx_seasonal_hr_layers = (
+    combine_deckgl_map_layers.set_task_instance_id("combined_ldx_seasonal_hr_layers")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
+        **combined_ldx_seasonal_hr_layers_params,
+    )
+    .mapvalues(argnames=["grouped_layers"], argvalues=generate_season_layers)
+)
+
+
+# %% [markdown]
+# ## Zoom to gdf extent
+
+# %%
+# parameters
+
+season_view_state_params = dict()
+
+# %%
+# call the task
+
+
+season_view_state = (
+    view_state_deck_gdf.set_task_instance_id("season_view_state")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(pitch=0, bearing=0, **season_view_state_params)
+    .mapvalues(argnames=["gdf"], argvalues=filter_season_cols)
+)
+
+
+# %% [markdown]
+# ## Combine seasonal home range layers with view state
+
+# %%
+# parameters
+
+zip_seasonal_hr_with_viewstate_params = dict()
+
+# %%
+# call the task
+
+
+zip_seasonal_hr_with_viewstate = (
+    zip_groupbykey.set_task_instance_id("zip_seasonal_hr_with_viewstate")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        sequences=[combined_ldx_seasonal_hr_layers, season_view_state],
+        **zip_seasonal_hr_with_viewstate_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Draw seasonal home range map
+
+# %%
+# parameters
+
+draw_seasonal_home_range_map_params = dict(
+    widget_id=...,
+)
+
+# %%
+# call the task
+
+
+draw_seasonal_home_range_map = (
+    draw_map.set_task_instance_id("draw_seasonal_home_range_map")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        tile_layers=configure_base_maps,
+        static=False,
+        title=None,
+        max_zoom=10,
+        legend_style={"placement": "bottom-right"},
+        **draw_seasonal_home_range_map_params,
+    )
+    .mapvalues(
+        argnames=["geo_layers", "view_state"], argvalues=zip_seasonal_hr_with_viewstate
+    )
+)
+
+
+# %% [markdown]
+# ## Persist seasonal home range html
+
+# %%
+# parameters
+
+persist_seasonal_home_range_html_params = dict(
+    filename=...,
+)
+
+# %%
+# call the task
+
+
+persist_seasonal_home_range_html = (
+    persist_text.set_task_instance_id("persist_seasonal_home_range_html")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        filename_suffix="seasonal_home_range",
+        **persist_seasonal_home_range_html_params,
+    )
+    .mapvalues(argnames=["text"], argvalues=draw_seasonal_home_range_map)
 )
 
 

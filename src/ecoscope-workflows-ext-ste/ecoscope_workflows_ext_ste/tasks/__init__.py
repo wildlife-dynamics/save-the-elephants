@@ -26,6 +26,7 @@ from ._mapdeck_utils import (
     custom_view_state_from_gdf,
     get_image_zoom_value,
     envelope_gdf,
+    generate_protected_column,
 )
 from ._groupers import (
     get_split_group_column,
@@ -51,8 +52,15 @@ from ._aerial_lines import validate_polygon_geometry, draw_survey_lines, transfo
 from ._custom_html_png import adjust_map_zoom_and_screenshot
 
 from ._hex_rgba import convert_hex_to_rgba
+from ._day_night import get_grid_night_fixes, get_day_night_dominance
+from ._plot import plot_fix_protection_status
+
 
 __all__ = [
+    "plot_fix_protection_status",
+    "get_grid_night_fixes",
+    "get_day_night_dominance",
+    "generate_protected_column",
     "filter_df_values",
     "convert_hex_to_rgba",
     "envelope_gdf",
@@ -102,6 +110,5 @@ __all__ = [
     "draw_survey_lines",
     "custom_determine_season_windows",
     "transform_gdf_crs",
-    "add_one_thousand",
     "custom_view_state_from_gdf",
 ]

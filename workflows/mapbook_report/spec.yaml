@@ -51,6 +51,9 @@ workflow:
   - name: Configure grouping strategy 
     id: groupers 
     task: set_groupers
+    partial: 
+      groupers:
+        - index_name: subject_name
   
   - name: Configure base map layers 
     id: configure_base_maps 
