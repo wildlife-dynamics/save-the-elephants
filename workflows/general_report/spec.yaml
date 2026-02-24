@@ -2135,11 +2135,18 @@ workflow:
     partial: 
       output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
+  - name: Unique subjects on relocs
+    id: unique_subjects
+    task: dataframe_column_nunique
+    partial:
+      df: ${{ workflow.rename_traj_cols.return }}
+      column_name: subject_name
+
   - name: Create cover page template context 
     id: create_cover_tpl_context
     task: create_mapbook_ctx_cover
     partial: 
-      count: null 
+      count: ${{ workflow.unique_subjects.return }}
       report_period: ${{ workflow.time_range.return }}
       prepared_by: Ecoscope 
       org_logo_path: ${{ workflow.logo_path.return }}

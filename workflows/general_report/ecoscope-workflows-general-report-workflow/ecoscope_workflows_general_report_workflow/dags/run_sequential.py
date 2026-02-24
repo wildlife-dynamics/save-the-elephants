@@ -2,6 +2,9 @@
 import json
 import os
 
+from ecoscope_workflows_core.tasks.analysis import (
+    dataframe_column_nunique as dataframe_column_nunique,
+)
 from ecoscope_workflows_core.tasks.config import set_string_var as set_string_var
 from ecoscope_workflows_core.tasks.config import (
     set_workflow_details as set_workflow_details,
@@ -4375,6 +4378,26 @@ def main(params: Params):
         .call()
     )
 
+    unique_subjects = (
+        dataframe_column_nunique.validate()
+        .set_task_instance_id("unique_subjects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=rename_traj_cols,
+            column_name="subject_name",
+            **(params_dict.get("unique_subjects") or {}),
+        )
+        .call()
+    )
+
     create_cover_tpl_context = (
         create_mapbook_ctx_cover.validate()
         .set_task_instance_id("create_cover_tpl_context")
@@ -4388,7 +4411,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            count=None,
+            count=unique_subjects,
             report_period=time_range,
             prepared_by="Ecoscope",
             org_logo_path=logo_path,

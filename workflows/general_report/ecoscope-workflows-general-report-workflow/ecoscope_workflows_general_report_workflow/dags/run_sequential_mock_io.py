@@ -96,6 +96,9 @@ get_events = create_task_magicmock(  # 🧪
     anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
     func_name="get_events",  # 🧪
 )  # 🧪
+from ecoscope_workflows_core.tasks.analysis import (
+    dataframe_column_nunique as dataframe_column_nunique,
+)
 from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
 from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
 from ecoscope_workflows_core.tasks.transformation import filter_df as filter_df
@@ -4398,6 +4401,26 @@ def main(params: Params):
         .call()
     )
 
+    unique_subjects = (
+        dataframe_column_nunique.validate()
+        .set_task_instance_id("unique_subjects")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=rename_traj_cols,
+            column_name="subject_name",
+            **(params_dict.get("unique_subjects") or {}),
+        )
+        .call()
+    )
+
     create_cover_tpl_context = (
         create_mapbook_ctx_cover.validate()
         .set_task_instance_id("create_cover_tpl_context")
@@ -4411,7 +4434,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            count=None,
+            count=unique_subjects,
             report_period=time_range,
             prepared_by="Ecoscope",
             org_logo_path=logo_path,

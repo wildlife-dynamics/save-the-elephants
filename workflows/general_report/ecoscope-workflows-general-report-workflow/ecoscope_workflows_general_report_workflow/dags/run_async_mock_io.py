@@ -97,6 +97,9 @@ get_events = create_task_magicmock(  # 🧪
     anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
     func_name="get_events",  # 🧪
 )  # 🧪
+from ecoscope_workflows_core.tasks.analysis import (
+    dataframe_column_nunique as dataframe_column_nunique,
+)
 from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
 from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
 from ecoscope_workflows_core.tasks.transformation import filter_df as filter_df
@@ -477,7 +480,8 @@ def main(params: Params):
         "download_cover_page": [],
         "download_general_template": [],
         "logo_path": [],
-        "create_cover_tpl_context": ["time_range", "logo_path"],
+        "unique_subjects": ["rename_traj_cols"],
+        "create_cover_tpl_context": ["unique_subjects", "time_range", "logo_path"],
         "persist_cover_context": ["download_cover_page", "create_cover_tpl_context"],
         "generate_template_report": ["download_general_template"],
         "merge_general_files": ["persist_cover_context", "generate_template_report"],
@@ -5022,6 +5026,26 @@ def main(params: Params):
             | (params_dict.get("logo_path") or {}),
             method="call",
         ),
+        "unique_subjects": Node(
+            async_task=dataframe_column_nunique.validate()
+            .set_task_instance_id("unique_subjects")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "df": DependsOn("rename_traj_cols"),
+                "column_name": "subject_name",
+            }
+            | (params_dict.get("unique_subjects") or {}),
+            method="call",
+        ),
         "create_cover_tpl_context": Node(
             async_task=create_mapbook_ctx_cover.validate()
             .set_task_instance_id("create_cover_tpl_context")
@@ -5036,7 +5060,7 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "count": None,
+                "count": DependsOn("unique_subjects"),
                 "report_period": DependsOn("time_range"),
                 "prepared_by": "Ecoscope",
                 "org_logo_path": DependsOn("logo_path"),
