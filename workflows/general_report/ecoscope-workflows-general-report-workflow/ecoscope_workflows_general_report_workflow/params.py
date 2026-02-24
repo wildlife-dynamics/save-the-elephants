@@ -20,11 +20,7 @@ class SubjectGroupVar(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    var: str = Field(..., title="Subject Group Name")
-
-
-class SubjectGroup(BaseModel):
-    subject_group_var: SubjectGroupVar | None = Field(None, title="")
+    var: str = Field(..., title="")
 
 
 class CustomTrajsFilter(BaseModel):
@@ -39,14 +35,14 @@ class CustomTrajsFilter(BaseModel):
     max_speed_kmhr: float | None = Field(9.0, title="Max Speed Kmhr")
 
 
-class ZoomToEnvelope(BaseModel):
+class GetEventsData(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    expansion_factor: float | None = Field(
-        1.05,
-        description="Factor to expand the bounding box (e.g., 1.2 = 20% larger)",
-        title="Expansion Factor",
+    event_types: list[str] = Field(
+        ...,
+        description="Specify the event type(s) to analyze (optional). Leave this section empty to analyze all event types.",
+        title="Event Types",
     )
 
 
@@ -100,16 +96,6 @@ class LocalFile(BaseModel):
     file_path: str = Field(
         ..., description="Path to a local file", title="Local file path"
     )
-
-
-class IndexName(str, Enum):
-    Subject_Name = "subject_name"
-    Subject_Sex = "subject_sex"
-    Subject_Subtype = "subject_subtype"
-
-
-class ValueGrouper(BaseModel):
-    index_name: IndexName | None = None
 
 
 class TimeRange(BaseModel):
@@ -171,7 +157,7 @@ class SetPreviousPeriod(BaseModel):
     )
 
 
-class FormData(BaseModel):
+class Params(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -192,12 +178,10 @@ class FormData(BaseModel):
     gee_project_name: GeeProjectName | None = Field(
         None, title="Connect to earth engine"
     )
-    Subject_Group: SubjectGroup | None = Field(
-        None, alias="Subject Group", description="Choose subject group to analyze"
-    )
+    subject_group_var: SubjectGroupVar | None = Field(None, title="")
     retrieve_ldx_db: RetrieveLdxDb | None = Field(None, title="Load landDx database")
     custom_trajs_filter: CustomTrajsFilter | None = Field(
         None, title="Trajectory Segment Filter"
     )
-    zoom_to_envelope: ZoomToEnvelope | None = Field(None, title="Zoom to gdf extent")
+    get_events_data: GetEventsData | None = Field(None, title="Retrieve all events")
     logo_path: LogoPath | None = Field(None, title="Report logo")

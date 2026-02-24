@@ -39,14 +39,14 @@ class CustomTrajsFilter(BaseModel):
     max_speed_kmhr: float | None = Field(9.0, title="Max Speed Kmhr")
 
 
-class ZoomToEnvelope(BaseModel):
+class GetEventsData(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    expansion_factor: float | None = Field(
-        1.05,
-        description="Factor to expand the bounding box (e.g., 1.2 = 20% larger)",
-        title="Expansion Factor",
+    event_types: list[str] = Field(
+        ...,
+        description="Specify the event type(s) to analyze (optional). Leave this section empty to analyze all event types.",
+        title="Event Types",
     )
 
 
@@ -104,8 +104,6 @@ class LocalFile(BaseModel):
 
 class IndexName(str, Enum):
     Subject_Name = "subject_name"
-    Subject_Sex = "subject_sex"
-    Subject_Subtype = "subject_subtype"
 
 
 class ValueGrouper(BaseModel):
@@ -199,5 +197,5 @@ class FormData(BaseModel):
     custom_trajs_filter: CustomTrajsFilter | None = Field(
         None, title="Trajectory Segment Filter"
     )
-    zoom_to_envelope: ZoomToEnvelope | None = Field(None, title="Zoom to gdf extent")
+    get_events_data: GetEventsData | None = Field(None, title="Retrieve all events")
     logo_path: LogoPath | None = Field(None, title="Report logo")

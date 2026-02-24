@@ -44,6 +44,7 @@ def get_split_group_column(
         Input: [
             ((('region', '=', 'Atlantida'), ('year', '=', '2024')), df1),
             ((('region', '=', 'Yoro'),), df2),
+            [((('subject_name', '=', 'Roho'),), 'Roho')]
         ]
         Output: 'region'
     """
@@ -177,3 +178,36 @@ def set_custom_groupers(
     ),
 ]:
     return groupers if groupers else AllGrouper()
+
+
+@task
+def get_split_group_value(
+    split_data: Annotated[
+        list[tuple[CompositeFilter, Any]],
+        Field(description="Output from split_groups: [(CompositeFilter, df), ...]"),
+    ],
+) -> str | None:
+    """
+    Extract the column name used for the first split.
+
+    Example:
+        Input: [
+            ((('region', '=', 'Atlantida'), ('year', '=', '2024')), df1),
+            ((('region', '=', 'Yoro'),), df2),
+            [((('subject_name', '=', 'Roho'),), 'Roho')]
+        ]
+        Output: 'region'
+    """
+    if not split_data:
+        return None
+
+    # Get the first composite filter
+    composite_filter, _ = split_data[0]
+
+    if composite_filter:
+        # Extract column name from the first filter tuple
+        column_name, op, value = composite_filter[0]
+        return value
+    logging.info(f"column name: {column_name} op: {op} value: {value} ")
+    print(f"Viewing grouper value: {value}")
+    return None

@@ -1,9 +1,10 @@
 import logging
 from pydantic import Field
 from typing import Literal
-from typing import Annotated
+from typing import Annotated, cast, Union
 from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_core.annotations import AnyDataFrame
+from ecoscope_workflows_core.tasks.transformation._filter import ComparisonOperator
 
 logger = logging.getLogger(__name__)
 
@@ -168,3 +169,37 @@ def filter_groups_by_value_criteria(
     logger.info(f"Rows: {len(df)} -> {len(filtered_df)}")
 
     return filtered_df
+
+
+@task
+def filter_df_values(
+    df: Annotated[
+        AnyDataFrame,
+        Field(
+            description="The dataframe.",
+            exclude=True,
+        ),
+    ],
+    column_name: Annotated[str, Field(description="The column name to filter on.")],
+    op: Annotated[ComparisonOperator, Field(description="The comparison operator")],
+    value: Annotated[Union[float, int, str], Field(description="The comparison operand (numeric or string)")],
+    reset_index: Annotated[bool, Field(description="If reset index, default is False")] = False,
+) -> AnyDataFrame:
+    match op:
+        case ComparisonOperator.EQUAL:
+            result_df = df[df[column_name] == value]
+        case ComparisonOperator.NE:
+            result_df = df[df[column_name] != value]
+        case ComparisonOperator.GE:
+            result_df = df[df[column_name] >= value]
+        case ComparisonOperator.GT:
+            result_df = df[df[column_name] > value]
+        case ComparisonOperator.LE:
+            result_df = df[df[column_name] <= value]
+        case ComparisonOperator.LT:
+            result_df = df[df[column_name] < value]
+
+    if reset_index:
+        result_df = result_df.reset_index(drop=True)
+
+    return cast(AnyDataFrame, result_df)

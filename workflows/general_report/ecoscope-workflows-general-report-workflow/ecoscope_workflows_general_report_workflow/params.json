@@ -184,19 +184,23 @@
       "required": [],
       "title": "Trajectory Segment Filter"
     },
-    "zoom_to_envelope": {
+    "get_events_data": {
       "additionalProperties": false,
       "properties": {
-        "expansion_factor": {
-          "default": 1.05,
-          "title": "Expansion Factor",
-          "type": "number",
-          "description": "Factor to expand the bounding box (e.g., 1.2 = 20% larger)"
+        "event_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Types",
+          "type": "array",
+          "description": "Specify the event type(s) to analyze (optional). Leave this section empty to analyze all event types."
         }
       },
-      "required": [],
+      "required": [
+        "event_types"
+      ],
       "type": "object",
-      "title": "Zoom to gdf extent"
+      "title": "Retrieve all events"
     },
     "logo_path": {
       "additionalProperties": false,
@@ -417,7 +421,7 @@
       "subject_group_var",
       "retrieve_ldx_db",
       "custom_trajs_filter",
-      "zoom_to_envelope",
+      "get_events_data",
       "logo_path"
     ]
   },

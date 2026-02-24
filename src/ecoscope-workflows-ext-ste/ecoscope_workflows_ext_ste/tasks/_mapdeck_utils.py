@@ -1,6 +1,7 @@
 import math
 import logging
 from enum import Enum
+import pandas as pd
 from pydantic import Field
 from typing import TypedDict, Literal, Tuple
 from pydantic.json_schema import SkipJsonSchema
@@ -592,3 +593,10 @@ def envelope_gdf(
     envelope_gdf = gpd.GeoDataFrame({"geometry": [expanded_envelope]}, crs=gdf.crs)
 
     return envelope_gdf
+
+
+@task
+def generate_protected_column(trajs_gdf: AnyGeoDataFrame, pa_gdf: AnyGeoDataFrame, column: str) -> AnyGeoDataFrame:
+    gdf = gpd.sjoin(trajs_gdf, pa_gdf, how="left", predicate="within")
+    gdf["protection_status"] = gdf[column].apply(lambda x: "Unprotected" if pd.isna(x) or x == "" else "Protected")
+    return gdf
