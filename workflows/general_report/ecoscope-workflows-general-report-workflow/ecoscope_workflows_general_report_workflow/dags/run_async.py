@@ -539,7 +539,7 @@ def main(params: Params):
                     },
                     {
                         "url": "https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places_Alternate/MapServer/tile/{z}/{y}/{x}",
-                        "opacity": 1,
+                        "opacity": 0.25,
                         "max_zoom": 20,
                     },
                 ],
