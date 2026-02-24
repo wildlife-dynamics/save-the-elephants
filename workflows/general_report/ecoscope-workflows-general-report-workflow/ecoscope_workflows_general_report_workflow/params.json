@@ -201,6 +201,27 @@
       ],
       "type": "object",
       "title": "Retrieve all events"
+    },
+    "logo_path": {
+      "additionalProperties": false,
+      "properties": {
+        "input_method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DownloadFile"
+            },
+            {
+              "$ref": "#/$defs/LocalFile"
+            }
+          ],
+          "title": "Input Method"
+        }
+      },
+      "required": [
+        "input_method"
+      ],
+      "type": "object",
+      "title": "Report logo"
     }
   },
   "$defs": {
@@ -400,7 +421,8 @@
       "subject_group_var",
       "retrieve_ldx_db",
       "custom_trajs_filter",
-      "get_events_data"
+      "get_events_data",
+      "logo_path"
     ]
   },
   "additionalProperties": false

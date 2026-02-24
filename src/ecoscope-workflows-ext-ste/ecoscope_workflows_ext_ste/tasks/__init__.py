@@ -34,6 +34,7 @@ from ._groupers import (
     get_split_group_names,
     extract_index_names,
     set_custom_groupers,
+    get_split_group_value,
 )
 
 from ._merge import merge_multiple_df
@@ -54,9 +55,12 @@ from ._custom_html_png import adjust_map_zoom_and_screenshot
 from ._hex_rgba import convert_hex_to_rgba
 from ._day_night import get_grid_night_fixes, get_day_night_dominance
 from ._plot import plot_fix_protection_status
+from ._general_context import general_template_context
 
 
 __all__ = [
+    "general_template_context",
+    "get_split_group_value",
     "plot_fix_protection_status",
     "get_grid_night_fixes",
     "get_day_night_dominance",

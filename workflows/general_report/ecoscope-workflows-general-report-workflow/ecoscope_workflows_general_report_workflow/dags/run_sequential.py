@@ -26,6 +26,7 @@ from ecoscope_workflows_core.tasks.transformation import (
     map_values_with_unit as map_values_with_unit,
 )
 from ecoscope_workflows_core.tasks.transformation import sort_values as sort_values
+from ecoscope_workflows_ext_custom.tasks.io import html_to_png as html_to_png
 from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_geojson_layer as create_geojson_layer,
@@ -84,11 +85,15 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import convert_hex_to_rgba as convert_hex_to_rgba
 from ecoscope_workflows_ext_ste.tasks import convert_to_str as convert_to_str
 from ecoscope_workflows_ext_ste.tasks import create_column as create_column
+from ecoscope_workflows_ext_ste.tasks import create_context_page as create_context_page
 from ecoscope_workflows_ext_ste.tasks import (
     create_custom_text_layer as create_custom_text_layer,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     create_deckgl_layers_from_gdf_dict as create_deckgl_layers_from_gdf_dict,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    create_mapbook_ctx_cover as create_mapbook_ctx_cover,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     create_seasonal_labels as create_seasonal_labels,
@@ -100,10 +105,19 @@ from ecoscope_workflows_ext_ste.tasks import (
     custom_trajectory_segment_filter as custom_trajectory_segment_filter,
 )
 from ecoscope_workflows_ext_ste.tasks import (
+    dataframe_column_first_unique_str as dataframe_column_first_unique_str,
+)
+from ecoscope_workflows_ext_ste.tasks import (
     determine_previous_period as determine_previous_period,
+)
+from ecoscope_workflows_ext_ste.tasks import (
+    fetch_and_persist_file as fetch_and_persist_file,
 )
 from ecoscope_workflows_ext_ste.tasks import filter_df_cols as filter_df_cols
 from ecoscope_workflows_ext_ste.tasks import filter_df_values as filter_df_values
+from ecoscope_workflows_ext_ste.tasks import (
+    general_template_context as general_template_context,
+)
 from ecoscope_workflows_ext_ste.tasks import (
     generate_ecograph_raster as generate_ecograph_raster,
 )
@@ -117,6 +131,7 @@ from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 from ecoscope_workflows_ext_ste.tasks import (
     get_grid_night_fixes as get_grid_night_fixes,
 )
+from ecoscope_workflows_ext_ste.tasks import merge_mapbook_files as merge_mapbook_files
 from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple_df
 from ecoscope_workflows_ext_ste.tasks import (
     modify_status_colors as modify_status_colors,
@@ -3696,27 +3711,6 @@ def main(params: Params):
         .mapvalues(argnames=["df"], argvalues=seasonal_home_range)
     )
 
-    persist_seasonal_etd_gdf = (
-        persist_df.validate()
-        .set_task_instance_id("persist_seasonal_etd_gdf")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filetype="geoparquet",
-            filename=None,
-            **(params_dict.get("persist_seasonal_etd_gdf") or {}),
-        )
-        .mapvalues(argnames=["df"], argvalues=convert_season_to_string)
-    )
-
     assign_season_df = (
         assign_season_colors.validate()
         .set_task_instance_id("assign_season_df")
@@ -3873,6 +3867,65 @@ def main(params: Params):
         )
     )
 
+    get_unique_subject_name = (
+        dataframe_column_first_unique_str.validate()
+        .set_task_instance_id("get_unique_subject_name")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            column_name="subject_name",
+            **(params_dict.get("get_unique_subject_name") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=split_traj_by_group)
+    )
+
+    persist_seasonal_etd_gdf = (
+        persist_df.validate()
+        .set_task_instance_id("persist_seasonal_etd_gdf")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            filetype="geoparquet",
+            filename=None,
+            **(params_dict.get("persist_seasonal_etd_gdf") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=convert_season_to_string)
+    )
+
+    zip_seasonal_html_with_name = (
+        zip_groupbykey.validate()
+        .set_task_instance_id("zip_seasonal_html_with_name")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            sequences=[draw_seasonal_home_range_map, get_unique_subject_name],
+            **(params_dict.get("zip_seasonal_html_with_name") or {}),
+        )
+        .call()
+    )
+
     persist_seasonal_home_range_html = (
         persist_text.validate()
         .set_task_instance_id("persist_seasonal_home_range_html")
@@ -3887,15 +3940,533 @@ def main(params: Params):
         )
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename_suffix="seasonal_home_range",
             **(params_dict.get("persist_seasonal_home_range_html") or {}),
         )
-        .mapvalues(argnames=["text"], argvalues=draw_seasonal_home_range_map)
+        .mapvalues(
+            argnames=["text", "filename_suffix"], argvalues=zip_seasonal_html_with_name
+        )
     )
 
-    mapbook_dashboard = (
+    convert_movement_tracks = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_movement_tracks")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_movement_tracks_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_movement_tracks") or {}),
+        )
+        .call()
+    )
+
+    convert_collared_points = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_collared_points")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_collared_points_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_collared_points") or {}),
+        )
+        .call()
+    )
+
+    convert_subject_tracks = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_subject_tracks")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_subject_tracks_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_subject_tracks") or {}),
+        )
+        .call()
+    )
+
+    convert_overall_homerange = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_overall_homerange")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_homerange_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_overall_homerange") or {}),
+        )
+        .call()
+    )
+
+    convert_filtered_homerange = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_filtered_homerange")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_filtered_hr_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_filtered_homerange") or {}),
+        )
+        .call()
+    )
+
+    convert_recursion_html = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_recursion_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_recursion_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_recursion_html") or {}),
+        )
+        .call()
+    )
+
+    convert_dry_raster_html = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_dry_raster_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_dry_raster_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_dry_raster_html") or {}),
+        )
+        .call()
+    )
+
+    convert_wet_raster_html = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_wet_raster_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_wet_raster_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_wet_raster_html") or {}),
+        )
+        .call()
+    )
+
+    convert_tdn_html = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_tdn_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_dn_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_tdn_html") or {}),
+        )
+        .call()
+    )
+
+    convert_night_fixes_html = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_night_fixes_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_night_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_night_fixes_html") or {}),
+        )
+        .call()
+    )
+
+    convert_pa_html = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_pa_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_pa_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_pa_html") or {}),
+        )
+        .call()
+    )
+
+    convert_upa_html = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_upa_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_unprotected_html,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_upa_html") or {}),
+        )
+        .call()
+    )
+
+    convert_bar_html = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_bar_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            html_path=persist_protection_bar,
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 100,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_bar_html") or {}),
+        )
+        .call()
+    )
+
+    convert_season_html = (
+        html_to_png.validate()
+        .set_task_instance_id("convert_season_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params_dict.get("convert_season_html") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=persist_seasonal_home_range_html)
+    )
+
+    download_cover_page = (
+        fetch_and_persist_file.validate()
+        .set_task_instance_id("download_cover_page")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            url="https://www.dropbox.com/scl/fi/20kwiv0nixcnyg0ciyvhn/general_ele_cover_page.docx?rlkey=xbde21rlzz2edxztkll8brw86&st=5ci1a6cq&dl=0",
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            overwrite_existing=False,
+            unzip=False,
+            retries=2,
+            **(params_dict.get("download_cover_page") or {}),
+        )
+        .call()
+    )
+
+    download_general_template = (
+        fetch_and_persist_file.validate()
+        .set_task_instance_id("download_general_template")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            url="https://www.dropbox.com/scl/fi/nwe5k2qzly77a1bn0tb9w/general_elephant_grouper_page.docx?rlkey=nndhpfgysfueqadidu3au94rg&st=qlqjd5kl&dl=0",
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            overwrite_existing=False,
+            unzip=False,
+            retries=2,
+            **(params_dict.get("download_general_template") or {}),
+        )
+        .call()
+    )
+
+    logo_path = (
+        get_file_path.validate()
+        .set_task_instance_id("logo_path")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            **(params_dict.get("logo_path") or {}),
+        )
+        .call()
+    )
+
+    create_cover_tpl_context = (
+        create_mapbook_ctx_cover.validate()
+        .set_task_instance_id("create_cover_tpl_context")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            count=None,
+            report_period=time_range,
+            prepared_by="Ecoscope",
+            org_logo_path=logo_path,
+            **(params_dict.get("create_cover_tpl_context") or {}),
+        )
+        .call()
+    )
+
+    persist_cover_context = (
+        create_context_page.validate()
+        .set_task_instance_id("persist_cover_context")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            template_path=download_cover_page,
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            context=create_cover_tpl_context,
+            filename="general_cover_page.docx",
+            **(params_dict.get("persist_cover_context") or {}),
+        )
+        .call()
+    )
+
+    generate_template_report = (
+        general_template_context.validate()
+        .set_task_instance_id("generate_template_report")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            template_path=download_general_template,
+            filename="general.docx",
+            width=5.34,
+            height=3.12,
+            **(params_dict.get("generate_template_report") or {}),
+        )
+        .call()
+    )
+
+    merge_general_files = (
+        merge_mapbook_files.validate()
+        .set_task_instance_id("merge_general_files")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            cover_page_path=persist_cover_context,
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            context_page_items=[generate_template_report],
+            filename=None,
+            **(params_dict.get("merge_general_files") or {}),
+        )
+        .call()
+    )
+
+    general_dashboard = (
         gather_dashboard.validate()
-        .set_task_instance_id("mapbook_dashboard")
+        .set_task_instance_id("general_dashboard")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -3910,9 +4481,9 @@ def main(params: Params):
             widgets=[],
             time_range=time_range,
             groupers=groupers,
-            **(params_dict.get("mapbook_dashboard") or {}),
+            **(params_dict.get("general_dashboard") or {}),
         )
         .call()
     )
 
-    return mapbook_dashboard
+    return general_dashboard

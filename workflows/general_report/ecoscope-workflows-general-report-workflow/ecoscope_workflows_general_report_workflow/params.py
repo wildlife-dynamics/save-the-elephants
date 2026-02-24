@@ -135,6 +135,13 @@ class RetrieveLdxDb(BaseModel):
     input_method: DownloadFile | LocalFile = Field(..., title="Input Method")
 
 
+class LogoPath(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    input_method: DownloadFile | LocalFile = Field(..., title="Input Method")
+
+
 class PreviousCustomTimeRangeOption(BaseModel):
     custom: PreviousPeriodType = Field(
         ..., description="Select the previous period type"
@@ -177,3 +184,4 @@ class Params(BaseModel):
         None, title="Trajectory Segment Filter"
     )
     get_events_data: GetEventsData | None = Field(None, title="Retrieve all events")
+    logo_path: LogoPath | None = Field(None, title="Report logo")
