@@ -2146,25 +2146,13 @@ workflow:
       df: ${{ workflow.rename_traj_cols.return }}
       column_name: subject_name
 
-  - name: Get user name to use on template 
-    id: get_user_name 
-    task: get_current_user
-    partial: 
-      client: ${{ workflow.er_client_name.return }}
-  
-  - name: Get user full name 
-    id: get_fullname 
-    task: get_user_full_name 
-    partial: 
-      user: ${{ workflow.get_user_name.return }}
-
   - name: Create cover page template context 
     id: create_cover_tpl_context
     task: create_mapbook_ctx_cover
     partial: 
       count: ${{ workflow.unique_subjects.return }}
       report_period: ${{ workflow.time_range.return }}
-      prepared_by: ${{ workflow.get_fullname.return }} #"Ecoscope"
+      prepared_by: "Ecoscope"
       org_logo_path: ${{ workflow.logo_path.return }}
 
   - name: Persist cover page 
