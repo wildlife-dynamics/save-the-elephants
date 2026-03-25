@@ -3327,8 +3327,8 @@ def main(params: Params):
                 "input_column_name": "is_night_majority",
                 "output_column_name": "dn_colors",
                 "colormap": [
-                    "#6495ed",
                     "#00008b",
+                    "#6495ed",
                 ],
                 "df": DependsOn("sort_dn_by_status"),
             }

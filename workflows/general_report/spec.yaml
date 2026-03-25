@@ -1,20 +1,24 @@
 id: general_report
 requirements:
   - name: ecoscope-workflows-core
-    version: "0.22.9.*"
+    version: "0.22.17.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-ecoscope
-    version: "0.22.9.*"
+    version: "0.22.17.*"
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.28.*"
+    version: "0.0.39.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
-    
+  
+  - name: ecoscope-workflows-ext-big-life
+    version: "0.0.8.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.17.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    version: "*"
+    channel: "file:///tmp/ecoscope-workflows-custom/release/artifacts/"
     
 rjsf-overrides:
   properties: 
@@ -1351,9 +1355,9 @@ workflow:
     partial:
       input_column_name: is_night_majority
       output_column_name: dn_colors
-      colormap:          
+      colormap:  
+        - "#00008b"        
         - "#6495ed"
-        - "#00008b"
       df: ${{ workflow.sort_dn_by_status.return }}
 
   - name: Create day night dominance layers 
@@ -2148,7 +2152,7 @@ workflow:
     partial: 
       count: ${{ workflow.unique_subjects.return }}
       report_period: ${{ workflow.time_range.return }}
-      prepared_by: Ecoscope 
+      prepared_by: "Ecoscope"
       org_logo_path: ${{ workflow.logo_path.return }}
 
   - name: Persist cover page 
