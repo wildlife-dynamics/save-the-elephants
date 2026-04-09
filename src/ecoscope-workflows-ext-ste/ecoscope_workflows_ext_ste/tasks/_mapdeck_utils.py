@@ -285,6 +285,7 @@ def combine_deckgl_map_layers(
         static_layer_copy = LayerDefinition(
             layer_type=static_layer.layer_type,
             geodataframe=static_layer.geodataframe,
+            data_url=static_layer.data_url,
             layer_style=static_layer.layer_style,
             legend=None,  # Remove legend from static layer
         )
@@ -296,6 +297,7 @@ def combine_deckgl_map_layers(
             legend_carrier = LayerDefinition(
                 layer_type=flat_grouped[0].layer_type,
                 geodataframe=flat_grouped[0].geodataframe,
+                data_url=flat_grouped[0].data_url,
                 layer_style=flat_grouped[0].layer_style,
                 legend=static_layer.legend,  # Transfer the legend here
             )
