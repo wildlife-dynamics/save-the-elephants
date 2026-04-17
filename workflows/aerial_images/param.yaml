@@ -1,0 +1,27 @@
+workflow_details:
+  name: Aerial Image Survey
+  description: Match DSLR images to EarthRanger wildlife sighting events by timestamp and upload as attachments.
+
+er_client_name:
+  data_source:
+    name: wd
+
+time_range:
+  timezone:
+    label: Africa/Nairobi
+    tzCode: EAT
+    name: Nairobi
+    utc: +03:00
+  time_format: "%d %b %Y %H:%M:%S"
+  since: "2024-07-09T00:00:00.000Z"
+  until: "2024-07-11T23:59:59.000Z"
+
+events_data:
+  event_types:
+    - aerial_image_test
+
+images_data:
+  image_folder: /Users/zak/Downloads/Angus/July 24 - Angus/
+
+matched_data:
+  time_window_minutes: 4.0

@@ -1,0 +1,216 @@
+{
+  "properties": {
+    "workflow_details": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Workflow Name",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Workflow Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object",
+      "description": "Add information that will help to differentiate this workflow from another.",
+      "title": "Set Workflow Details"
+    },
+    "time_range": {
+      "additionalProperties": false,
+      "properties": {
+        "since": {
+          "format": "date-time",
+          "title": "Since",
+          "type": "string",
+          "description": "The start time"
+        },
+        "until": {
+          "format": "date-time",
+          "title": "Until",
+          "type": "string",
+          "description": "The end time"
+        },
+        "timezone": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/TimezoneInfo"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        },
+        "time_format": {
+          "default": "%d %b %Y %H:%M:%S",
+          "title": "Time Format",
+          "type": "string",
+          "description": "The time format",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [
+        "since",
+        "until"
+      ],
+      "type": "object",
+      "description": "Select the timezone the camera clock was set to when EXIF timestamps were recorded. This is used to align image times with EarthRanger events.",
+      "title": "Time Range"
+    },
+    "er_client_name": {
+      "additionalProperties": false,
+      "properties": {
+        "data_source": {
+          "$ref": "#/$defs/EarthRangerConnection",
+          "title": "",
+          "description": "Select one of your configured data sources."
+        }
+      },
+      "required": [
+        "data_source"
+      ],
+      "type": "object",
+      "title": "Data Source"
+    },
+    "images_data": {
+      "additionalProperties": false,
+      "properties": {
+        "image_folder": {
+          "title": "Image Folder",
+          "type": "string",
+          "description": "Path to the folder containing aerial survey images. Subfolders are scanned recursively. Supported formats: JPG, JPEG, PNG, TIFF, BMP, GIF, WEBP."
+        }
+      },
+      "required": [
+        "image_folder"
+      ],
+      "type": "object",
+      "title": "Process Aerial Images"
+    },
+    "events_data": {
+      "additionalProperties": false,
+      "properties": {
+        "event_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Event Types",
+          "type": "array",
+          "description": "Filter events by type. Leave empty to fetch all event types within the selected time range."
+        },
+        "include_updates": {
+          "default": false,
+          "title": "Include Updates",
+          "type": "boolean",
+          "description": "Whether or not to include event updates",
+          "ecoscope:advanced": true
+        },
+        "include_related_events": {
+          "default": false,
+          "title": "Include Related Events",
+          "type": "boolean",
+          "description": "Whether or not to include related events",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [
+        "event_types"
+      ],
+      "type": "object",
+      "title": "Get Events"
+    },
+    "matched_data": {
+      "additionalProperties": false,
+      "properties": {
+        "time_window_minutes": {
+          "default": 4.0,
+          "exclusiveMinimum": 0.0,
+          "title": "Time Window Minutes",
+          "type": "number",
+          "description": "Set the matching window in minutes. Images with an EXIF timestamp within this window of an event time will be matched to it."
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": "Attach Images to Events"
+    }
+  },
+  "$defs": {
+    "TimezoneInfo": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "tzCode": {
+          "title": "Tzcode",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "utc": {
+          "title": "Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "tzCode",
+        "name",
+        "utc"
+      ],
+      "title": "TimezoneInfo",
+      "type": "object"
+    },
+    "EarthRangerConnection": {
+      "properties": {
+        "name": {
+          "title": "Data Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "EarthRangerConnection",
+      "type": "object"
+    }
+  },
+  "uiSchema": {
+    "workflow_details": {
+      "ui:order": [
+        "name",
+        "description"
+      ]
+    },
+    "time_range": {
+      "ui:order": [
+        "since",
+        "until",
+        "timezone",
+        "time_format"
+      ]
+    },
+    "events_data": {
+      "ui:order": [
+        "event_types",
+        "include_updates",
+        "include_related_events"
+      ]
+    },
+    "ui:order": [
+      "workflow_details",
+      "time_range",
+      "er_client_name",
+      "images_data",
+      "events_data",
+      "matched_data"
+    ]
+  },
+  "additionalProperties": false
+}

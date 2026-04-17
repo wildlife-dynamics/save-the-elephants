@@ -1,0 +1,217 @@
+id: aerial_images
+
+requirements:
+  - name: ecoscope-workflows-core
+    version: "0.22.17.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows/
+
+  - name: ecoscope-workflows-ext-ecoscope
+    version: "0.22.17.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows/
+
+  - name: ecoscope-workflows-ext-custom
+    version: "0.0.39.*"
+    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+
+  - name: ecoscope-workflows-ext-ste
+    version: "*"
+    channel: file:///tmp/ecoscope-workflows-custom/release/artifacts/
+
+rjsf-overrides:
+  properties:
+    time_range.description: >-
+      Select the timezone the camera clock was set to when EXIF timestamps were recorded.
+      This is used to align image times with EarthRanger events.
+    images_data.properties.image_folder.description: >-
+      Path to the folder containing aerial survey images. Subfolders are scanned
+      recursively. Supported formats: JPG, JPEG, PNG, TIFF, BMP, GIF, WEBP.
+    matched_data.properties.time_window_minutes.description: >-
+      Set the matching window in minutes. Images with an EXIF timestamp within this window of an event time will be matched to it.
+    events_data.properties.event_types.description: >-
+      Filter events by type. Leave empty to fetch all event types within the selected
+      time range.
+
+task-instance-defaults:
+  skipif:
+    conditions:
+      - any_is_empty_df
+      - any_dependency_skipped
+
+workflow:
+  - name: Set Workflow Details
+    id: workflow_details
+    task: set_workflow_details
+
+  - name: Time Range
+    id: time_range
+    task: set_time_range
+
+  - name: Data Source
+    id: er_client_name
+    task: set_er_connection
+
+  - id: get_timezone
+    task: get_timezone_from_time_range
+    partial:
+      time_range: ${{ workflow.time_range.return }}
+
+  - name: Process Aerial Images
+    id: images_data
+    task: process_aerial_images
+    skipif:
+      conditions:
+        - any_dependency_skipped
+    partial:
+      timezone: ${{ workflow.get_timezone.return }}
+
+  - name: Get Events
+    id: events_data
+    task: get_events
+    partial:
+      client: ${{ workflow.er_client_name.return }}
+      time_range: ${{ workflow.time_range.return }}
+      event_columns:
+        - id
+        - time
+        - serial_number
+        - event_type
+        - event_category
+        - geometry
+      include_details: false
+      include_null_geometry: true
+      include_display_values: true
+      raise_on_empty: false
+
+  - id: convert_events_to_user_tz
+    task: convert_values_to_timezone
+    partial:
+      df: ${{ workflow.events_data.return }}
+      timezone: ${{ workflow.get_timezone.return }}
+      columns:
+        - time
+
+  - name: Attach Images to Events
+    id: matched_data
+    task: match_images_to_events
+    partial:
+      images_df: ${{ workflow.images_data.return }}
+      events_df: ${{ workflow.convert_events_to_user_tz.return }}
+
+  - id: unmatched_data
+    task: get_unmatched_images
+    partial:
+      images_df: ${{ workflow.images_data.return }}
+      matched_df: ${{ workflow.matched_data.return }}
+
+  - id: persist_matched_csv
+    task: persist_df
+    partial:
+      df: ${{ workflow.matched_data.return }}
+      filetype: csv
+      filename: matched_images
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+  - id: persist_unmatched_csv
+    task: persist_df
+    partial:
+      df: ${{ workflow.unmatched_data.return }}
+      filetype: csv
+      filename: unmatched_images
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+  - title: Matched Images
+    type: task-group
+    description: Build and surface a table of events with their matched images.
+    tasks:
+      - id: matched_html
+        task: build_matched_table
+        partial:
+          matched_df: ${{ workflow.matched_data.return }}
+
+      # draw_table alternative (uncomment to use instead):
+      # - id: matched_html
+      #   task: draw_table
+      #   partial:
+      #     dataframe: ${{ workflow.matched_data.return }}
+      #     columns:
+      #       - serial_number
+      #       - event_time
+      #       - event_type
+      #       - image_count
+
+      - id: persist_matched_html
+        task: persist_text
+        partial:
+          text: ${{ workflow.matched_html.return }}
+          filename: matched_images_preview.html
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+      - name: Matched Images
+        id: matched_widget
+        task: create_plot_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: "Matched Images"
+          data: ${{ workflow.persist_matched_html.return }}
+
+  - title: Unmatched Images
+    type: task-group
+    description: Build and surface a table of images not matched to any event.
+    tasks:
+      - id: unmatched_html
+        task: build_unmatched_table
+        partial:
+          unmatched_df: ${{ workflow.unmatched_data.return }}
+
+      # draw_table alternative (uncomment to use instead):
+      # - id: unmatched_html
+      #   task: draw_table
+      #   partial:
+      #     dataframe: ${{ workflow.unmatched_data.return }}
+      #     columns:
+      #       - file_name
+      #       - datetime
+
+      - id: persist_unmatched_html
+        task: persist_text
+        partial:
+          text: ${{ workflow.unmatched_html.return }}
+          filename: unmatched_images_preview.html
+          root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+      - name: Unmatched Images
+        id: unmatched_widget
+        task: create_plot_widget_single_view
+        skipif:
+          conditions:
+            - never
+        partial:
+          title: "Unmatched Images"
+          data: ${{ workflow.persist_unmatched_html.return }}
+
+  # - name: Upload Images to EarthRanger Events
+  #   id: upload_results
+  #   task: upload_images_to_er_events
+  #   partial:
+  #     client: ${{ workflow.er_client_name.return }}
+  #     matched_df: ${{ workflow.matched_data.return }}
+  #
+  # - id: persist_upload_results
+  #   task: persist_df
+  #   partial:
+  #     df: ${{ workflow.upload_results.return }}
+  #     filetype: csv
+  #     filename: aerial_image_upload_results
+  #     root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+
+  - name: Create Dashboard
+    id: dashboard
+    task: gather_dashboard
+    partial:
+      details: ${{ workflow.workflow_details.return }}
+      widgets:
+        - ${{ workflow.matched_widget.return }}
+        - ${{ workflow.unmatched_widget.return }}
+      time_range: ${{ workflow.time_range.return }}
