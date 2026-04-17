@@ -50,9 +50,20 @@ def _read_exif(path: Path) -> dict:
     return record
 
 
-def _match_window(event_time: pd.Timestamp, images_df: pd.DataFrame, window: pd.Timedelta) -> List[str]:
-    """Return file paths for images captured within ±window of event_time."""
-    mask = (images_df["datetime"] >= event_time - window) & (images_df["datetime"] <= event_time + window)
+def _match_window(
+    event_time: pd.Timestamp,
+    images_df: pd.DataFrame,
+    window: pd.Timedelta,
+    created_at: pd.Timestamp | None = None,
+) -> List[str]:
+    """Return file paths for images captured within the match window.
+
+    Lower bound is event_time - window. Upper bound is created_at + window when
+    created_at > event_time (ER Mobile: event started, photos taken, then submitted),
+    otherwise event_time + window.
+    """
+    upper = (created_at if created_at and created_at > event_time else event_time) + window
+    mask = (images_df["datetime"] >= event_time - window) & (images_df["datetime"] <= upper)
     return images_df.loc[mask, "file_path"].tolist()
 
 
@@ -125,13 +136,17 @@ def match_images_to_events(
         if event_time.tzinfo is None:
             event_time = event_time.tz_localize("UTC")
 
-        matched = _match_window(event_time, timestamped, window)
+        raw_created_at = event.get("created_at")
+        created_at = pd.to_datetime(raw_created_at, utc=True) if raw_created_at else None
+
+        matched = _match_window(event_time, timestamped, window, created_at)
         if matched:
             rows.append(
                 {
                     "event_id": event.get("id", event.name),
                     "serial_number": event.get("serial_number"),
                     "event_time": event_time,
+                    "created_at": created_at,
                     "event_type": event.get("event_type"),
                     "event_type_display": event.get("event_type_display"),
                     "matched_images": matched,

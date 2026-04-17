@@ -182,6 +182,7 @@ def main(params: Params):
                 "event_columns": [
                     "id",
                     "time",
+                    "created_at",
                     "serial_number",
                     "event_type",
                     "event_category",
