@@ -157,9 +157,7 @@ def get_unmatched_images(
     in match_images_to_events. Only timestamped images are considered —
     images without readable EXIF are excluded from both matched and unmatched.
     """
-    matched_paths = set(
-        p for paths in matched_df["matched_images"] for p in paths
-    )
+    matched_paths = set(p for paths in matched_df["matched_images"] for p in paths)
     timestamped = images_df.dropna(subset=["datetime"])
     return timestamped[~timestamped["file_path"].isin(matched_paths)].reset_index(drop=True)
 
