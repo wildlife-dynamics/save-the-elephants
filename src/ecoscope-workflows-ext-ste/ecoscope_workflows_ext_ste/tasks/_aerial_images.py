@@ -19,10 +19,12 @@ _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".gif", ".w
 
 # Standard TIFF/EXIF tag IDs — Pillow's _getexif() returns a dict keyed by these integers.
 # Values are defined by the EXIF spec and are the same across all camera manufacturers.
+# fmt: off
 _EXIF_DATETIME_ORIGINAL = 36867
 _EXIF_DATETIME          = 306
 _EXIF_MAKE              = 271
 _EXIF_MODEL             = 272
+# fmt: on
 
 
 def _read_exif(path: Path) -> dict:
@@ -243,6 +245,7 @@ def build_unmatched_table(
     if unmatched_df.empty:
         return f"{_CSS}<p class='aerial' style='color:#888;padding:12px 0'>All images were matched to events.</p>"
 
+    # fmt: off
     rows = "".join(
         f"<tr><td>{r['file_name']}</td><td>{r['datetime']}</td></tr>"
         for _, r in unmatched_df.iterrows()
@@ -253,6 +256,7 @@ def build_unmatched_table(
         f"<tbody>{rows}</tbody>"
         "</table>"
     )
+    # fmt: on
     summary = (
         "<div class='summary'>"
         f"<span><span class='dot dot-grey'></span> {len(unmatched_df)} images unmatched</span>"
