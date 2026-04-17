@@ -112,7 +112,10 @@ def match_images_to_events(
     window = pd.Timedelta(minutes=time_window_minutes)
     timestamped = images_df.dropna(subset=["datetime"]).copy()
 
-    print(f"Matching {len(timestamped)} timestamped images against {len(events_df)} events (±{time_window_minutes} min window)...")
+    print(
+        f"Matching {len(timestamped)} timestamped images against "
+        f"{len(events_df)} events (\u00b1{time_window_minutes} min window)..."
+    )
 
     rows = []
     for _, event in events_df.iterrows():
@@ -161,16 +164,21 @@ def get_unmatched_images(
 
 _CSS = """
 <style>
-  .aerial { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: .875rem; color: #1a1a1a; }
+  .aerial { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: .875rem; color: #1a1a1a; }
   .aerial .scroll-wrap { overflow-y: auto; max-height: 480px; }
   .aerial table { border-collapse: collapse; width: 100%; }
-  .aerial th { background: #475569; color: #fff; font-weight: 600; padding: 10px 14px; text-align: left; font-size: .875rem; letter-spacing: .03em; text-transform: uppercase; position: sticky; top: 0; z-index: 1; }
-  .aerial td { padding: 9px 14px; border-bottom: 1px solid #e8e8e8; vertical-align: top; font-size: .875rem; }
+  .aerial th { background: #475569; color: #fff; font-weight: 600; padding: 10px 14px;
+               text-align: left; font-size: .875rem; letter-spacing: .03em;
+               text-transform: uppercase; position: sticky; top: 0; z-index: 1; }
+  .aerial td { padding: 9px 14px; border-bottom: 1px solid #e8e8e8;
+               vertical-align: top; font-size: .875rem; }
   .aerial tr:last-child td { border-bottom: none; }
   .aerial tbody tr:nth-child(odd) { background: #f9f9fb; }
   .aerial tbody tr:hover { background: #eef2ff; }
   .aerial .files { font-size: .875rem; color: #555; line-height: 1.8; }
-  .aerial .badge { display: inline-block; background: #e8f0fe; color: #1a56db; border-radius: 12px; padding: 1px 9px; font-size: .78rem; font-weight: 600; }
+  .aerial .badge { display: inline-block; background: #e8f0fe; color: #1a56db;
+                   border-radius: 12px; padding: 1px 9px; font-size: .78rem; font-weight: 600; }
   .aerial .summary { margin-top: 10px; color: #666; font-size: .82rem; display: flex; gap: 18px; }
   .aerial .summary span { display: flex; align-items: center; gap: 5px; }
   .aerial .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
