@@ -56,9 +56,23 @@ from ._hex_rgba import convert_hex_to_rgba
 from ._day_night import get_grid_night_fixes, get_day_night_dominance
 from ._plot import plot_fix_protection_status
 from ._general_context import general_template_context
+from ._aerial_images import (
+    process_aerial_images,
+    match_images_to_events,
+    get_unmatched_images,
+    build_matched_table,
+    build_unmatched_table,
+    upload_images_to_er_events,
+)
 
 
 __all__ = [
+    "process_aerial_images",
+    "match_images_to_events",
+    "get_unmatched_images",
+    "build_matched_table",
+    "build_unmatched_table",
+    "upload_images_to_er_events",
     "general_template_context",
     "get_split_group_value",
     "plot_fix_protection_status",
