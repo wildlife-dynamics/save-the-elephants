@@ -12,8 +12,8 @@ echo "Building recipes: ${RECIPES[@]}"
 
 # pixi clean cache --yes
 
-# rm -rf /tmp/ecoscope-workflows-custom/release/artifacts
-# mkdir -p /tmp/ecoscope-workflows-custom/release/artifacts
+rm -rf /tmp/ecoscope-workflows-custom/release/artifacts
+mkdir -p /tmp/ecoscope-workflows-custom/release/artifacts
 
 for rec in "${RECIPES[@]}"; do
     echo "Building $rec"
@@ -23,3 +23,4 @@ for rec in "${RECIPES[@]}"; do
     --channel https://prefix.dev/ecoscope-workflows \
     --channel conda-forge
 done
+
