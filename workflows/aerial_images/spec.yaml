@@ -128,17 +128,6 @@ workflow:
         partial:
           matched_df: ${{ workflow.matched_data.return }}
 
-      # draw_table alternative (uncomment to use instead):
-      # - id: matched_html
-      #   task: draw_table
-      #   partial:
-      #     dataframe: ${{ workflow.matched_data.return }}
-      #     columns:
-      #       - serial_number
-      #       - event_time
-      #       - event_type
-      #       - image_count
-
       - id: persist_matched_html
         task: persist_text
         partial:
@@ -165,15 +154,6 @@ workflow:
         partial:
           unmatched_df: ${{ workflow.unmatched_data.return }}
 
-      # draw_table alternative (uncomment to use instead):
-      # - id: unmatched_html
-      #   task: draw_table
-      #   partial:
-      #     dataframe: ${{ workflow.unmatched_data.return }}
-      #     columns:
-      #       - file_name
-      #       - datetime
-
       - id: persist_unmatched_html
         task: persist_text
         partial:
@@ -191,20 +171,20 @@ workflow:
           title: "Unmatched Images"
           data: ${{ workflow.persist_unmatched_html.return }}
 
-  # - name: Upload Images to EarthRanger Events
-  #   id: upload_results
-  #   task: upload_images_to_er_events
-  #   partial:
-  #     client: ${{ workflow.er_client_name.return }}
-  #     matched_df: ${{ workflow.matched_data.return }}
-  #
-  # - id: persist_upload_results
-  #   task: persist_df
-  #   partial:
-  #     df: ${{ workflow.upload_results.return }}
-  #     filetype: csv
-  #     filename: aerial_image_upload_results
-  #     root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+  - name: Upload Images to EarthRanger Events
+    id: upload_results
+    task: upload_images_to_er_events
+    partial:
+      client: ${{ workflow.er_client_name.return }}
+      matched_df: ${{ workflow.matched_data.return }}
+
+  - id: persist_upload_results
+    task: persist_df
+    partial:
+      df: ${{ workflow.upload_results.return }}
+      filetype: csv
+      filename: aerial_image_upload_results
+      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
   - name: Create Dashboard
     id: dashboard

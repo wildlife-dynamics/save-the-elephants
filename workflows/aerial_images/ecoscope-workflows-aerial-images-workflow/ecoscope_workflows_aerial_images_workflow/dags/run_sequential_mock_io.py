@@ -52,6 +52,9 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import (
     match_images_to_events as match_images_to_events,
 )
+from ecoscope_workflows_ext_ste.tasks import (
+    upload_images_to_er_events as upload_images_to_er_events,
+)
 
 from ..params import Params
 
@@ -387,6 +390,48 @@ def main(params: Params):
             title="Unmatched Images",
             data=persist_unmatched_html,
             **(params_dict.get("unmatched_widget") or {}),
+        )
+        .call()
+    )
+
+    upload_results = (
+        upload_images_to_er_events.validate()
+        .set_task_instance_id("upload_results")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            client=er_client_name,
+            matched_df=matched_data,
+            **(params_dict.get("upload_results") or {}),
+        )
+        .call()
+    )
+
+    persist_upload_results = (
+        persist_df.validate()
+        .set_task_instance_id("persist_upload_results")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=upload_results,
+            filetype="csv",
+            filename="aerial_image_upload_results",
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            **(params_dict.get("persist_upload_results") or {}),
         )
         .call()
     )

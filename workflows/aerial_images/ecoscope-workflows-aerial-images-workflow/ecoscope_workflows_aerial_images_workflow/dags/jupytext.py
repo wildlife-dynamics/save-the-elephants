@@ -48,6 +48,9 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import (
     process_aerial_images as process_aerial_images,
 )
+from ecoscope_workflows_ext_ste.tasks import (
+    upload_images_to_er_events as upload_images_to_er_events,
+)
 
 # %% [markdown]
 # ## Set Workflow Details
@@ -593,6 +596,68 @@ unmatched_widget = (
     )
     .partial(
         title="Unmatched Images", data=persist_unmatched_html, **unmatched_widget_params
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Upload Images to EarthRanger Events
+
+# %%
+# parameters
+
+upload_results_params = dict()
+
+# %%
+# call the task
+
+
+upload_results = (
+    upload_images_to_er_events.set_task_instance_id("upload_results")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(client=er_client_name, matched_df=matched_data, **upload_results_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ##
+
+# %%
+# parameters
+
+persist_upload_results_params = dict()
+
+# %%
+# call the task
+
+
+persist_upload_results = (
+    persist_df.set_task_instance_id("persist_upload_results")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        df=upload_results,
+        filetype="csv",
+        filename="aerial_image_upload_results",
+        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        **persist_upload_results_params,
     )
     .call()
 )

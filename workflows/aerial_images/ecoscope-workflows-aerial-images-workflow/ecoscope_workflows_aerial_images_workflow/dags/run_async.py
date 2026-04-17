@@ -39,6 +39,9 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import (
     process_aerial_images as process_aerial_images,
 )
+from ecoscope_workflows_ext_ste.tasks import (
+    upload_images_to_er_events as upload_images_to_er_events,
+)
 
 from ..params import Params
 
@@ -64,6 +67,8 @@ def main(params: Params):
         "unmatched_html": ["unmatched_data"],
         "persist_unmatched_html": ["unmatched_html"],
         "unmatched_widget": ["persist_unmatched_html"],
+        "upload_results": ["er_client_name", "matched_data"],
+        "persist_upload_results": ["upload_results"],
         "dashboard": [
             "workflow_details",
             "matched_widget",
@@ -413,6 +418,48 @@ def main(params: Params):
                 "data": DependsOn("persist_unmatched_html"),
             }
             | (params_dict.get("unmatched_widget") or {}),
+            method="call",
+        ),
+        "upload_results": Node(
+            async_task=upload_images_to_er_events.validate()
+            .set_task_instance_id("upload_results")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "client": DependsOn("er_client_name"),
+                "matched_df": DependsOn("matched_data"),
+            }
+            | (params_dict.get("upload_results") or {}),
+            method="call",
+        ),
+        "persist_upload_results": Node(
+            async_task=persist_df.validate()
+            .set_task_instance_id("persist_upload_results")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "df": DependsOn("upload_results"),
+                "filetype": "csv",
+                "filename": "aerial_image_upload_results",
+                "root_path": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            }
+            | (params_dict.get("persist_upload_results") or {}),
             method="call",
         ),
         "dashboard": Node(
