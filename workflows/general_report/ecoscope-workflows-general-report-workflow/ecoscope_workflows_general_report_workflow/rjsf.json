@@ -192,6 +192,20 @@
       "required": [],
       "title": "Trajectory Segment Filter"
     },
+    "generate_track_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create movement track layers"
+    },
     "get_events_data": {
       "additionalProperties": false,
       "properties": {
@@ -209,6 +223,174 @@
       ],
       "type": "object",
       "title": "Retrieve all events"
+    },
+    "generate_collaring_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Generate elephant collaring locations"
+    },
+    "generate_strack_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create subject track layers"
+    },
+    "generate_home_range_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create home range layers"
+    },
+    "custom_home_range_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create 99 home range layers"
+    },
+    "generate_recursion_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create recursion events layers"
+    },
+    "create_dry_speed_raster_layer": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create dry mean speed raster layer"
+    },
+    "create_wet_speed_raster_layer": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create wet mean speed raster layer"
+    },
+    "generate_dn_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create day night dominance layers"
+    },
+    "generate_night_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create night fixes layers"
+    },
+    "generate_pa_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create protected areas layers"
+    },
+    "generate_unprotected_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create unprotected areas layers"
+    },
+    "generate_season_layers": {
+      "additionalProperties": false,
+      "properties": {
+        "data_url": {
+          "default": null,
+          "title": "Data Url",
+          "type": "string",
+          "description": "URL to a GeoJSON file to visualize."
+        }
+      },
+      "type": "object",
+      "required": [],
+      "title": "Create seasonal home range layers"
     },
     "logo_path": {
       "additionalProperties": false,
@@ -441,7 +623,20 @@
       "Subject Group",
       "retrieve_ldx_db",
       "custom_trajs_filter",
+      "generate_track_layers",
       "get_events_data",
+      "generate_collaring_layers",
+      "generate_strack_layers",
+      "generate_home_range_layers",
+      "custom_home_range_layers",
+      "generate_recursion_layers",
+      "create_dry_speed_raster_layer",
+      "create_wet_speed_raster_layer",
+      "generate_dn_layers",
+      "generate_night_layers",
+      "generate_pa_layers",
+      "generate_unprotected_layers",
+      "generate_season_layers",
       "logo_path"
     ]
   },

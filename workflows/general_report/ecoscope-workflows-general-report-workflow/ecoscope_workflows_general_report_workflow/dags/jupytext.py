@@ -84,7 +84,7 @@ from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
     classify_is_night as classify_is_night,
 )
 from ecoscope_workflows_ext_ste.tasks import (
-    annotate_gdf_dict_with_geom_type as annotate_gdf_dict_with_geom_type,
+    annotate_gdf_dict_with_geom_type as annotate_gdf_dict_with_geom_type_1,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     assign_season_colors as assign_season_colors,
@@ -672,7 +672,7 @@ annotate_gdf_dict_params = dict()
 
 
 annotate_gdf_dict = (
-    annotate_gdf_dict_with_geom_type.set_task_instance_id("annotate_gdf_dict")
+    annotate_gdf_dict_with_geom_type_1.set_task_instance_id("annotate_gdf_dict")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -1533,7 +1533,9 @@ filter_movement_cols = (
 # %%
 # parameters
 
-generate_track_layers_params = dict()
+generate_track_layers_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -1769,7 +1771,9 @@ get_events_data = (
 # %%
 # parameters
 
-generate_collaring_layers_params = dict()
+generate_collaring_layers_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -1979,7 +1983,9 @@ convert_subject_hex_rgba = (
 # %%
 # parameters
 
-generate_strack_layers_params = dict()
+generate_strack_layers_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -2371,7 +2377,9 @@ apply_etd_colormap = (
 # %%
 # parameters
 
-generate_home_range_layers_params = dict()
+generate_home_range_layers_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -2594,7 +2602,9 @@ filter_percentile = (
 # %%
 # parameters
 
-custom_home_range_layers_params = dict()
+custom_home_range_layers_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -2952,7 +2962,9 @@ apply_recursion_colormap = (
 # %%
 # parameters
 
-generate_recursion_layers_params = dict()
+generate_recursion_layers_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -3420,7 +3432,9 @@ format_dry_raster_labels = (
 # %%
 # parameters
 
-create_dry_speed_raster_layer_params = dict()
+create_dry_speed_raster_layer_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -3852,7 +3866,9 @@ format_wet_raster_labels = (
 # %%
 # parameters
 
-create_wet_speed_raster_layer_params = dict()
+create_wet_speed_raster_layer_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -4174,7 +4190,9 @@ apply_dn_colormap = (
 # %%
 # parameters
 
-generate_dn_layers_params = dict()
+generate_dn_layers_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -4463,7 +4481,9 @@ apply_night_colormap = (
 # %%
 # parameters
 
-generate_night_layers_params = dict()
+generate_night_layers_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -4669,10 +4689,7 @@ protected_areas = (
         unpack_depth=1,
     )
     .partial(
-        trajs_gdf=add_season_labels,
-        pa_gdf=filter_ldx_cols,
-        column="type",
-        **protected_areas_params,
+        trajs_gdf=add_season_labels, pa_gdf=filter_ldx_cols, **protected_areas_params
     )
     .call()
 )
@@ -4825,7 +4842,9 @@ apply_pa_etd_colormap = (
 # %%
 # parameters
 
-generate_pa_layers_params = dict()
+generate_pa_layers_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -5156,7 +5175,9 @@ apply_unprotected_etd_colormap = (
 # %%
 # parameters
 
-generate_unprotected_layers_params = dict()
+generate_unprotected_layers_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task
@@ -5559,7 +5580,9 @@ filter_season_cols = (
 # %%
 # parameters
 
-generate_season_layers_params = dict()
+generate_season_layers_params = dict(
+    data_url=...,
+)
 
 # %%
 # call the task

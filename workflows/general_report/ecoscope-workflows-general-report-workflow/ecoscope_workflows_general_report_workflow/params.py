@@ -37,6 +37,15 @@ class CustomTrajsFilter(BaseModel):
     max_speed_kmhr: Optional[float] = Field(9.0, title="Max Speed Kmhr")
 
 
+class GenerateTrackLayers(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
 class GetEventsData(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -45,6 +54,114 @@ class GetEventsData(BaseModel):
         ...,
         description="Specify the event type(s) to analyze (optional). Leave this section empty to analyze all event types.",
         title="Event Types",
+    )
+
+
+class GenerateCollaringLayers(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
+class GenerateStrackLayers(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
+class GenerateHomeRangeLayers(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
+class CustomHomeRangeLayers(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
+class GenerateRecursionLayers(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
+class CreateDrySpeedRasterLayer(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
+class CreateWetSpeedRasterLayer(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
+class GenerateDnLayers(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
+class GenerateNightLayers(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
+class GeneratePaLayers(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
+class GenerateUnprotectedLayers(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
+    )
+
+
+class GenerateSeasonLayers(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    data_url: Optional[str] = Field(
+        None, description="URL to a GeoJSON file to visualize.", title="Data Url"
     )
 
 
@@ -187,5 +304,44 @@ class Params(BaseModel):
     custom_trajs_filter: Optional[CustomTrajsFilter] = Field(
         None, title="Trajectory Segment Filter"
     )
+    generate_track_layers: Optional[GenerateTrackLayers] = Field(
+        None, title="Create movement track layers"
+    )
     get_events_data: Optional[GetEventsData] = Field(None, title="Retrieve all events")
+    generate_collaring_layers: Optional[GenerateCollaringLayers] = Field(
+        None, title="Generate elephant collaring locations"
+    )
+    generate_strack_layers: Optional[GenerateStrackLayers] = Field(
+        None, title="Create subject track layers"
+    )
+    generate_home_range_layers: Optional[GenerateHomeRangeLayers] = Field(
+        None, title="Create home range layers"
+    )
+    custom_home_range_layers: Optional[CustomHomeRangeLayers] = Field(
+        None, title="Create 99 home range layers"
+    )
+    generate_recursion_layers: Optional[GenerateRecursionLayers] = Field(
+        None, title="Create recursion events layers"
+    )
+    create_dry_speed_raster_layer: Optional[CreateDrySpeedRasterLayer] = Field(
+        None, title="Create dry mean speed raster layer"
+    )
+    create_wet_speed_raster_layer: Optional[CreateWetSpeedRasterLayer] = Field(
+        None, title="Create wet mean speed raster layer"
+    )
+    generate_dn_layers: Optional[GenerateDnLayers] = Field(
+        None, title="Create day night dominance layers"
+    )
+    generate_night_layers: Optional[GenerateNightLayers] = Field(
+        None, title="Create night fixes layers"
+    )
+    generate_pa_layers: Optional[GeneratePaLayers] = Field(
+        None, title="Create protected areas layers"
+    )
+    generate_unprotected_layers: Optional[GenerateUnprotectedLayers] = Field(
+        None, title="Create unprotected areas layers"
+    )
+    generate_season_layers: Optional[GenerateSeasonLayers] = Field(
+        None, title="Create seasonal home range layers"
+    )
     logo_path: Optional[LogoPath] = Field(None, title="Report logo")

@@ -1,10 +1,10 @@
 import math
 import logging
 from enum import Enum
-import pandas as pd
+import numpy as np
 from pydantic import Field
-from typing import TypedDict, Literal, Tuple
 from pydantic.json_schema import SkipJsonSchema
+from typing import TypedDict, Literal, Tuple,cast
 from ecoscope_workflows_core.decorators import task
 from typing import Annotated, Union, List, Dict, Optional
 from ecoscope_workflows_core.annotations import AdvancedField, AnyGeoDataFrame
@@ -598,7 +598,37 @@ def envelope_gdf(
 
 
 @task
-def generate_protected_column(trajs_gdf: AnyGeoDataFrame, pa_gdf: AnyGeoDataFrame, column: str) -> AnyGeoDataFrame:
-    gdf = gpd.sjoin(trajs_gdf, pa_gdf, how="left", predicate="within")
-    gdf["protection_status"] = gdf[column].apply(lambda x: "Unprotected" if pd.isna(x) or x == "" else "Protected")
-    return gdf
+def generate_protected_column(
+    trajs_gdf: AnyGeoDataFrame,
+    pa_gdf: AnyGeoDataFrame,
+) -> AnyGeoDataFrame:
+    """
+    Tag each row of `trajs_gdf` as 'Protected' or 'Unprotected' based on
+    whether its geometry falls within any geometry in `pa_gdf`.
+
+    If `pa_gdf` is in a different CRS than `trajs_gdf`, it will be
+    reprojected to match. Both inputs must have a CRS set.
+
+    Adds a single `protection_status` column. The output preserves the
+    columns, row count, and CRS of `trajs_gdf` exactly.
+    """
+    _trajs = cast(gpd.GeoDataFrame, trajs_gdf)
+    _pa = cast(gpd.GeoDataFrame, pa_gdf)
+
+    if _trajs.crs is None:
+        raise ValueError("trajs_gdf must have a CRS set.")
+    if _pa.crs is None:
+        raise ValueError("pa_gdf must have a CRS set.")
+
+    if _pa.crs != _trajs.crs:
+        logger.info(
+            "Reprojecting pa_gdf from %s to %s to match trajs_gdf.",
+            _pa.crs,
+            _trajs.crs,
+        )
+        _pa = _pa.to_crs(_trajs.crs)
+
+    out = _trajs.copy()
+    pa_union = _pa.geometry.union_all()
+    out["protection_status"] = np.where(out.geometry.intersects(pa_union), "Protected", "Unprotected")
+    return cast(AnyGeoDataFrame, out)
