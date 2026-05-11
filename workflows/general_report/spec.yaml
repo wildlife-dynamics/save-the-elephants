@@ -165,14 +165,14 @@ workflow:
   
   - name: Split ldx gdf by type column 
     id: split_ldx_by_type 
-    task: split_gdf_by_column
+    task: ecoscope_workflows_ext_ste.tasks.split_gdf_by_column
     partial: 
       gdf: ${{ workflow.filter_ldx_cols.return }}
       column: type 
   
-  - name: Annotate gdf dict with geom type 
-    id: annotate_gdf_dict 
-    task: annotate_gdf_dict_with_geom_type 
+  - name: Annotate gdf dict with geom type
+    id: annotate_gdf_dict
+    task: ecoscope_workflows_ext_ste.tasks.annotate_gdf_dict_with_geom_type
     partial: 
       gdf_dict: ${{ workflow.split_ldx_by_type.return }}
 
@@ -1528,7 +1528,7 @@ workflow:
     partial: 
       trajs_gdf: ${{ workflow.add_season_labels.return }}
       pa_gdf: ${{ workflow.filter_ldx_cols.return }}
-      column: type
+      # column: type
 
   - name: Filter protected areas 
     id: filter_pa

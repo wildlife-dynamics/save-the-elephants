@@ -74,7 +74,7 @@ from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
     classify_is_night as classify_is_night,
 )
 from ecoscope_workflows_ext_ste.tasks import (
-    annotate_gdf_dict_with_geom_type as annotate_gdf_dict_with_geom_type,
+    annotate_gdf_dict_with_geom_type as annotate_gdf_dict_with_geom_type_1,
 )
 from ecoscope_workflows_ext_ste.tasks import (
     assign_season_colors as assign_season_colors,
@@ -468,7 +468,7 @@ def main(params: Params):
     )
 
     annotate_gdf_dict = (
-        annotate_gdf_dict_with_geom_type.validate()
+        annotate_gdf_dict_with_geom_type_1.validate()
         .set_task_instance_id("annotate_gdf_dict")
         .handle_errors()
         .with_tracing()
@@ -3166,7 +3166,6 @@ def main(params: Params):
         .partial(
             trajs_gdf=add_season_labels,
             pa_gdf=filter_ldx_cols,
-            column="type",
             **(params_dict.get("protected_areas") or {}),
         )
         .call()
