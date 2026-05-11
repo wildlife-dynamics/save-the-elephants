@@ -4,7 +4,7 @@ from enum import Enum
 import numpy as np
 from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
-from typing import TypedDict, Literal, Tuple,cast
+from typing import TypedDict, Literal, Tuple, cast
 from ecoscope_workflows_core.decorators import task
 from typing import Annotated, Union, List, Dict, Optional
 from ecoscope_workflows_core.annotations import AdvancedField, AnyGeoDataFrame
