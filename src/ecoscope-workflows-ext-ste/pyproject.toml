@@ -38,9 +38,10 @@ root = "../.."
 
 [tool.pixi.project]
 channels = [
+    "conda-forge",
     "https://prefix.dev/ecoscope-workflows-custom", # our custom channel, you can add your own
     "https://prefix.dev/ecoscope-workflows",        # the main ecoscope-workflows channel
-    "conda-forge",
+
 ]
 
 platforms = ["linux-64", "osx-arm64","win-64"]
