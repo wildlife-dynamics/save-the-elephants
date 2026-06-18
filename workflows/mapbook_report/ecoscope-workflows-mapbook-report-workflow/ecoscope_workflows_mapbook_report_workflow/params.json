@@ -79,7 +79,7 @@
         "option"
       ],
       "type": "object",
-      "title": "Set previous period range"
+      "title": ""
     },
     "er_client_name": {
       "additionalProperties": false,
@@ -125,26 +125,27 @@
       "type": "object",
       "title": ""
     },
-    "retrieve_ldx_db": {
+    "map_overlay": {
       "additionalProperties": false,
       "properties": {
-        "input_method": {
+        "option": {
           "anyOf": [
             {
-              "$ref": "#/$defs/DownloadFile"
+              "$ref": "#/$defs/LandDxOverlayOption"
             },
             {
-              "$ref": "#/$defs/LocalFile"
+              "$ref": "#/$defs/ERSpatialFeatureOverlayOption"
             }
           ],
-          "title": "Input Method"
+          "title": "Option",
+          "description": "Select the overlay source to display on all maps."
         }
       },
       "required": [
-        "input_method"
+        "option"
       ],
       "type": "object",
-      "title": "Load landDx database"
+      "title": ""
     },
     "custom_trajs_filter": {
       "additionalProperties": false,
@@ -182,21 +183,7 @@
       },
       "type": "object",
       "required": [],
-      "title": "Trajectory Segment Filter"
-    },
-    "zoom_to_envelope": {
-      "additionalProperties": false,
-      "properties": {
-        "expansion_factor": {
-          "default": 1.05,
-          "title": "Expansion Factor",
-          "type": "number",
-          "description": "Factor to expand the bounding box (e.g., 1.2 = 20% larger)"
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Zoom to gdf extent"
+      "title": ""
     },
     "logo_path": {
       "additionalProperties": false,
@@ -217,7 +204,7 @@
         "input_method"
       ],
       "type": "object",
-      "title": "Report logo"
+      "title": ""
     }
   },
   "$defs": {
@@ -354,6 +341,258 @@
       "title": "GoogleEarthEngineConnection",
       "type": "object"
     },
+    "ERSpatialFeatureOverlayOption": {
+      "properties": {
+        "source": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/EarthRangerSource"
+            }
+          ],
+          "default": null,
+          "description": "Configure the EarthRanger spatial feature query.",
+          "title": "Source"
+        },
+        "legend_title": {
+          "default": "Legend",
+          "description": "Label shown in the map legend.",
+          "title": "Legend Title",
+          "type": "string"
+        },
+        "fill_opacity": {
+          "default": 0.0,
+          "description": "Fill opacity for polygon interiors. Set to 0 to show outlines only.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Fill Opacity",
+          "type": "number"
+        },
+        "line_opacity": {
+          "default": 1.0,
+          "description": "Opacity of polygon borders from 0 (transparent) to 1 (fully opaque).",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Line Opacity",
+          "type": "number"
+        }
+      },
+      "title": "EarthRanger Spatial Feature",
+      "type": "object"
+    },
+    "EarthRangerSource": {
+      "properties": {
+        "query": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeatureSetQuery"
+            },
+            {
+              "$ref": "#/$defs/FeatureTypeQuery"
+            },
+            {
+              "$ref": "#/$defs/FeatureIdQuery"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        }
+      },
+      "title": "EarthRanger",
+      "type": "object"
+    },
+    "FeatureIdQuery": {
+      "description": "Load a single spatial feature by its EarthRanger UUID.",
+      "properties": {
+        "feature_id": {
+          "description": "UUID of a specific spatial feature available on EarthRanger.",
+          "title": "Feature Id",
+          "type": "string"
+        },
+        "style": {
+          "default": [],
+          "description": "Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+          "items": {
+            "$ref": "#/$defs/LayerStyle"
+          },
+          "maxItems": 1,
+          "title": "Style",
+          "type": "array"
+        }
+      },
+      "required": [
+        "feature_id"
+      ],
+      "title": "Feature ID",
+      "type": "object"
+    },
+    "FeatureSetQuery": {
+      "description": "Load all features from a named EarthRanger featureset.",
+      "properties": {
+        "featureset_name": {
+          "description": "Display name of the featureset exactly as it appears in EarthRanger e.g. 'Boundaries'.",
+          "minLength": 1,
+          "title": "Featureset Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "featureset_name"
+      ],
+      "title": "Feature Set",
+      "type": "object"
+    },
+    "FeatureTypeQuery": {
+      "description": "Load all features of a given type across EarthRanger featuresets.",
+      "properties": {
+        "feature_type": {
+          "description": "Feature type name as shown in EarthRanger e.g. 'Conservancy'.",
+          "minLength": 1,
+          "title": "Feature Type",
+          "type": "string"
+        },
+        "style": {
+          "default": [],
+          "description": "Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+          "items": {
+            "$ref": "#/$defs/LayerStyle"
+          },
+          "maxItems": 1,
+          "title": "Style",
+          "type": "array"
+        }
+      },
+      "required": [
+        "feature_type"
+      ],
+      "title": "Feature Type",
+      "type": "object"
+    },
+    "LandDxOverlayOption": {
+      "properties": {},
+      "title": "LandDx (Default Protected Areas)",
+      "type": "object"
+    },
+    "LayerStyle": {
+      "properties": {
+        "polygon": {
+          "default": [],
+          "description": "Polygon styling. Add one entry to override ER native colours.",
+          "items": {
+            "$ref": "#/$defs/PolygonStyle"
+          },
+          "maxItems": 1,
+          "title": "Polygon",
+          "type": "array"
+        },
+        "line": {
+          "default": [],
+          "description": "Line styling. Add one entry to override ER native colours.",
+          "items": {
+            "$ref": "#/$defs/LineStyle"
+          },
+          "maxItems": 1,
+          "title": "Line",
+          "type": "array"
+        },
+        "point": {
+          "default": [],
+          "description": "Point and icon marker styling. Add one entry to override ER native colours.",
+          "items": {
+            "$ref": "#/$defs/PointStyle"
+          },
+          "maxItems": 1,
+          "title": "Point",
+          "type": "array"
+        }
+      },
+      "title": "",
+      "type": "object"
+    },
+    "LineStyle": {
+      "properties": {
+        "color": {
+          "default": [],
+          "description": "Line hex colour(s) e.g. ['#E63946']. Cycles across rows.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Color",
+          "type": "array"
+        },
+        "opacity": {
+          "default": 1.0,
+          "description": "Line opacity 0\u20131.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Opacity",
+          "type": "number"
+        },
+        "width": {
+          "default": 2.0,
+          "description": "Line width in pixels.",
+          "title": "Width",
+          "type": "number"
+        }
+      },
+      "title": "",
+      "type": "object"
+    },
+    "PointStyle": {
+      "properties": {
+        "color": {
+          "default": [],
+          "description": "Fill hex colour(s). For SVG icons this tints the marker. Cycles across rows.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Color",
+          "type": "array"
+        },
+        "size": {
+          "default": null,
+          "description": "Point radius / icon size in pixels. Leave empty to use the size set in EarthRanger.",
+          "title": "Size",
+          "type": "number"
+        }
+      },
+      "title": "",
+      "type": "object"
+    },
+    "PolygonStyle": {
+      "properties": {
+        "fill_color": {
+          "default": [],
+          "description": "Fill hex colour(s) e.g. ['#FFA500']. Cycles across rows.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Fill Color",
+          "type": "array"
+        },
+        "stroke_color": {
+          "default": null,
+          "description": "Border hex colour.",
+          "title": "Stroke Color",
+          "type": "string"
+        },
+        "fill_opacity": {
+          "default": 1.0,
+          "description": "Fill opacity 0\u20131.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Fill Opacity",
+          "type": "number"
+        },
+        "stroke_width": {
+          "default": 2.0,
+          "description": "Border width in pixels.",
+          "title": "Stroke Width",
+          "type": "number"
+        }
+      },
+      "title": "",
+      "type": "object"
+    },
     "DownloadFile": {
       "properties": {
         "url": {
@@ -415,9 +654,8 @@
       "er_client_name",
       "gee_project_name",
       "subject_group_var",
-      "retrieve_ldx_db",
+      "map_overlay",
       "custom_trajs_filter",
-      "zoom_to_envelope",
       "logo_path"
     ]
   },

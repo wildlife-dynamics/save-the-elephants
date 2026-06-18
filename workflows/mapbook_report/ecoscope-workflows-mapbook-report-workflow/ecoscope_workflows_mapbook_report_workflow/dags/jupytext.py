@@ -18,6 +18,7 @@ from ecoscope_workflows_core.tasks.analysis import (
 from ecoscope_workflows_core.tasks.analysis import (
     dataframe_column_sum as dataframe_column_sum,
 )
+from ecoscope_workflows_core.tasks.config import prefix_string_var as prefix_string_var
 from ecoscope_workflows_core.tasks.config import set_string_var as set_string_var
 from ecoscope_workflows_core.tasks.config import (
     set_workflow_details as set_workflow_details,
@@ -54,7 +55,6 @@ from ecoscope_workflows_core.tasks.transformation import (
     map_values_with_unit as map_values_with_unit,
 )
 from ecoscope_workflows_core.tasks.transformation import sort_values as sort_values
-from ecoscope_workflows_ext_custom.tasks.io import load_df as load_df
 from ecoscope_workflows_ext_custom.tasks.results import (
     create_geojson_layer as create_geojson_layer,
 )
@@ -65,8 +65,8 @@ from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map
 from ecoscope_workflows_ext_custom.tasks.results import (
     set_base_maps_pydeck as set_base_maps_pydeck,
 )
-from ecoscope_workflows_ext_custom.tasks.transformation import (
-    filter_row_values as filter_row_values,
+from ecoscope_workflows_ext_custom.tasks.spatial_ops import (
+    reproject_gdf as reproject_gdf,
 )
 from ecoscope_workflows_ext_custom.tasks.transformation import (
     to_quantity as to_quantity,
@@ -97,9 +97,6 @@ from ecoscope_workflows_ext_ste.tasks import (
     adjust_map_zoom_and_screenshot as adjust_map_zoom_and_screenshot,
 )
 from ecoscope_workflows_ext_ste.tasks import (
-    annotate_gdf_dict_with_geom_type as annotate_gdf_dict_with_geom_type,
-)
-from ecoscope_workflows_ext_ste.tasks import (
     assign_season_colors as assign_season_colors,
 )
 from ecoscope_workflows_ext_ste.tasks import (
@@ -111,12 +108,6 @@ from ecoscope_workflows_ext_ste.tasks import (
 from ecoscope_workflows_ext_ste.tasks import convert_to_str as convert_to_str
 from ecoscope_workflows_ext_ste.tasks import create_column as create_column
 from ecoscope_workflows_ext_ste.tasks import create_context_page as create_context_page
-from ecoscope_workflows_ext_ste.tasks import (
-    create_custom_text_layer as create_custom_text_layer,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    create_deckgl_layers_from_gdf_dict as create_deckgl_layers_from_gdf_dict,
-)
 from ecoscope_workflows_ext_ste.tasks import create_grouper_page as create_grouper_page
 from ecoscope_workflows_ext_ste.tasks import (
     create_mapbook_ctx_cover as create_mapbook_ctx_cover,
@@ -160,6 +151,9 @@ from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 from ecoscope_workflows_ext_ste.tasks import (
     get_split_group_column as get_split_group_column,
 )
+from ecoscope_workflows_ext_ste.tasks import (
+    get_split_group_value as get_split_group_value,
+)
 from ecoscope_workflows_ext_ste.tasks import merge_mapbook_files as merge_mapbook_files
 from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple_df
 from ecoscope_workflows_ext_ste.tasks import (
@@ -169,7 +163,8 @@ from ecoscope_workflows_ext_ste.tasks import (
     retrieve_feature_gdf as retrieve_feature_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
-from ecoscope_workflows_ext_ste.tasks import split_gdf_by_column as split_gdf_by_column
+from ecoscope_workflows_ext_ste.tasks import safe_string as safe_string
+from ecoscope_workflows_ext_ste.tasks import select_map_overlay as select_map_overlay
 from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
 from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
 
@@ -304,7 +299,7 @@ configure_base_maps = (
 
 
 # %% [markdown]
-# ## Set previous period range
+# ##
 
 # %%
 # parameters
@@ -461,298 +456,34 @@ subject_observations = (
 
 
 # %% [markdown]
-# ## Load landDx database
+# ##
 
 # %%
 # parameters
 
-retrieve_ldx_db_params = dict(
-    input_method=...,
+map_overlay_params = dict(
+    option=...,
 )
 
 # %%
 # call the task
 
 
-retrieve_ldx_db = (
-    get_file_path.set_task_instance_id("retrieve_ldx_db")
+map_overlay = (
+    select_map_overlay.set_task_instance_id("map_overlay")
     .handle_errors()
     .with_tracing()
     .skipif(
         conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
+            never,
         ],
         unpack_depth=1,
     )
     .partial(
-        output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"], **retrieve_ldx_db_params
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Load ldx gpkg
-
-# %%
-# parameters
-
-load_ldx_params = dict()
-
-# %%
-# call the task
-
-
-load_ldx = (
-    load_df.set_task_instance_id("load_ldx")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        file_path=retrieve_ldx_db,
-        layer="landDx_polygons",
-        deserialize_json=False,
-        **load_ldx_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Filter loaded landDx by AOI
-
-# %%
-# parameters
-
-filter_ldx_aoi_params = dict()
-
-# %%
-# call the task
-
-
-filter_ldx_aoi = (
-    filter_row_values.set_task_instance_id("filter_ldx_aoi")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        df=load_ldx,
-        column="type",
-        values=["Community Conservancy", "National Reserve", "National Park"],
-        **filter_ldx_aoi_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Exclude unnecessary columns from ldx gdf
-
-# %%
-# parameters
-
-filter_ldx_cols_params = dict()
-
-# %%
-# call the task
-
-
-filter_ldx_cols = (
-    filter_df_cols.set_task_instance_id("filter_ldx_cols")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        df=filter_ldx_aoi,
-        columns=["type", "name", "geometry"],
-        **filter_ldx_cols_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Create text layer
-
-# %%
-# parameters
-
-create_ldx_text_layer_params = dict()
-
-# %%
-# call the task
-
-
-create_ldx_text_layer = (
-    create_custom_text_layer.set_task_instance_id("create_ldx_text_layer")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        geodataframe=filter_ldx_cols,
-        layer_style={
-            "get_text": "name",
-            "get_color": [20, 20, 20, 255],
-            "get_size": 1000,
-            "size_units": "meters",
-            "size_min_pixels": 40,
-            "size_max_pixels": 75,
-            "size_scale": 1.25,
-            "font_family": "Arial",
-            "font_weight": "normal",
-            "get_text_anchor": "middle",
-            "get_alignment_baseline": "center",
-            "billboard": True,
-            "background_padding": [4, 8],
-            "pickable": True,
-            "auto_highlight": False,
-        },
-        use_centroid=True,
-        legend=None,
-        **create_ldx_text_layer_params,
-    )
-    .call()
-)
-
-
-# %% [markdown]
-# ## Split ldx gdf by type column
-
-# %%
-# parameters
-
-split_ldx_by_type_params = dict()
-
-# %%
-# call the task
-
-
-split_ldx_by_type = (
-    split_gdf_by_column.set_task_instance_id("split_ldx_by_type")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(gdf=filter_ldx_cols, column="type", **split_ldx_by_type_params)
-    .call()
-)
-
-
-# %% [markdown]
-# ## Annotate gdf dict with geom type
-
-# %%
-# parameters
-
-annotate_gdf_dict_params = dict()
-
-# %%
-# call the task
-
-
-annotate_gdf_dict = (
-    annotate_gdf_dict_with_geom_type.set_task_instance_id("annotate_gdf_dict")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(gdf_dict=split_ldx_by_type, **annotate_gdf_dict_params)
-    .call()
-)
-
-
-# %% [markdown]
-# ## Create deckgl layers from split ldx gdf dict
-
-# %%
-# parameters
-
-create_ldx_styled_layers_params = dict()
-
-# %%
-# call the task
-
-
-create_ldx_styled_layers = (
-    create_deckgl_layers_from_gdf_dict.set_task_instance_id("create_ldx_styled_layers")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        gdf_dict=annotate_gdf_dict,
-        styles={
-            "Community Conservancy": {
-                "get_fill_color": [166, 182, 151],
-                "get_line_color": [166, 182, 151],
-                "opacity": 0.175,
-                "stroked": True,
-                "get_line_width": 2.25,
-            },
-            "National Reserve": {
-                "get_fill_color": [136, 167, 142],
-                "get_line_color": [136, 167, 142],
-                "opacity": 0.175,
-                "stroked": True,
-                "get_line_width": 2.25,
-            },
-            "National Park": {
-                "get_fill_color": [17, 86, 49],
-                "get_line_color": [17, 86, 49],
-                "opacity": 0.175,
-                "stroked": True,
-                "get_line_width": 2.25,
-            },
-        },
-        legends={
-            "title": "Land Use",
-            "values": [
-                {"label": "Community Conservancy", "color": "#a6b697"},
-                {"label": "National Reserve", "color": "#88a78e"},
-                {"label": "National Park", "color": "#115631"},
-            ],
-        },
-        **create_ldx_styled_layers_params,
+        client=er_client_name,
+        output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+        ldx_url="https://www.dropbox.com/scl/fi/uitptfgxk4wnfcnv9k96a/mapbook_ldx_layers.gpkg?rlkey=xi2azbfzqix9udytv3smsf6eh&st=249w3d2x&dl=0",
+        **map_overlay_params,
     )
     .call()
 )
@@ -834,7 +565,7 @@ annotate_day_night = (
 
 
 # %% [markdown]
-# ## Trajectory Segment Filter
+# ##
 
 # %%
 # parameters
@@ -1264,7 +995,7 @@ persist_trajs_geoparquet = (
         df=rename_traj_cols,
         filetype="geoparquet",
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename="trajectories",
+        filename="_trajectories",
         **persist_trajs_geoparquet_params,
     )
     .call()
@@ -1298,7 +1029,7 @@ persist_prev_trajs_geoparquet = (
         df=rename_prev_traj_cols,
         filetype="geoparquet",
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename="previous_period_trajectories",
+        filename="_previous_period_trajectories",
         **persist_prev_trajs_geoparquet_params,
     )
     .call()
@@ -1366,7 +1097,7 @@ persist_prev_relocs_geoparquet = (
         df=previous_relocs,
         filetype="geoparquet",
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename="previous_period_relocations",
+        filename="_previous_period_relocations",
         **persist_prev_relocs_geoparquet_params,
     )
     .call()
@@ -1605,6 +1336,388 @@ split_traj_by_group = (
 
 
 # %% [markdown]
+# ## Get first subject name for filenames
+
+# %%
+# parameters
+
+first_subject_name_params = dict()
+
+# %%
+# call the task
+
+
+first_subject_name = (
+    get_split_group_value.set_task_instance_id("first_subject_name")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(split_data=split_traj_by_group, **first_subject_name_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Safe-string subject name for filenames
+
+# %%
+# parameters
+
+safe_subject_name_params = dict()
+
+# %%
+# call the task
+
+
+safe_subject_name = (
+    safe_string.set_task_instance_id("safe_subject_name")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(value=first_subject_name, **safe_subject_name_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Build movement tracks filename
+
+# %%
+# parameters
+
+movement_filename_params = dict()
+
+# %%
+# call the task
+
+
+movement_filename = (
+    prefix_string_var.set_task_instance_id("movement_filename")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        prefix=safe_subject_name,
+        var="_movement_tracks.html",
+        **movement_filename_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Build speedmap filename
+
+# %%
+# parameters
+
+speedmap_filename_params = dict()
+
+# %%
+# call the task
+
+
+speedmap_filename = (
+    prefix_string_var.set_task_instance_id("speedmap_filename")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(prefix=safe_subject_name, var="_speedmap.html", **speedmap_filename_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Build day/night filename
+
+# %%
+# parameters
+
+dn_filename_params = dict()
+
+# %%
+# call the task
+
+
+dn_filename = (
+    prefix_string_var.set_task_instance_id("dn_filename")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(prefix=safe_subject_name, var="_day_night.html", **dn_filename_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Build homerange filename
+
+# %%
+# parameters
+
+hr_filename_params = dict()
+
+# %%
+# call the task
+
+
+hr_filename = (
+    prefix_string_var.set_task_instance_id("hr_filename")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(prefix=safe_subject_name, var="_homerange.html", **hr_filename_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Build mean speed raster filename
+
+# %%
+# parameters
+
+mr_filename_params = dict()
+
+# %%
+# call the task
+
+
+mr_filename = (
+    prefix_string_var.set_task_instance_id("mr_filename")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        prefix=safe_subject_name, var="_mean_speed_raster.html", **mr_filename_params
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Build seasonal homerange filename
+
+# %%
+# parameters
+
+seasonal_hr_filename_params = dict()
+
+# %%
+# call the task
+
+
+seasonal_hr_filename = (
+    prefix_string_var.set_task_instance_id("seasonal_hr_filename")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        prefix=safe_subject_name,
+        var="_seasonal_homerange.html",
+        **seasonal_hr_filename_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Build ETD filename
+
+# %%
+# parameters
+
+etd_filename_params = dict()
+
+# %%
+# call the task
+
+
+etd_filename = (
+    prefix_string_var.set_task_instance_id("etd_filename")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(prefix=safe_subject_name, var="_etd", **etd_filename_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Build NDVI values filename
+
+# %%
+# parameters
+
+ndvi_values_filename_params = dict()
+
+# %%
+# call the task
+
+
+ndvi_values_filename = (
+    prefix_string_var.set_task_instance_id("ndvi_values_filename")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        prefix=safe_subject_name, var="_ndvi_values", **ndvi_values_filename_params
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Build MCP filename
+
+# %%
+# parameters
+
+mcp_filename_params = dict()
+
+# %%
+# call the task
+
+
+mcp_filename = (
+    prefix_string_var.set_task_instance_id("mcp_filename")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(prefix=safe_subject_name, var="_mcp", **mcp_filename_params)
+    .call()
+)
+
+
+# %% [markdown]
+# ## Build seasonal ETD filename
+
+# %%
+# parameters
+
+seasonal_etd_filename_params = dict()
+
+# %%
+# call the task
+
+
+seasonal_etd_filename = (
+    prefix_string_var.set_task_instance_id("seasonal_etd_filename")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        prefix=safe_subject_name, var="_seasonal_etd", **seasonal_etd_filename_params
+    )
+    .call()
+)
+
+
+# %% [markdown]
+# ## Build mean speed raster filename
+
+# %%
+# parameters
+
+mean_speed_raster_filename_params = dict()
+
+# %%
+# call the task
+
+
+mean_speed_raster_filename = (
+    prefix_string_var.set_task_instance_id("mean_speed_raster_filename")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        prefix=safe_subject_name,
+        var="_mean_speed_raster",
+        **mean_speed_raster_filename_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Split combined current -previous trajs
 
 # %%
@@ -1808,6 +1921,7 @@ generate_track_layers = (
         unpack_depth=1,
     )
     .partial(
+        data_url=None,
         layer_style={
             "get_color": "duration_status_colors",
             "get_width": 2.85,
@@ -1835,7 +1949,7 @@ generate_track_layers = (
 
 
 # %% [markdown]
-# ## Combine ldx layers and movement track layers
+# ## Combine overlay layers and movement track layers
 
 # %%
 # parameters
@@ -1857,23 +1971,18 @@ combined_ldx_movement_layers = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
-        **combined_ldx_movement_layers_params,
-    )
+    .partial(static_layers=map_overlay, **combined_ldx_movement_layers_params)
     .mapvalues(argnames=["grouped_layers"], argvalues=generate_track_layers)
 )
 
 
 # %% [markdown]
-# ## Zoom to gdf extent
+# ##
 
 # %%
 # parameters
 
-zoom_to_envelope_params = dict(
-    expansion_factor=...,
-)
+zoom_to_envelope_params = dict()
 
 # %%
 # call the task
@@ -1890,13 +1999,13 @@ zoom_to_envelope = (
         ],
         unpack_depth=1,
     )
-    .partial(**zoom_to_envelope_params)
+    .partial(expansion_factor=1.05, **zoom_to_envelope_params)
     .mapvalues(argnames=["gdf"], argvalues=filter_movement_cols)
 )
 
 
 # %% [markdown]
-# ## Zoom to gdf extent for image
+# ## Get image extent
 
 # %%
 # parameters
@@ -1924,7 +2033,7 @@ gdf_image_extent = (
 
 
 # %% [markdown]
-# ## Zoom to gdf extent
+# ## Speed extent
 
 # %%
 # parameters
@@ -2022,14 +2131,43 @@ draw_movement_tracks = (
 
 
 # %% [markdown]
+# ## Zip movement tracks filename with text
+
+# %%
+# parameters
+
+movement_tracks_text_params = dict()
+
+# %%
+# call the task
+
+
+movement_tracks_text = (
+    zip_groupbykey.set_task_instance_id("movement_tracks_text")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        sequences=[movement_filename, draw_movement_tracks],
+        **movement_tracks_text_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Persist movement tracks html
 
 # %%
 # parameters
 
-persist_movement_tracks_html_params = dict(
-    filename=...,
-)
+persist_movement_tracks_html_params = dict()
 
 # %%
 # call the task
@@ -2048,10 +2186,10 @@ persist_movement_tracks_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="movement_tracks",
+        filename_suffix=None,
         **persist_movement_tracks_html_params,
     )
-    .mapvalues(argnames=["text"], argvalues=draw_movement_tracks)
+    .mapvalues(argnames=["filename", "text"], argvalues=movement_tracks_text)
 )
 
 
@@ -2240,6 +2378,7 @@ generate_speedmap_layers = (
         unpack_depth=1,
     )
     .partial(
+        data_url=None,
         layer_style={
             "get_color": "speed_bins_colormap",
             "get_width": 2.85,
@@ -2267,7 +2406,7 @@ generate_speedmap_layers = (
 
 
 # %% [markdown]
-# ## Combine ldx layers and speedmap layers
+# ## Combine overlay layers and speedmap layers
 
 # %%
 # parameters
@@ -2289,10 +2428,7 @@ combined_ldx_speed_layers = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
-        **combined_ldx_speed_layers_params,
-    )
+    .partial(static_layers=map_overlay, **combined_ldx_speed_layers_params)
     .mapvalues(argnames=["grouped_layers"], argvalues=generate_speedmap_layers)
 )
 
@@ -2368,14 +2504,40 @@ draw_speedmap = (
 
 
 # %% [markdown]
+# ## Zip speed filename with text
+
+# %%
+# parameters
+
+speedmap_file_text_params = dict()
+
+# %%
+# call the task
+
+
+speedmap_file_text = (
+    zip_groupbykey.set_task_instance_id("speedmap_file_text")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(sequences=[speedmap_filename, draw_speedmap], **speedmap_file_text_params)
+    .call()
+)
+
+
+# %% [markdown]
 # ## Persist speedmap html
 
 # %%
 # parameters
 
-persist_speedmap_html_params = dict(
-    filename=...,
-)
+persist_speedmap_html_params = dict()
 
 # %%
 # call the task
@@ -2394,10 +2556,10 @@ persist_speedmap_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="speedmap",
+        filename_suffix=None,
         **persist_speedmap_html_params,
     )
-    .mapvalues(argnames=["text"], argvalues=draw_speedmap)
+    .mapvalues(argnames=["filename", "text"], argvalues=speedmap_file_text)
 )
 
 
@@ -2577,6 +2739,7 @@ generate_day_night_layers = (
         unpack_depth=1,
     )
     .partial(
+        data_url=None,
         layer_style={
             "get_color": "day_night_colors",
             "get_width": 2.85,
@@ -2604,7 +2767,7 @@ generate_day_night_layers = (
 
 
 # %% [markdown]
-# ## Combine ldx layers and day/night layers
+# ## Combine overlay layers and day/night layers
 
 # %%
 # parameters
@@ -2626,10 +2789,7 @@ combined_ldx_daynight_layers = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
-        **combined_ldx_daynight_layers_params,
-    )
+    .partial(static_layers=map_overlay, **combined_ldx_daynight_layers_params)
     .mapvalues(argnames=["grouped_layers"], argvalues=generate_day_night_layers)
 )
 
@@ -2705,14 +2865,40 @@ draw_day_night_map = (
 
 
 # %% [markdown]
+# ## Zip day/night filename with text
+
+# %%
+# parameters
+
+day_night_text_params = dict()
+
+# %%
+# call the task
+
+
+day_night_text = (
+    zip_groupbykey.set_task_instance_id("day_night_text")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(sequences=[dn_filename, draw_day_night_map], **day_night_text_params)
+    .call()
+)
+
+
+# %% [markdown]
 # ## Persist day/night html
 
 # %%
 # parameters
 
-persist_day_night_html_params = dict(
-    filename=...,
-)
+persist_day_night_html_params = dict()
 
 # %%
 # call the task
@@ -2731,10 +2917,10 @@ persist_day_night_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="day_night",
+        filename_suffix=None,
         **persist_day_night_html_params,
     )
-    .mapvalues(argnames=["text"], argvalues=draw_day_night_map)
+    .mapvalues(argnames=["filename", "text"], argvalues=day_night_text)
 )
 
 
@@ -2831,6 +3017,62 @@ generate_etd = (
 
 
 # %% [markdown]
+# ## Reproject etd to wgs84
+
+# %%
+# parameters
+
+reproject_etd_params = dict()
+
+# %%
+# call the task
+
+
+reproject_etd = (
+    reproject_gdf.set_task_instance_id("reproject_etd")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(target_crs="EPSG:4326", **reproject_etd_params)
+    .mapvalues(argnames=["gdf"], argvalues=generate_etd)
+)
+
+
+# %% [markdown]
+# ## zip etd filename with df
+
+# %%
+# parameters
+
+etd_df_params = dict()
+
+# %%
+# call the task
+
+
+etd_df = (
+    zip_groupbykey.set_task_instance_id("etd_df")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(sequences=[etd_filename, reproject_etd], **etd_df_params)
+    .call()
+)
+
+
+# %% [markdown]
 # ## Persist etd gdf
 
 # %%
@@ -2856,10 +3098,9 @@ persist_etd_gdf = (
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         filetype="geoparquet",
-        filename=None,
         **persist_etd_gdf_params,
     )
-    .mapvalues(argnames=["df"], argvalues=generate_etd)
+    .mapvalues(argnames=["filename", "df"], argvalues=etd_df)
 )
 
 
@@ -2892,39 +3133,6 @@ determine_seasonal_windows = (
         **determine_seasonal_windows_params,
     )
     .mapvalues(argnames=["roi"], argvalues=generate_etd)
-)
-
-
-# %% [markdown]
-# ## Persist seasonal windows csv
-
-# %%
-# parameters
-
-persist_ndvi_values_params = dict()
-
-# %%
-# call the task
-
-
-persist_ndvi_values = (
-    persist_df.set_task_instance_id("persist_ndvi_values")
-    .handle_errors()
-    .with_tracing()
-    .skipif(
-        conditions=[
-            any_is_empty_df,
-            any_dependency_skipped,
-        ],
-        unpack_depth=1,
-    )
-    .partial(
-        root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filetype="csv",
-        filename=None,
-        **persist_ndvi_values_params,
-    )
-    .mapvalues(argnames=["df"], argvalues=determine_seasonal_windows)
 )
 
 
@@ -3016,6 +3224,62 @@ generate_mcp = (
 
 
 # %% [markdown]
+# ## Reproject mcp gdf to wgs84
+
+# %%
+# parameters
+
+reproject_mcp_params = dict()
+
+# %%
+# call the task
+
+
+reproject_mcp = (
+    reproject_gdf.set_task_instance_id("reproject_mcp")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(target_crs="EPSG:4326", **reproject_mcp_params)
+    .mapvalues(argnames=["gdf"], argvalues=generate_mcp)
+)
+
+
+# %% [markdown]
+# ## Zip mcp filename with gdf
+
+# %%
+# parameters
+
+mcp_gdf_params = dict()
+
+# %%
+# call the task
+
+
+mcp_gdf = (
+    zip_groupbykey.set_task_instance_id("mcp_gdf")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(sequences=[mcp_filename, generate_mcp], **mcp_gdf_params)
+    .call()
+)
+
+
+# %% [markdown]
 # ## Persist mcp gdf
 
 # %%
@@ -3041,10 +3305,9 @@ persist_mcp_gdf = (
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
         filetype="geoparquet",
-        filename=None,
         **persist_mcp_gdf_params,
     )
-    .mapvalues(argnames=["df"], argvalues=generate_mcp)
+    .mapvalues(argnames=["filename", "df"], argvalues=mcp_gdf)
 )
 
 
@@ -3077,7 +3340,7 @@ apply_etd_colormap = (
         colormap="RdYlGn",
         **apply_etd_colormap_params,
     )
-    .mapvalues(argnames=["df"], argvalues=generate_etd)
+    .mapvalues(argnames=["df"], argvalues=reproject_etd)
 )
 
 
@@ -3136,6 +3399,7 @@ generate_home_range_layers = (
         unpack_depth=1,
     )
     .partial(
+        data_url=None,
         layer_style={
             "filled": True,
             "stroked": True,
@@ -3189,7 +3453,7 @@ filter_mcp_cols = (
         unpack_depth=1,
     )
     .partial(columns=["area_km2", "geometry"], **filter_mcp_cols_params)
-    .mapvalues(argnames=["df"], argvalues=generate_mcp)
+    .mapvalues(argnames=["df"], argvalues=reproject_mcp)
 )
 
 
@@ -3217,6 +3481,7 @@ create_mcp_polygon_layer = (
         unpack_depth=1,
     )
     .partial(
+        data_url=None,
         layer_style={
             "filled": False,
             "stroked": True,
@@ -3275,7 +3540,7 @@ zip_home_range_with_mcp_layer = (
 
 
 # %% [markdown]
-# ## Combine ldx layers and home range layers
+# ## Combine overlay layers and home range layers
 
 # %%
 # parameters
@@ -3297,10 +3562,7 @@ combined_ldx_home_range_layers = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
-        **combined_ldx_home_range_layers_params,
-    )
+    .partial(static_layers=map_overlay, **combined_ldx_home_range_layers_params)
     .mapvalues(argnames=["grouped_layers"], argvalues=zip_home_range_with_mcp_layer)
 )
 
@@ -3374,14 +3636,40 @@ draw_home_range_map = (
 
 
 # %% [markdown]
+# ## Zip homerange filename with text
+
+# %%
+# parameters
+
+hr_text_file_params = dict()
+
+# %%
+# call the task
+
+
+hr_text_file = (
+    zip_groupbykey.set_task_instance_id("hr_text_file")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(sequences=[hr_filename, draw_home_range_map], **hr_text_file_params)
+    .call()
+)
+
+
+# %% [markdown]
 # ## Persist homerange html
 
 # %%
 # parameters
 
-persist_homerange_html_params = dict(
-    filename=...,
-)
+persist_homerange_html_params = dict()
 
 # %%
 # call the task
@@ -3400,10 +3688,10 @@ persist_homerange_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="homerange",
+        filename_suffix=None,
         **persist_homerange_html_params,
     )
-    .mapvalues(argnames=["text"], argvalues=draw_home_range_map)
+    .mapvalues(argnames=["filename", "text"], argvalues=hr_text_file)
 )
 
 
@@ -3496,7 +3784,7 @@ generate_mean_speed_raster = (
         resolution=None,
         network_metric=None,
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename=None,
+        filename=mean_speed_raster_filename,
         **generate_mean_speed_raster_params,
     )
     .mapvalues(argnames=["gdf"], argvalues=split_traj_by_group)
@@ -3565,6 +3853,34 @@ sort_speed_features_by_value = (
 
 
 # %% [markdown]
+# ## Reproject mean speed raster features to wgs84
+
+# %%
+# parameters
+
+reproject_speed_raster_params = dict()
+
+# %%
+# call the task
+
+
+reproject_speed_raster = (
+    reproject_gdf.set_task_instance_id("reproject_speed_raster")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(target_crs="EPSG:4326", **reproject_speed_raster_params)
+    .mapvalues(argnames=["gdf"], argvalues=sort_speed_features_by_value)
+)
+
+
+# %% [markdown]
 # ## Apply classification to speed raster features
 
 # %%
@@ -3594,7 +3910,7 @@ apply_classification_raster = (
         label_options={"label_range": False, "label_decimals": 1},
         **apply_classification_raster_params,
     )
-    .mapvalues(argnames=["df"], argvalues=sort_speed_features_by_value)
+    .mapvalues(argnames=["df"], argvalues=reproject_speed_raster)
 )
 
 
@@ -3726,6 +4042,7 @@ create_mean_speed_raster_layer = (
         unpack_depth=1,
     )
     .partial(
+        data_url=None,
         layer_style={
             "filled": True,
             "stroked": False,
@@ -3756,7 +4073,7 @@ create_mean_speed_raster_layer = (
 
 
 # %% [markdown]
-# ## Combine ldx layers and mean speed raster layer
+# ## Combine overlay layers and mean speed raster layer
 
 # %%
 # parameters
@@ -3778,10 +4095,7 @@ combined_ldx_speed_raster = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
-        **combined_ldx_speed_raster_params,
-    )
+    .partial(static_layers=map_overlay, **combined_ldx_speed_raster_params)
     .mapvalues(argnames=["grouped_layers"], argvalues=create_mean_speed_raster_layer)
 )
 
@@ -3857,14 +4171,42 @@ draw_mean_speed_raster_map = (
 
 
 # %% [markdown]
+# ## Zip mean speed raster filename with text
+
+# %%
+# parameters
+
+mean_speed_text_params = dict()
+
+# %%
+# call the task
+
+
+mean_speed_text = (
+    zip_groupbykey.set_task_instance_id("mean_speed_text")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        sequences=[mr_filename, draw_mean_speed_raster_map], **mean_speed_text_params
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Persist mean speed raster html
 
 # %%
 # parameters
 
-persist_mean_speed_raster_html_params = dict(
-    filename=...,
-)
+persist_mean_speed_raster_html_params = dict()
 
 # %%
 # call the task
@@ -3883,10 +4225,10 @@ persist_mean_speed_raster_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="mean_speed_raster",
+        filename_suffix=None,
         **persist_mean_speed_raster_html_params,
     )
-    .mapvalues(argnames=["text"], argvalues=draw_mean_speed_raster_map)
+    .mapvalues(argnames=["filename", "text"], argvalues=mean_speed_text)
 )
 
 
@@ -4012,6 +4354,37 @@ convert_season_to_string = (
 
 
 # %% [markdown]
+# ## Zip seasonal etd filename with gdf
+
+# %%
+# parameters
+
+seasonal_etd_gdf_params = dict()
+
+# %%
+# call the task
+
+
+seasonal_etd_gdf = (
+    zip_groupbykey.set_task_instance_id("seasonal_etd_gdf")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        sequences=[seasonal_etd_filename, convert_season_to_string],
+        **seasonal_etd_gdf_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Persist seasonal etd gdf
 
 # %%
@@ -4040,7 +4413,35 @@ persist_seasonal_etd_gdf = (
         filename=None,
         **persist_seasonal_etd_gdf_params,
     )
-    .mapvalues(argnames=["df"], argvalues=convert_season_to_string)
+    .mapvalues(argnames=["filename", "df"], argvalues=seasonal_etd_gdf)
+)
+
+
+# %% [markdown]
+# ## Reproject seasonal home range gdf to wgs84
+
+# %%
+# parameters
+
+reproject_seasonal_home_range_params = dict()
+
+# %%
+# call the task
+
+
+reproject_seasonal_home_range = (
+    reproject_gdf.set_task_instance_id("reproject_seasonal_home_range")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(target_crs="EPSG:4326", **reproject_seasonal_home_range_params)
+    .mapvalues(argnames=["gdf"], argvalues=convert_season_to_string)
 )
 
 
@@ -4068,7 +4469,7 @@ assign_season_df = (
         unpack_depth=1,
     )
     .partial(seasons_column="season", **assign_season_df_params)
-    .mapvalues(argnames=["gdf"], argvalues=convert_season_to_string)
+    .mapvalues(argnames=["gdf"], argvalues=reproject_seasonal_home_range)
 )
 
 
@@ -4126,6 +4527,7 @@ generate_season_layers = (
         unpack_depth=1,
     )
     .partial(
+        data_url=None,
         layer_style={
             "filled": True,
             "stroked": True,
@@ -4156,7 +4558,7 @@ generate_season_layers = (
 
 
 # %% [markdown]
-# ## Combine ldx layers and seasonal home range layers
+# ## Combine overlay layers and seasonal home range layers
 
 # %%
 # parameters
@@ -4178,10 +4580,7 @@ combined_ldx_seasonal_hr_layers = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        static_layers=[create_ldx_styled_layers, create_ldx_text_layer],
-        **combined_ldx_seasonal_hr_layers_params,
-    )
+    .partial(static_layers=map_overlay, **combined_ldx_seasonal_hr_layers_params)
     .mapvalues(argnames=["grouped_layers"], argvalues=generate_season_layers)
 )
 
@@ -4257,14 +4656,43 @@ draw_seasonal_home_range_map = (
 
 
 # %% [markdown]
+# ## Zip seasonal homerange filename with text
+
+# %%
+# parameters
+
+seasonal_hr_text_params = dict()
+
+# %%
+# call the task
+
+
+seasonal_hr_text = (
+    zip_groupbykey.set_task_instance_id("seasonal_hr_text")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        sequences=[seasonal_hr_filename, draw_seasonal_home_range_map],
+        **seasonal_hr_text_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Persist seasonal home range html
 
 # %%
 # parameters
 
-persist_seasonal_home_range_html_params = dict(
-    filename=...,
-)
+persist_seasonal_home_range_html_params = dict()
 
 # %%
 # call the task
@@ -4283,10 +4711,10 @@ persist_seasonal_home_range_html = (
     )
     .partial(
         root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename_suffix="seasonal_home_range",
+        filename_suffix=None,
         **persist_seasonal_home_range_html_params,
     )
-    .mapvalues(argnames=["text"], argvalues=draw_seasonal_home_range_map)
+    .mapvalues(argnames=["filename", "text"], argvalues=seasonal_hr_text)
 )
 
 
@@ -4805,7 +5233,7 @@ download_sect_templates = (
 
 
 # %% [markdown]
-# ## Report logo
+# ##
 
 # %%
 # parameters

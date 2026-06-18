@@ -11,6 +11,7 @@ from ._tabular import (
     filter_df_cols,
     create_column,
     convert_to_str,
+    safe_string,
 )
 from ._zip import zip_groupbykey
 from ._time_comparison import determine_previous_period
@@ -27,6 +28,8 @@ from ._mapdeck_utils import (
     get_image_zoom_value,
     envelope_gdf,
     generate_protected_column,
+    resolve_overlay_layers,
+    select_map_overlay,
 )
 from ._groupers import (
     get_split_group_column,
@@ -79,6 +82,8 @@ __all__ = [
     "get_grid_night_fixes",
     "get_day_night_dominance",
     "generate_protected_column",
+    "resolve_overlay_layers",
+    "select_map_overlay",
     "filter_df_values",
     "convert_hex_to_rgba",
     "envelope_gdf",
@@ -99,6 +104,7 @@ __all__ = [
     "filter_df_cols",
     "create_column",
     "convert_to_str",
+    "safe_string",
     "zip_groupbykey",
     "determine_previous_period",
     "view_state_deck_gdf",

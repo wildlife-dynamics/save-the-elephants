@@ -5,9 +5,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Union
+from typing import List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, confloat, constr
 
 
 class WorkflowDetails(BaseModel):
@@ -35,17 +35,6 @@ class CustomTrajsFilter(BaseModel):
     max_time_secs: Optional[float] = Field(21600, title="Max Time Secs")
     min_speed_kmhr: Optional[float] = Field(0.01, title="Min Speed Kmhr")
     max_speed_kmhr: Optional[float] = Field(9.0, title="Max Speed Kmhr")
-
-
-class ZoomToEnvelope(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    expansion_factor: Optional[float] = Field(
-        1.05,
-        description="Factor to expand the bounding box (e.g., 1.2 = 20% larger)",
-        title="Expansion Factor",
-    )
 
 
 class TimezoneInfo(BaseModel):
@@ -90,6 +79,62 @@ class GoogleEarthEngineConnection(BaseModel):
     name: str = Field(..., title="Data Source")
 
 
+class FeatureSetQuery(BaseModel):
+    featureset_name: constr(min_length=1) = Field(
+        ...,
+        description="Display name of the featureset exactly as it appears in EarthRanger e.g. 'Boundaries'.",
+        title="Featureset Name",
+    )
+
+
+class LandDxOverlayOption(BaseModel):
+    pass
+
+
+class LineStyle(BaseModel):
+    color: Optional[List[str]] = Field(
+        [],
+        description="Line hex colour(s) e.g. ['#E63946']. Cycles across rows.",
+        title="Color",
+    )
+    opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        1.0, description="Line opacity 0–1.", title="Opacity"
+    )
+    width: Optional[float] = Field(
+        2.0, description="Line width in pixels.", title="Width"
+    )
+
+
+class PointStyle(BaseModel):
+    color: Optional[List[str]] = Field(
+        [],
+        description="Fill hex colour(s). For SVG icons this tints the marker. Cycles across rows.",
+        title="Color",
+    )
+    size: Optional[float] = Field(
+        None,
+        description="Point radius / icon size in pixels. Leave empty to use the size set in EarthRanger.",
+        title="Size",
+    )
+
+
+class PolygonStyle(BaseModel):
+    fill_color: Optional[List[str]] = Field(
+        [],
+        description="Fill hex colour(s) e.g. ['#FFA500']. Cycles across rows.",
+        title="Fill Color",
+    )
+    stroke_color: Optional[str] = Field(
+        None, description="Border hex colour.", title="Stroke Color"
+    )
+    fill_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        1.0, description="Fill opacity 0–1.", title="Fill Opacity"
+    )
+    stroke_width: Optional[float] = Field(
+        2.0, description="Border width in pixels.", title="Stroke Width"
+    )
+
+
 class DownloadFile(BaseModel):
     url: str = Field(..., description="URL to download a file", title="URL")
 
@@ -130,13 +175,6 @@ class GeeProjectName(BaseModel):
     )
 
 
-class RetrieveLdxDb(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    input_method: Union[DownloadFile, LocalFile] = Field(..., title="Input Method")
-
-
 class LogoPath(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -150,12 +188,99 @@ class PreviousCustomTimeRangeOption(BaseModel):
     )
 
 
+class LayerStyle(BaseModel):
+    polygon: Optional[List[PolygonStyle]] = Field(
+        [],
+        description="Polygon styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Polygon",
+    )
+    line: Optional[List[LineStyle]] = Field(
+        [],
+        description="Line styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Line",
+    )
+    point: Optional[List[PointStyle]] = Field(
+        [],
+        description="Point and icon marker styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Point",
+    )
+
+
 class SetPreviousPeriod(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     option: Union[PreviousCustomTimeRangeOption, PreviousTimeRangeOption] = Field(
         ..., title="Option"
+    )
+
+
+class FeatureIdQuery(BaseModel):
+    feature_id: str = Field(
+        ...,
+        description="UUID of a specific spatial feature available on EarthRanger.",
+        title="Feature Id",
+    )
+    style: Optional[List[LayerStyle]] = Field(
+        [],
+        description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+        max_length=1,
+        title="Style",
+    )
+
+
+class FeatureTypeQuery(BaseModel):
+    feature_type: constr(min_length=1) = Field(
+        ...,
+        description="Feature type name as shown in EarthRanger e.g. 'Conservancy'.",
+        title="Feature Type",
+    )
+    style: Optional[List[LayerStyle]] = Field(
+        [],
+        description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+        max_length=1,
+        title="Style",
+    )
+
+
+class EarthRangerSource(BaseModel):
+    query: Optional[Union[FeatureSetQuery, FeatureTypeQuery, FeatureIdQuery]] = Field(
+        None, title="Query"
+    )
+
+
+class ERSpatialFeatureOverlayOption(BaseModel):
+    source: Optional[EarthRangerSource] = Field(
+        None,
+        description="Configure the EarthRanger spatial feature query.",
+        title="Source",
+    )
+    legend_title: Optional[str] = Field(
+        "Legend", description="Label shown in the map legend.", title="Legend Title"
+    )
+    fill_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        0.0,
+        description="Fill opacity for polygon interiors. Set to 0 to show outlines only.",
+        title="Fill Opacity",
+    )
+    line_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        1.0,
+        description="Opacity of polygon borders from 0 (transparent) to 1 (fully opaque).",
+        title="Line Opacity",
+    )
+
+
+class MapOverlay(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    option: Union[LandDxOverlayOption, ERSpatialFeatureOverlayOption] = Field(
+        ...,
+        description="Select the overlay source to display on all maps.",
+        title="Option",
     )
 
 
@@ -173,9 +298,7 @@ class Params(BaseModel):
         description="Choose the period of time to analyze.",
         title="Define analysis time range",
     )
-    set_previous_period: Optional[SetPreviousPeriod] = Field(
-        None, title="Set previous period range"
-    )
+    set_previous_period: Optional[SetPreviousPeriod] = Field(None, title="")
     er_client_name: Optional[ErClientName] = Field(
         None, title="Connect to earth ranger"
     )
@@ -183,9 +306,6 @@ class Params(BaseModel):
         None, title="Connect to earth engine"
     )
     subject_group_var: Optional[SubjectGroupVar] = Field(None, title="")
-    retrieve_ldx_db: Optional[RetrieveLdxDb] = Field(None, title="Load landDx database")
-    custom_trajs_filter: Optional[CustomTrajsFilter] = Field(
-        None, title="Trajectory Segment Filter"
-    )
-    zoom_to_envelope: Optional[ZoomToEnvelope] = Field(None, title="Zoom to gdf extent")
-    logo_path: Optional[LogoPath] = Field(None, title="Report logo")
+    map_overlay: Optional[MapOverlay] = Field(None, title="")
+    custom_trajs_filter: Optional[CustomTrajsFilter] = Field(None, title="")
+    logo_path: Optional[LogoPath] = Field(None, title="")
