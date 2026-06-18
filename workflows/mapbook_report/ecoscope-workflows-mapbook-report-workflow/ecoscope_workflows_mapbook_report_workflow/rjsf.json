@@ -60,26 +60,36 @@
       "description": "Choose the period of time to analyze.",
       "title": "Define analysis time range"
     },
-    "set_previous_period": {
-      "additionalProperties": false,
-      "properties": {
-        "option": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PreviousCustomTimeRangeOption"
-            },
-            {
-              "$ref": "#/$defs/PreviousTimeRangeOption"
-            }
-          ],
-          "title": "Option"
-        }
-      },
-      "required": [
-        "option"
-      ],
+    "Set previous period range": {
       "type": "object",
-      "title": "Set previous period range"
+      "description": "Define the previous period for comparison. By default, it will match the current period, but you can choose predefined options like \"Previous month\" or \"Previous year\", or specify a custom range.",
+      "ecoscope:task_group": true,
+      "properties": {
+        "set_previous_period": {
+          "additionalProperties": false,
+          "properties": {
+            "option": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PreviousCustomTimeRangeOption"
+                },
+                {
+                  "$ref": "#/$defs/PreviousTimeRangeOption"
+                }
+              ],
+              "title": "Option",
+              "default": {
+                "custom": "Same as current period"
+              }
+            }
+          },
+          "required": [
+            "option"
+          ],
+          "type": "object",
+          "title": ""
+        }
+      }
     },
     "er_client_name": {
       "additionalProperties": false,
@@ -122,7 +132,8 @@
             "var": {
               "title": "Subject Group Name",
               "type": "string",
-              "default": "Elephants"
+              "default": "Elephants",
+              "description": "Enter the subject group name exactly as it appears in EarthRanger (case-sensitive)."
             }
           },
           "required": [
@@ -133,99 +144,114 @@
         }
       }
     },
-    "retrieve_ldx_db": {
-      "additionalProperties": false,
+    "Map Overlay": {
+      "type": "object",
+      "description": "Choose the overlay to display on all maps: (a) LandDx \u2014 standard protected areas downloaded automatically; (b) EarthRanger Spatial Feature \u2014 fetch a named feature set from EarthRanger.",
+      "ecoscope:task_group": true,
       "properties": {
-        "input_method": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/DownloadFile"
-            },
-            {
-              "$ref": "#/$defs/LocalFile"
+        "map_overlay": {
+          "additionalProperties": false,
+          "properties": {
+            "option": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/LandDxOverlayOption"
+                },
+                {
+                  "$ref": "#/$defs/ERSpatialFeatureOverlayOption"
+                }
+              ],
+              "title": "Option",
+              "description": "Select the overlay source to display on all maps."
             }
+          },
+          "required": [
+            "option"
           ],
-          "title": "Input Method"
+          "type": "object",
+          "title": ""
         }
-      },
-      "required": [
-        "input_method"
-      ],
-      "type": "object",
-      "title": "Load landDx database"
+      }
     },
-    "custom_trajs_filter": {
-      "additionalProperties": false,
-      "properties": {
-        "min_length_meters": {
-          "default": 0.001,
-          "title": "Min Length Meters",
-          "type": "number"
-        },
-        "max_length_meters": {
-          "default": 5000,
-          "title": "Max Length Meters",
-          "type": "number"
-        },
-        "min_time_secs": {
-          "default": 1,
-          "title": "Min Time Secs",
-          "type": "number"
-        },
-        "max_time_secs": {
-          "default": 21600,
-          "title": "Max Time Secs",
-          "type": "number"
-        },
-        "min_speed_kmhr": {
-          "default": 0.01,
-          "title": "Min Speed Kmhr",
-          "type": "number"
-        },
-        "max_speed_kmhr": {
-          "default": 9.0,
-          "title": "Max Speed Kmhr",
-          "type": "number"
-        }
-      },
+    "Trajectory Segment Filter": {
       "type": "object",
-      "required": [],
-      "title": "Trajectory Segment Filter"
-    },
-    "zoom_to_envelope": {
-      "additionalProperties": false,
+      "description": "Filter trajectory segments based on criteria like minimum/maximum length, duration and speed. This helps remove GPS noise and unrealistic movements. The same filter will be applied to both current and previous trajectories to ensure consistency in the analysis.",
+      "ecoscope:task_group": true,
       "properties": {
-        "expansion_factor": {
-          "default": 1.05,
-          "title": "Expansion Factor",
-          "type": "number",
-          "description": "Factor to expand the bounding box (e.g., 1.2 = 20% larger)"
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Zoom to gdf extent"
-    },
-    "logo_path": {
-      "additionalProperties": false,
-      "properties": {
-        "input_method": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/DownloadFile"
+        "custom_trajs_filter": {
+          "additionalProperties": false,
+          "properties": {
+            "min_length_meters": {
+              "default": 0.001,
+              "title": "Minimum Segment Length (m)",
+              "type": "number",
+              "description": "Discard segments shorter than this distance. Helps remove GPS noise and stationary fixes."
             },
-            {
-              "$ref": "#/$defs/LocalFile"
+            "max_length_meters": {
+              "default": 5000,
+              "title": "Maximum Segment Length (m)",
+              "type": "number",
+              "description": "Discard segments longer than this distance. Helps remove unrealistic long-distance jumps."
+            },
+            "min_time_secs": {
+              "default": 1,
+              "title": "Minimum Segment Duration (s)",
+              "type": "number",
+              "description": "Discard segments with a duration shorter than this (in seconds)."
+            },
+            "max_time_secs": {
+              "default": 21600,
+              "title": "Maximum Segment Duration (s)",
+              "type": "number",
+              "description": "Discard segments with a duration longer than this (in seconds). Default is 6 hours (21,600 s)."
+            },
+            "min_speed_kmhr": {
+              "default": 0.01,
+              "title": "Minimum Speed (km/h)",
+              "type": "number",
+              "description": "Discard segments where average speed falls below this value."
+            },
+            "max_speed_kmhr": {
+              "default": 9.0,
+              "title": "Maximum Speed (km/h)",
+              "type": "number",
+              "description": "Discard segments where average speed exceeds this value. For elephants, 9 km/h is a sensible ceiling."
             }
-          ],
-          "title": "Input Method"
+          },
+          "type": "object",
+          "required": [],
+          "title": ""
         }
-      },
-      "required": [
-        "input_method"
-      ],
+      }
+    },
+    "Report logo": {
       "type": "object",
-      "title": "Report logo"
+      "description": "Download or fetch the logo to be used in the report cover page. This task can be customized to fetch logos from different sources based on user requirements.",
+      "ecoscope:task_group": true,
+      "properties": {
+        "logo_path": {
+          "additionalProperties": false,
+          "properties": {
+            "input_method": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DownloadFile"
+                },
+                {
+                  "$ref": "#/$defs/LocalFile"
+                }
+              ],
+              "title": "Input Method",
+              "description": "Provide the organization logo to display on the report cover page (PNG or JPG recommended)."
+            }
+          },
+          "required": [
+            "input_method"
+          ],
+          "type": "object",
+          "title": ""
+        }
+      }
     }
   },
   "$defs": {
@@ -362,6 +388,258 @@
       "title": "GoogleEarthEngineConnection",
       "type": "object"
     },
+    "ERSpatialFeatureOverlayOption": {
+      "properties": {
+        "source": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/EarthRangerSource"
+            }
+          ],
+          "default": null,
+          "description": "Configure the EarthRanger spatial feature query.",
+          "title": "Source"
+        },
+        "legend_title": {
+          "default": "Legend",
+          "description": "Label shown in the map legend.",
+          "title": "Legend Title",
+          "type": "string"
+        },
+        "fill_opacity": {
+          "default": 0.35,
+          "description": "Fill opacity for polygon interiors. Set to 0 to show outlines only.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Fill Opacity",
+          "type": "number"
+        },
+        "line_opacity": {
+          "default": 0.75,
+          "description": "Opacity of polygon borders from 0 (transparent) to 1 (fully opaque).",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Line Opacity",
+          "type": "number"
+        }
+      },
+      "title": "EarthRanger Spatial Feature",
+      "type": "object"
+    },
+    "EarthRangerSource": {
+      "properties": {
+        "query": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeatureSetQuery"
+            },
+            {
+              "$ref": "#/$defs/FeatureTypeQuery"
+            },
+            {
+              "$ref": "#/$defs/FeatureIdQuery"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        }
+      },
+      "title": "EarthRanger",
+      "type": "object"
+    },
+    "FeatureIdQuery": {
+      "description": "Load a single spatial feature by its EarthRanger UUID.",
+      "properties": {
+        "feature_id": {
+          "description": "UUID of a specific spatial feature available on EarthRanger.",
+          "title": "Feature Id",
+          "type": "string"
+        },
+        "style": {
+          "default": [],
+          "description": "Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+          "items": {
+            "$ref": "#/$defs/LayerStyle"
+          },
+          "maxItems": 1,
+          "title": "Style",
+          "type": "array"
+        }
+      },
+      "required": [
+        "feature_id"
+      ],
+      "title": "Feature ID",
+      "type": "object"
+    },
+    "FeatureSetQuery": {
+      "description": "Load all features from a named EarthRanger featureset.",
+      "properties": {
+        "featureset_name": {
+          "description": "Display name of the featureset exactly as it appears in EarthRanger e.g. 'Boundaries'.",
+          "minLength": 1,
+          "title": "Featureset Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "featureset_name"
+      ],
+      "title": "Feature Set",
+      "type": "object"
+    },
+    "FeatureTypeQuery": {
+      "description": "Load all features of a given type across EarthRanger featuresets.",
+      "properties": {
+        "feature_type": {
+          "description": "Feature type name as shown in EarthRanger e.g. 'Conservancy'.",
+          "minLength": 1,
+          "title": "Feature Type",
+          "type": "string"
+        },
+        "style": {
+          "default": [],
+          "description": "Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+          "items": {
+            "$ref": "#/$defs/LayerStyle"
+          },
+          "maxItems": 1,
+          "title": "Style",
+          "type": "array"
+        }
+      },
+      "required": [
+        "feature_type"
+      ],
+      "title": "Feature Type",
+      "type": "object"
+    },
+    "LandDxOverlayOption": {
+      "properties": {},
+      "title": "LandDx (Default Protected Areas)",
+      "type": "object"
+    },
+    "LayerStyle": {
+      "properties": {
+        "polygon": {
+          "default": [],
+          "description": "Polygon styling. Add one entry to override ER native colours.",
+          "items": {
+            "$ref": "#/$defs/PolygonStyle"
+          },
+          "maxItems": 1,
+          "title": "Polygon",
+          "type": "array"
+        },
+        "line": {
+          "default": [],
+          "description": "Line styling. Add one entry to override ER native colours.",
+          "items": {
+            "$ref": "#/$defs/LineStyle"
+          },
+          "maxItems": 1,
+          "title": "Line",
+          "type": "array"
+        },
+        "point": {
+          "default": [],
+          "description": "Point and icon marker styling. Add one entry to override ER native colours.",
+          "items": {
+            "$ref": "#/$defs/PointStyle"
+          },
+          "maxItems": 1,
+          "title": "Point",
+          "type": "array"
+        }
+      },
+      "title": "",
+      "type": "object"
+    },
+    "LineStyle": {
+      "properties": {
+        "color": {
+          "default": [],
+          "description": "Line hex colour(s) e.g. ['#E63946']. Cycles across rows.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Color",
+          "type": "array"
+        },
+        "opacity": {
+          "default": 1.0,
+          "description": "Line opacity 0\u20131.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Opacity",
+          "type": "number"
+        },
+        "width": {
+          "default": 2.0,
+          "description": "Line width in pixels.",
+          "title": "Width",
+          "type": "number"
+        }
+      },
+      "title": "",
+      "type": "object"
+    },
+    "PointStyle": {
+      "properties": {
+        "color": {
+          "default": [],
+          "description": "Fill hex colour(s). For SVG icons this tints the marker. Cycles across rows.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Color",
+          "type": "array"
+        },
+        "size": {
+          "default": null,
+          "description": "Point radius / icon size in pixels. Leave empty to use the size set in EarthRanger.",
+          "title": "Size",
+          "type": "number"
+        }
+      },
+      "title": "",
+      "type": "object"
+    },
+    "PolygonStyle": {
+      "properties": {
+        "fill_color": {
+          "default": [],
+          "description": "Fill hex colour(s) e.g. ['#FFA500']. Cycles across rows.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Fill Color",
+          "type": "array"
+        },
+        "stroke_color": {
+          "default": null,
+          "description": "Border hex colour.",
+          "title": "Stroke Color",
+          "type": "string"
+        },
+        "fill_opacity": {
+          "default": 1.0,
+          "description": "Fill opacity 0\u20131.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Fill Opacity",
+          "type": "number"
+        },
+        "stroke_width": {
+          "default": 2.0,
+          "description": "Border width in pixels.",
+          "title": "Stroke Width",
+          "type": "number"
+        }
+      },
+      "title": "",
+      "type": "object"
+    },
     "DownloadFile": {
       "properties": {
         "url": {
@@ -426,27 +704,28 @@
         "time_format"
       ]
     },
-    "custom_trajs_filter": {
-      "ui:order": [
-        "min_length_meters",
-        "max_length_meters",
-        "min_time_secs",
-        "max_time_secs",
-        "min_speed_kmhr",
-        "max_speed_kmhr"
-      ]
+    "Trajectory Segment Filter": {
+      "custom_trajs_filter": {
+        "ui:order": [
+          "min_length_meters",
+          "max_length_meters",
+          "min_time_secs",
+          "max_time_secs",
+          "min_speed_kmhr",
+          "max_speed_kmhr"
+        ]
+      }
     },
     "ui:order": [
       "workflow_details",
       "time_range",
-      "set_previous_period",
+      "Set previous period range",
       "er_client_name",
       "gee_project_name",
       "Subject Group",
-      "retrieve_ldx_db",
-      "custom_trajs_filter",
-      "zoom_to_envelope",
-      "logo_path"
+      "Map Overlay",
+      "Trajectory Segment Filter",
+      "Report logo"
     ]
   },
   "additionalProperties": false

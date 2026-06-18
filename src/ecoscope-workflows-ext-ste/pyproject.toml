@@ -38,9 +38,10 @@ root = "../.."
 
 [tool.pixi.project]
 channels = [
-    "https://prefix.dev/ecoscope-workflows-custom", # our custom channel, you can add your own
-    "https://prefix.dev/ecoscope-workflows",        # the main ecoscope-workflows channel
+    "https://prefix.dev/ecoscope-workflows",  
     "conda-forge",
+    "https://prefix.dev/ecoscope-workflows-custom", # our custom channel, you can add your own
+
 ]
 
 platforms = ["linux-64", "osx-arm64","win-64"]
@@ -65,7 +66,7 @@ ecoscope-workflows-core = ">=0.22.18"
 geopandas="*"
 shapely = "*"
 ecoscope-workflows-ext-ecoscope=">=0.22.18"
-ecoscope-workflows-ext-custom = "0.0.43.*"
+ecoscope-workflows-ext-custom = "0.0.56.*"
 ecoscope-workflows-ext-big-life = "0.0.8.*"
 #ecoscope = { extras = ["analysis"], version = "*" }
 earthengine-api ="*"

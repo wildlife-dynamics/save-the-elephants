@@ -2,7 +2,8 @@ import math
 import logging
 from enum import Enum
 import numpy as np
-from pydantic import Field
+import pandas as pd
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.json_schema import SkipJsonSchema
 from typing import TypedDict, Literal, Tuple, cast
 from ecoscope_workflows_core.decorators import task
@@ -10,6 +11,8 @@ from typing import Annotated, Union, List, Dict, Optional
 from ecoscope_workflows_core.annotations import AdvancedField, AnyGeoDataFrame
 from ecoscope_workflows_ext_custom.tasks.results._map import (
     LegendDefinition,
+    LegendSegment,
+    LegendValue,
     PathLayerStyle,
     GeoJSONLayerStyle,
     ScatterplotLayerStyle,
@@ -22,6 +25,13 @@ from ecoscope_workflows_ext_custom.tasks.results._map import (
     create_geojson_layer,
     create_scatterplot_layer,
 )
+from ecoscope_workflows_ext_ecoscope.connections import EarthRangerClient
+from ecoscope_workflows_ext_custom.tasks.io._spatial_features import (
+    EarthRangerSource,
+    get_spatial_features,
+)
+from ecoscope_workflows_ext_custom.tasks.results._spatial_features_layer import create_spatial_features_layer
+from ._downloader import fetch_and_persist_file
 from shapely.geometry import box
 import geopandas as gpd
 
@@ -595,6 +605,233 @@ def envelope_gdf(
     envelope_gdf = gpd.GeoDataFrame({"geometry": [expanded_envelope]}, crs=gdf.crs)
 
     return envelope_gdf
+
+
+class LandDxOverlayOption(BaseModel):
+    model_config = ConfigDict(title="LandDx (Default Protected Areas)")
+
+
+class ERSpatialFeatureOverlayOption(BaseModel):
+    model_config = ConfigDict(title="EarthRanger Spatial Feature")
+    source: Annotated[
+        EarthRangerSource | SkipJsonSchema[None],
+        Field(default=None, description="Configure the EarthRanger spatial feature query."),
+    ] = None
+    legend_title: Annotated[
+        str,
+        Field(default="Legend", description="Label shown in the map legend."),
+    ] = "Legend"
+    fill_opacity: Annotated[
+        float,
+        Field(
+            default=0.0,
+            ge=0.0,
+            le=1.0,
+            description="Fill opacity for polygon interiors. Set to 0 to show outlines only.",
+        ),
+    ] = 0.35
+    line_opacity: Annotated[
+        float,
+        Field(
+            default=1.0,
+            ge=0.0,
+            le=1.0,
+            description="Opacity of polygon borders from 0 (transparent) to 1 (fully opaque).",
+        ),
+    ] = 0.75
+
+
+MapOverlayOption = Union[LandDxOverlayOption, ERSpatialFeatureOverlayOption]
+
+_LDX_TYPE_STYLES = {
+    "Community Conservancy": {
+        "get_fill_color": [166, 182, 151],
+        "get_line_color": [166, 182, 151],
+        "opacity": 0.175,
+        "stroked": True,
+        "get_line_width": 2.25,
+    },
+    "National Reserve": {
+        "get_fill_color": [136, 167, 142],
+        "get_line_color": [136, 167, 142],
+        "opacity": 0.175,
+        "stroked": True,
+        "get_line_width": 2.25,
+    },
+    "National Park": {
+        "get_fill_color": [17, 86, 49],
+        "get_line_color": [17, 86, 49],
+        "opacity": 0.175,
+        "stroked": True,
+        "get_line_width": 2.25,
+    },
+}
+
+_LDX_LEGEND = LegendSegment(
+    title="Land Use",
+    values=[
+        LegendValue(label="Community Conservancy", color="#a6b697"),
+        LegendValue(label="National Reserve", color="#88a78e"),
+        LegendValue(label="National Park", color="#115631"),
+    ],
+)
+
+
+def _load_ldx_layers(url: str, output_dir: str) -> List[LayerDefinition]:
+    """Download, load, filter, and style the LandDx GeoPackage into map layers."""
+    file_path = fetch_and_persist_file(
+        url=url,
+        output_path=output_dir,
+        overwrite_existing=False,
+        unzip=False,
+        retries=2,
+    )
+    gdf = gpd.read_file(file_path)
+    gdf = gdf[gdf["type"].isin(_LDX_TYPE_STYLES)][["type", "name", "geometry"]].copy()
+    if gdf.empty:
+        return []
+
+    # Text label layer (centroid of each polygon)
+    text_gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.is_valid].copy()
+    text_gdf = text_gdf.to_crs("EPSG:3857")
+    text_gdf["geometry"] = text_gdf.geometry.centroid
+    text_gdf = text_gdf.to_crs("EPSG:4326")
+    text_layer = LayerDefinition(
+        layer_type="TextLayer",
+        geodataframe=text_gdf,
+        layer_style=TextLayerStyle(
+            get_text="name",
+            get_color=[20, 20, 20, 255],
+            get_size=1000,
+            size_units="meters",
+            size_min_pixels=40,
+            size_max_pixels=75,
+            size_scale=1.25,
+            font_family="Arial",
+            font_weight="normal",
+            get_text_anchor="middle",
+            get_alignment_baseline="center",
+            billboard=True,
+            background_padding=[4, 8],
+            pickable=True,
+            auto_highlight=False,
+        ),
+        legend=None,
+    )
+
+    layers: List[LayerDefinition] = []
+    first = True
+    for type_name, style_params in _LDX_TYPE_STYLES.items():
+        type_gdf = gdf[gdf["type"] == type_name].copy()
+        if type_gdf.empty:
+            continue
+        layers.append(
+            LayerDefinition(
+                layer_type="GeoJsonLayer",
+                geodataframe=type_gdf,
+                layer_style=GeoJSONLayerStyle(**style_params),
+                legend=_LDX_LEGEND if first else None,
+            )
+        )
+        first = False
+
+    layers.append(text_layer)
+    return layers
+
+
+@task
+def select_map_overlay(
+    option: Annotated[MapOverlayOption, Field(description="Select the overlay source to display on all maps.")],
+    client: Annotated[
+        EarthRangerClient, Field(description="EarthRanger client (required for the ER spatial feature option).")
+    ],
+    output_dir: Annotated[str, Field(description="Directory for persisting downloaded files.")],
+    ldx_url: Annotated[
+        str,
+        Field(description="URL to download the LandDx GeoPackage file.", exclude=True),
+    ] = (
+        "https://www.dropbox.com/scl/fi/uitptfgxk4wnfcnv9k96a/mapbook_ldx_layers.gpkg"
+        "?rlkey=xi2azbfzqix9udytv3smsf6eh&st=249w3d2x&dl=0"
+    ),
+) -> List[LayerDefinition]:
+    """
+    Load and return map overlay layers from the selected source:
+    - LandDx: download the standard landDx GeoPackage and apply protected-area styling.
+    - EarthRanger Spatial Feature: fetch features from an ER feature set.
+    """
+    if isinstance(option, LandDxOverlayOption):
+        return _load_ldx_layers(url=ldx_url, output_dir=str(output_dir))
+
+    if isinstance(option, ERSpatialFeatureOverlayOption):
+        gdf = get_spatial_features(client=client, source=option.source, legend_title=option.legend_title)
+        if isinstance(gdf, pd.DataFrame) and "geometry" not in gdf.columns:
+            return []
+        gdf = cast(gpd.GeoDataFrame, gdf)
+        gdf = gdf[gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"])].copy()
+        if gdf.empty:
+            return []
+        fill_alpha = int(option.fill_opacity * 255)
+        line_alpha = int(option.line_opacity * 255)
+        if "get_fill_color" in gdf.columns:
+            gdf["get_fill_color"] = gdf["get_fill_color"].apply(
+                lambda c: c[:3] + [fill_alpha] if isinstance(c, list) and len(c) >= 3 else c
+            )
+        if "get_line_color" in gdf.columns:
+            gdf["get_line_color"] = gdf["get_line_color"].apply(
+                lambda c: c[:3] + [line_alpha] if isinstance(c, list) and len(c) >= 3 else c
+            )
+        return create_spatial_features_layer(geodataframe=gdf)
+
+    return []
+
+
+@task
+def resolve_overlay_layers(
+    er_layers: Annotated[
+        Optional[List[LayerDefinition]],
+        Field(description="Layers from an EarthRanger spatial feature (highest priority)."),
+    ] = None,
+    custom_file_layers: Annotated[
+        Optional[List[LayerDefinition]],
+        Field(description="Layers from a custom local file (second priority)."),
+    ] = None,
+    ldx_layers: Annotated[
+        Optional[Union[LayerDefinition, List[Union[LayerDefinition, List[LayerDefinition]]]]],
+        Field(description="Fallback LandDx styled polygon layers."),
+    ] = None,
+    ldx_text_layer: Annotated[
+        Optional[Union[LayerDefinition, List[LayerDefinition]]],
+        Field(description="Fallback LandDx text annotation layer."),
+    ] = None,
+) -> List[LayerDefinition]:
+    """
+    Return the first non-empty overlay source as a flat list of LayerDefinitions.
+
+    Priority:
+    1. ER spatial feature layers — if configured and non-empty.
+    2. Custom local file layers — if provided and non-empty.
+    3. LandDx layers + text layer — the always-available default fallback.
+    """
+
+    def _flatten(v) -> List[LayerDefinition]:
+        if v is None:
+            return []
+        if isinstance(v, list):
+            result: List[LayerDefinition] = []
+            for item in v:
+                result.extend(_flatten(item))
+            return result
+        return [v]
+
+    er = _flatten(er_layers)
+    if er:
+        return er
+
+    custom = _flatten(custom_file_layers)
+    if custom:
+        return custom
+
+    return _flatten(ldx_layers) + _flatten(ldx_text_layer)
 
 
 @task

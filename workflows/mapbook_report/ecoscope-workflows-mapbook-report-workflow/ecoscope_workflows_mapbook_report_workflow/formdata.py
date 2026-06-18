@@ -5,9 +5,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Union
+from typing import List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, confloat, constr
 
 
 class WorkflowDetails(BaseModel):
@@ -22,7 +22,11 @@ class SubjectGroupVar(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    var: str = Field(..., title="Subject Group Name")
+    var: str = Field(
+        ...,
+        description="Enter the subject group name exactly as it appears in EarthRanger (case-sensitive).",
+        title="Subject Group Name",
+    )
 
 
 class SubjectGroup(BaseModel):
@@ -33,23 +37,40 @@ class CustomTrajsFilter(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    min_length_meters: Optional[float] = Field(0.001, title="Min Length Meters")
-    max_length_meters: Optional[float] = Field(5000, title="Max Length Meters")
-    min_time_secs: Optional[float] = Field(1, title="Min Time Secs")
-    max_time_secs: Optional[float] = Field(21600, title="Max Time Secs")
-    min_speed_kmhr: Optional[float] = Field(0.01, title="Min Speed Kmhr")
-    max_speed_kmhr: Optional[float] = Field(9.0, title="Max Speed Kmhr")
+    min_length_meters: Optional[float] = Field(
+        0.001,
+        description="Discard segments shorter than this distance. Helps remove GPS noise and stationary fixes.",
+        title="Minimum Segment Length (m)",
+    )
+    max_length_meters: Optional[float] = Field(
+        5000,
+        description="Discard segments longer than this distance. Helps remove unrealistic long-distance jumps.",
+        title="Maximum Segment Length (m)",
+    )
+    min_time_secs: Optional[float] = Field(
+        1,
+        description="Discard segments with a duration shorter than this (in seconds).",
+        title="Minimum Segment Duration (s)",
+    )
+    max_time_secs: Optional[float] = Field(
+        21600,
+        description="Discard segments with a duration longer than this (in seconds). Default is 6 hours (21,600 s).",
+        title="Maximum Segment Duration (s)",
+    )
+    min_speed_kmhr: Optional[float] = Field(
+        0.01,
+        description="Discard segments where average speed falls below this value.",
+        title="Minimum Speed (km/h)",
+    )
+    max_speed_kmhr: Optional[float] = Field(
+        9.0,
+        description="Discard segments where average speed exceeds this value. For elephants, 9 km/h is a sensible ceiling.",
+        title="Maximum Speed (km/h)",
+    )
 
 
-class ZoomToEnvelope(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    expansion_factor: Optional[float] = Field(
-        1.05,
-        description="Factor to expand the bounding box (e.g., 1.2 = 20% larger)",
-        title="Expansion Factor",
-    )
+class TrajectorySegmentFilter(BaseModel):
+    custom_trajs_filter: Optional[CustomTrajsFilter] = Field(None, title="")
 
 
 class TimezoneInfo(BaseModel):
@@ -92,6 +113,62 @@ class EarthRangerConnection(BaseModel):
 
 class GoogleEarthEngineConnection(BaseModel):
     name: str = Field(..., title="Data Source")
+
+
+class FeatureSetQuery(BaseModel):
+    featureset_name: constr(min_length=1) = Field(
+        ...,
+        description="Display name of the featureset exactly as it appears in EarthRanger e.g. 'Boundaries'.",
+        title="Featureset Name",
+    )
+
+
+class LandDxOverlayOption(BaseModel):
+    pass
+
+
+class LineStyle(BaseModel):
+    color: Optional[List[str]] = Field(
+        [],
+        description="Line hex colour(s) e.g. ['#E63946']. Cycles across rows.",
+        title="Color",
+    )
+    opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        1.0, description="Line opacity 0–1.", title="Opacity"
+    )
+    width: Optional[float] = Field(
+        2.0, description="Line width in pixels.", title="Width"
+    )
+
+
+class PointStyle(BaseModel):
+    color: Optional[List[str]] = Field(
+        [],
+        description="Fill hex colour(s). For SVG icons this tints the marker. Cycles across rows.",
+        title="Color",
+    )
+    size: Optional[float] = Field(
+        None,
+        description="Point radius / icon size in pixels. Leave empty to use the size set in EarthRanger.",
+        title="Size",
+    )
+
+
+class PolygonStyle(BaseModel):
+    fill_color: Optional[List[str]] = Field(
+        [],
+        description="Fill hex colour(s) e.g. ['#FFA500']. Cycles across rows.",
+        title="Fill Color",
+    )
+    stroke_color: Optional[str] = Field(
+        None, description="Border hex colour.", title="Stroke Color"
+    )
+    fill_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        1.0, description="Fill opacity 0–1.", title="Fill Opacity"
+    )
+    stroke_width: Optional[float] = Field(
+        2.0, description="Border width in pixels.", title="Stroke Width"
+    )
 
 
 class DownloadFile(BaseModel):
@@ -138,23 +215,45 @@ class GeeProjectName(BaseModel):
     )
 
 
-class RetrieveLdxDb(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    input_method: Union[DownloadFile, LocalFile] = Field(..., title="Input Method")
-
-
 class LogoPath(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    input_method: Union[DownloadFile, LocalFile] = Field(..., title="Input Method")
+    input_method: Union[DownloadFile, LocalFile] = Field(
+        ...,
+        description="Provide the organization logo to display on the report cover page (PNG or JPG recommended).",
+        title="Input Method",
+    )
+
+
+class ReportLogo(BaseModel):
+    logo_path: Optional[LogoPath] = Field(None, title="")
 
 
 class PreviousCustomTimeRangeOption(BaseModel):
     custom: PreviousPeriodType = Field(
         ..., description="Select the previous period type"
+    )
+
+
+class LayerStyle(BaseModel):
+    polygon: Optional[List[PolygonStyle]] = Field(
+        [],
+        description="Polygon styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Polygon",
+    )
+    line: Optional[List[LineStyle]] = Field(
+        [],
+        description="Line styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Line",
+    )
+    point: Optional[List[PointStyle]] = Field(
+        [],
+        description="Point and icon marker styling. Add one entry to override ER native colours.",
+        max_length=1,
+        title="Point",
     )
 
 
@@ -165,6 +264,80 @@ class SetPreviousPeriod(BaseModel):
     option: Union[PreviousCustomTimeRangeOption, PreviousTimeRangeOption] = Field(
         ..., title="Option"
     )
+
+
+class SetPreviousPeriodRange(BaseModel):
+    set_previous_period: Optional[SetPreviousPeriod] = Field(None, title="")
+
+
+class FeatureIdQuery(BaseModel):
+    feature_id: str = Field(
+        ...,
+        description="UUID of a specific spatial feature available on EarthRanger.",
+        title="Feature Id",
+    )
+    style: Optional[List[LayerStyle]] = Field(
+        [],
+        description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+        max_length=1,
+        title="Style",
+    )
+
+
+class FeatureTypeQuery(BaseModel):
+    feature_type: constr(min_length=1) = Field(
+        ...,
+        description="Feature type name as shown in EarthRanger e.g. 'Conservancy'.",
+        title="Feature Type",
+    )
+    style: Optional[List[LayerStyle]] = Field(
+        [],
+        description="Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
+        max_length=1,
+        title="Style",
+    )
+
+
+class EarthRangerSource(BaseModel):
+    query: Optional[Union[FeatureSetQuery, FeatureTypeQuery, FeatureIdQuery]] = Field(
+        None, title="Query"
+    )
+
+
+class ERSpatialFeatureOverlayOption(BaseModel):
+    source: Optional[EarthRangerSource] = Field(
+        None,
+        description="Configure the EarthRanger spatial feature query.",
+        title="Source",
+    )
+    legend_title: Optional[str] = Field(
+        "Legend", description="Label shown in the map legend.", title="Legend Title"
+    )
+    fill_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        0.35,
+        description="Fill opacity for polygon interiors. Set to 0 to show outlines only.",
+        title="Fill Opacity",
+    )
+    line_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        0.75,
+        description="Opacity of polygon borders from 0 (transparent) to 1 (fully opaque).",
+        title="Line Opacity",
+    )
+
+
+class MapOverlay1(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    option: Union[LandDxOverlayOption, ERSpatialFeatureOverlayOption] = Field(
+        ...,
+        description="Select the overlay source to display on all maps.",
+        title="Option",
+    )
+
+
+class MapOverlay(BaseModel):
+    map_overlay: Optional[MapOverlay1] = Field(None, title="")
 
 
 class FormData(BaseModel):
@@ -181,8 +354,10 @@ class FormData(BaseModel):
         description="Choose the period of time to analyze.",
         title="Define analysis time range",
     )
-    set_previous_period: Optional[SetPreviousPeriod] = Field(
-        None, title="Set previous period range"
+    Set_previous_period_range: Optional[SetPreviousPeriodRange] = Field(
+        None,
+        alias="Set previous period range",
+        description='Define the previous period for comparison. By default, it will match the current period, but you can choose predefined options like "Previous month" or "Previous year", or specify a custom range.',
     )
     er_client_name: Optional[ErClientName] = Field(
         None, title="Connect to earth ranger"
@@ -193,9 +368,18 @@ class FormData(BaseModel):
     Subject_Group: Optional[SubjectGroup] = Field(
         None, alias="Subject Group", description="Choose subject group to analyze"
     )
-    retrieve_ldx_db: Optional[RetrieveLdxDb] = Field(None, title="Load landDx database")
-    custom_trajs_filter: Optional[CustomTrajsFilter] = Field(
-        None, title="Trajectory Segment Filter"
+    Map_Overlay: Optional[MapOverlay] = Field(
+        None,
+        alias="Map Overlay",
+        description="Choose the overlay to display on all maps: (a) LandDx — standard protected areas downloaded automatically; (b) EarthRanger Spatial Feature — fetch a named feature set from EarthRanger.",
     )
-    zoom_to_envelope: Optional[ZoomToEnvelope] = Field(None, title="Zoom to gdf extent")
-    logo_path: Optional[LogoPath] = Field(None, title="Report logo")
+    Trajectory_Segment_Filter: Optional[TrajectorySegmentFilter] = Field(
+        None,
+        alias="Trajectory Segment Filter",
+        description="Filter trajectory segments based on criteria like minimum/maximum length, duration and speed. This helps remove GPS noise and unrealistic movements. The same filter will be applied to both current and previous trajectories to ensure consistency in the analysis.",
+    )
+    Report_logo: Optional[ReportLogo] = Field(
+        None,
+        alias="Report logo",
+        description="Download or fetch the logo to be used in the report cover page. This task can be customized to fetch logos from different sources based on user requirements.",
+    )

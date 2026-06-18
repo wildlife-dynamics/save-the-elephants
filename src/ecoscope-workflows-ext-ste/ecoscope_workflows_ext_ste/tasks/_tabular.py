@@ -184,6 +184,18 @@ def create_column(df: AnyDataFrame, col_name: str, value: int | float | str) -> 
 
 
 @task
+def safe_string(
+    value: Annotated[str, Field(description="String to make safe for use as a filename")],
+) -> str:
+    """Sanitize a string for filenames: replace spaces with underscores, remove special characters, lowercase."""
+    import re
+
+    safe = re.sub(r"[^\w\s-]", "", value)
+    safe = re.sub(r"\s+", "_", safe)
+    return safe.lower().strip("_")
+
+
+@task
 def convert_to_str(
     df: AnyDataFrame,
     columns: Union[str, List[str]],

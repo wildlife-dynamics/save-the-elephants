@@ -9,29 +9,59 @@ requirements:
     channel: https://repo.prefix.dev/ecoscope-workflows/
 
   - name: ecoscope-workflows-ext-custom
-    version: "0.0.39.*"
+    version: "0.0.56.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+  
+  - name: pydeck
+    version: 0.9.2
+    channel: conda-forge
   
   - name: ecoscope-workflows-ext-big-life
     version: "0.0.8.*"
     channel: https://repo.prefix.dev/ecoscope-workflows-custom/
 
   - name: ecoscope-workflows-ext-ste
-    version: "0.0.18.*"
-    channel: https://repo.prefix.dev/ecoscope-workflows-custom/
+    version: "*"
+    channel: "file:///tmp/ecoscope-workflows-custom/release/artifacts/"
     
 rjsf-overrides:
-  properties: 
+  properties:
+    # Subject Group
     Subject Group.properties.subject_group_var.properties.var.title: Subject Group Name
     Subject Group.properties.subject_group_var.properties.var.default: Elephants
+    Subject Group.properties.subject_group_var.properties.var.description: "Enter the subject group name exactly as it appears in EarthRanger (case-sensitive)."
+
+    # Set previous period range — default to "Same as current period"
+    Set previous period range.properties.set_previous_period.properties.option.default:
+      custom: "Same as current period"
+
+    # Trajectory Segment Filter — cleaner titles and descriptions
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.min_length_meters.title: "Minimum Segment Length (m)"
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.min_length_meters.description: "Discard segments shorter than this distance. Helps remove GPS noise and stationary fixes."
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.max_length_meters.title: "Maximum Segment Length (m)"
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.max_length_meters.description: "Discard segments longer than this distance. Helps remove unrealistic long-distance jumps."
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.min_time_secs.title: "Minimum Segment Duration (s)"
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.min_time_secs.description: "Discard segments with a duration shorter than this (in seconds)."
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.max_time_secs.title: "Maximum Segment Duration (s)"
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.max_time_secs.description: "Discard segments with a duration longer than this (in seconds). Default is 6 hours (21,600 s)."
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.min_speed_kmhr.title: "Minimum Speed (km/h)"
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.min_speed_kmhr.description: "Discard segments where average speed falls below this value."
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.max_speed_kmhr.title: "Maximum Speed (km/h)"
+    Trajectory Segment Filter.properties.custom_trajs_filter.properties.max_speed_kmhr.description: "Discard segments where average speed exceeds this value. For elephants, 9 km/h is a sensible ceiling."
+
+    # Zoom to gdf extent — friendlier description
+    # Zoom to gdf extent.properties.zoom_to_envelope.properties.expansion_factor.description: "Adds padding around the map boundary. 1.0 = tight fit, 1.05 = 5% padding (default), 1.2 = 20% padding."
+
+    # Report logo
+    Report logo.properties.logo_path.properties.input_method.description: "Provide the organization logo to display on the report cover page (PNG or JPG recommended)."
 
   $defs:
-    # Restrict category options to Subject Name ,Subject Sex and Subject Subtype
+    # Restrict category options to Subject Name, Subject Sex and Subject Subtype
     ValueGrouper.properties.index_name.oneOf:
       - const: subject_name
         title: Subject Name
 
-      - const: subject_sex 
+      - const: subject_sex
         title: Subject Sex
 
       - const: subject_subtype
@@ -69,11 +99,15 @@ workflow:
           opacity: 1
           max_zoom: 20
 
-  - name: Set previous period range 
-    id: set_previous_period
-    task: determine_previous_period
-    partial: 
-      current_time_range: ${{ workflow.time_range.return }}
+  - title: Set previous period range 
+    type: task-group
+    description: Define the previous period for comparison. By default, it will match the current period, but you can choose predefined options like "Previous month" or "Previous year", or specify a custom range.
+    tasks: 
+      - name: null
+        id: set_previous_period
+        task: determine_previous_period
+        partial: 
+          current_time_range: ${{ workflow.time_range.return }}
 
   - name: Connect to earth ranger
     id: er_client_name
@@ -103,118 +137,21 @@ workflow:
       include_details: false 
       include_subjectsource_details: false 
 
-  # Please note that this workflow only uses ldx db 
-  - name: Load landDx database
-    id: retrieve_ldx_db
-    task: get_file_path 
-    partial: 
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-  
-  - name: Load ldx gpkg 
-    id: load_ldx 
-    task: load_df 
-    partial: 
-      file_path: ${{ workflow.retrieve_ldx_db.return }}
-      layer: landDx_polygons
-      deserialize_json: false 
-    
-  - name: Filter loaded landDx by AOI 
-    id: filter_ldx_aoi 
-    task: filter_row_values
-    partial: 
-      df: ${{ workflow.load_ldx.return }}
-      column: type 
-      values: 
-        - Community Conservancy 
-        - National Reserve 
-        - National Park
-    
-  - name: Exclude unnecessary columns from ldx gdf 
-    id: filter_ldx_cols 
-    task: filter_df_cols 
-    partial: 
-      df: ${{ workflow.filter_ldx_aoi.return }}
-      columns: 
-        - type
-        - name
-        - geometry
-    
-  - name: Create text layer 
-    id: create_ldx_text_layer 
-    task: create_custom_text_layer 
-    partial: 
-      geodataframe: ${{ workflow.filter_ldx_cols.return }}
-      layer_style: 
-        get_text: name 
-        get_color: [20,20,20,255]
-        
-        get_size: 1000 #1500
-        size_units: meters 
-        size_min_pixels: 40 #70 
-        size_max_pixels: 75 #100
-        size_scale: 1.25 #2.25 
-
-        font_family: Arial 
-        font_weight: normal
-        get_text_anchor: middle 
-        get_alignment_baseline: center
-        billboard: true 
-
-        background_padding: [4,8]
-        pickable: true 
-        auto_highlight: false 
-      use_centroid: true 
-      legend: null 
-  
-  - name: Split ldx gdf by type column 
-    id: split_ldx_by_type 
-    task: split_gdf_by_column
-    partial: 
-      gdf: ${{ workflow.filter_ldx_cols.return }}
-      column: type 
-  
-  - name: Annotate gdf dict with geom type 
-    id: annotate_gdf_dict 
-    task: annotate_gdf_dict_with_geom_type 
-    partial: 
-      gdf_dict: ${{ workflow.split_ldx_by_type.return }}
-
-  - name: Create deckgl layers from split ldx gdf dict
-    id: create_ldx_styled_layers 
-    task: create_deckgl_layers_from_gdf_dict
-    partial: 
-      gdf_dict: ${{ workflow.annotate_gdf_dict.return }}
-      styles: 
-        Community Conservancy:
-          get_fill_color: [166,182,151]
-          get_line_color: [166,182,151]
-          opacity: 0.175
-          stroked: true
-          get_line_width: 2.25 #1.85
-          
-        National Reserve:
-          get_fill_color: [136,167,142]
-          get_line_color: [136,167,142]
-          opacity: 0.175
-          stroked: true
-          get_line_width: 2.25
-
-        National Park: 
-          get_fill_color: [17, 86, 49]
-          get_line_color: [17, 86, 49]
-          opacity: 0.175
-          stroked: true
-          get_line_width: 2.25 # 2.00
-    
-      legends: 
-        title: "Land Use" 
-        values: 
-          - label: Community Conservancy 
-            color: "#a6b697"
-          - label: National Reserve 
-            color: "#88a78e"
-          - label: National Park 
-            color: "#115631"
+  # ── Map overlay ──────────────────────────────────────────────────────────
+  - title: Map Overlay
+    type: task-group
+    description: "Choose the overlay to display on all maps: (a) LandDx — standard protected areas downloaded automatically; (b) EarthRanger Spatial Feature — fetch a named feature set from EarthRanger."
+    tasks:
+      - name: null
+        id: map_overlay
+        task: ecoscope_workflows_ext_ste.tasks.select_map_overlay
+        skipif:
+          conditions:
+            - never
+        partial:
+          client: ${{ workflow.er_client_name.return }}
+          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+          ldx_url: "https://www.dropbox.com/scl/fi/uitptfgxk4wnfcnv9k96a/mapbook_ldx_layers.gpkg?rlkey=xi2azbfzqix9udytv3smsf6eh&st=249w3d2x&dl=0"
 
   - name: Transform observations to relocations 
     id: subject_reloc
@@ -247,9 +184,14 @@ workflow:
       relocations: ${{ workflow.subject_reloc.return }}
 
   # this enables us to apply trajectory segment filter on both the current and previous trajs
-  - name: Trajectory Segment Filter  
-    id: custom_trajs_filter
-    task: custom_trajectory_segment_filter
+  
+  - title: Trajectory Segment Filter  
+    type: task-group
+    description: Filter trajectory segments based on criteria like minimum/maximum length, duration and speed. This helps remove GPS noise and unrealistic movements. The same filter will be applied to both current and previous trajectories to ensure consistency in the analysis.
+    tasks:
+      - name: null
+        id: custom_trajs_filter
+        task: custom_trajectory_segment_filter
 
   - name: Convert relocations to trajectories 
     id: convert_to_trajectories 
@@ -376,41 +318,41 @@ workflow:
         extra__subject_subtype: subject_subtype
         extra__created_at: created_at
     
-  - name: Persist trajectories as geoparquet 
+  - name: Persist trajectories as geoparquet
     id: persist_trajs_geoparquet
-    task: persist_df 
-    partial: 
+    task: persist_df
+    partial:
       df: ${{ workflow.rename_traj_cols.return }}
-      filetype: geoparquet 
+      filetype: geoparquet
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: trajectories 
-  
+      filename: _trajectories
+
   - name: Persist previous period trajectories as geoparquet
     id: persist_prev_trajs_geoparquet
-    task: persist_df 
-    partial: 
+    task: persist_df
+    partial:
       df: ${{ workflow.rename_prev_traj_cols.return }}
-      filetype: geoparquet 
+      filetype: geoparquet
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: previous_period_trajectories
-  
-  - name: Persist relocations as geoparquet 
+      filename: _previous_period_trajectories
+
+  - name: Persist relocations as geoparquet
     id: persist_relocs_geoparquet
-    task: persist_df 
-    partial: 
+    task: persist_df
+    partial:
       df: ${{ workflow.subject_reloc.return }}
-      filetype: geoparquet 
+      filetype: geoparquet
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       filename: relocations
-    
-  - name: Persist previous period relocations as geoparquet 
+
+  - name: Persist previous period relocations as geoparquet
     id: persist_prev_relocs_geoparquet
-    task: persist_df 
-    partial: 
+    task: persist_df
+    partial:
       df: ${{ workflow.previous_relocs.return }}
-      filetype: geoparquet 
+      filetype: geoparquet
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: previous_period_relocations
+      filename: _previous_period_relocations
 
   - name: Create column for current duration status 
     id: create_current_duration_column 
@@ -475,6 +417,121 @@ workflow:
       df: ${{ workflow.create_current_duration_column.return }}
       groupers: ${{ workflow.groupers.return }}
 
+  - name: Get first subject name for filenames
+    id: first_subject_name
+    task: dataframe_column_first_unique_str
+    partial:
+      column_name: subject_name
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.split_traj_by_group.return }}
+
+  - name: Safe-string subject name for filenames
+    id: safe_subject_name
+    task: ecoscope_workflows_ext_ste.tasks.safe_string
+    mapvalues:
+      argnames: value
+      argvalues: ${{ workflow.first_subject_name.return }}
+
+  - name: Build movement tracks filename 
+    id: movement_filename 
+    task: prefix_string_var
+    partial: 
+      var: _movement_tracks.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
+
+  - name: Build speedmap filename 
+    id: speedmap_filename 
+    task: prefix_string_var
+    partial: 
+      var: _speedmap.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
+
+  - name: Build day/night filename 
+    id: dn_filename 
+    task: prefix_string_var
+    partial: 
+      var: _day_night.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
+
+  - name: Build homerange filename 
+    id: hr_filename 
+    task: prefix_string_var
+    partial: 
+      var: _homerange.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
+
+  - name: Build mean speed raster filename 
+    id: mr_filename 
+    task: prefix_string_var
+    partial: 
+      var: _mean_speed_raster.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
+
+  - name: Build seasonal homerange filename 
+    id: seasonal_hr_filename 
+    task: prefix_string_var
+    partial: 
+      var: _seasonal_homerange.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
+
+  - name: Build ETD filename
+    id: etd_filename
+    task: prefix_string_var
+    partial:
+      var: _etd
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
+
+  - name: Build NDVI values filename
+    id: ndvi_values_filename
+    task: prefix_string_var
+    partial:
+      var: _ndvi_values
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
+
+  - name: Build MCP filename
+    id: mcp_filename
+    task: prefix_string_var
+    partial:
+      var: _mcp
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
+
+  - name: Build seasonal ETD filename
+    id: seasonal_etd_filename
+    task: prefix_string_var
+    partial:
+      var: _seasonal_etd
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
+
+  - name: Build mean speed raster filename
+    id: mean_speed_raster_filename
+    task: prefix_string_var
+    partial:
+      var: _mean_speed_raster
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
+
   - name: Split combined current -previous trajs
     id: split_comb_trajs 
     task: split_groups
@@ -532,6 +589,7 @@ workflow:
     id: generate_track_layers
     task: create_path_layer
     partial: 
+      data_url: null
       layer_style:
         get_color: duration_status_colors
         get_width: 2.85
@@ -554,25 +612,29 @@ workflow:
       argnames: geodataframe
       argvalues: ${{ workflow.filter_movement_cols.return }}
 
-  - name: Combine ldx layers and movement track layers
+  - name: Combine overlay layers and movement track layers
     id: combined_ldx_movement_layers
     task: combine_deckgl_map_layers
-    partial: 
-      static_layers: 
-        - ${{ workflow.create_ldx_styled_layers.return }}
-        - ${{ workflow.create_ldx_text_layer.return }}
+    partial:
+      static_layers: ${{ workflow.map_overlay.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_track_layers.return }}
 
-  - name: Zoom to gdf extent 
-    id: zoom_to_envelope 
-    task: envelope_gdf
-    mapvalues: 
-      argnames: gdf 
-      argvalues: ${{ workflow.filter_movement_cols.return }}
+  - title: Zoom to gdf extent
+    type: task-group
+    description: Calculate the geographic extent of the movement tracks and determine an appropriate zoom level and center point for the map. This ensures that all tracks are visible and well-framed when the map is rendered.
+    tasks:
+      - name: null
+        id: zoom_to_envelope 
+        task: envelope_gdf
+        partial:
+          expansion_factor: 1.05
+        mapvalues: 
+          argnames: gdf 
+          argvalues: ${{ workflow.filter_movement_cols.return }}
 
-  - name: Zoom to gdf extent for image 
+  - name: Get image extent
     id: gdf_image_extent 
     task: view_state_deck_gdf
     partial:
@@ -583,7 +645,7 @@ workflow:
       argvalues: ${{ workflow.filter_movement_cols.return }}
 
   # should be used globally 
-  - name: Zoom to gdf extent 
+  - name: Speed extent
     id: zoom_speed_gdf_extent
     task: custom_view_state_from_gdf
     partial: 
@@ -616,15 +678,25 @@ workflow:
         - view_state
       argvalues: ${{ workflow.zip_tracks_with_viewstate.return }}
 
-  - name: Persist movement tracks html 
+  - name: Zip movement tracks filename with text 
+    id: movement_tracks_text
+    task: zip_groupbykey
+    partial: 
+      sequences: 
+        - ${{ workflow.movement_filename.return }}
+        - ${{ workflow.draw_movement_tracks.return }}
+
+  - name: Persist movement tracks html
     id: persist_movement_tracks_html
-    task: persist_text 
+    task: persist_text
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename_suffix: movement_tracks 
+      filename_suffix: null
     mapvalues:
-      argnames: text 
-      argvalues: ${{ workflow.draw_movement_tracks.return }}
+      argnames: 
+        - filename
+        - text 
+      argvalues: ${{ workflow.movement_tracks_text.return }}
     
   - name: Create movement tracks widgets 
     id: create_movement_tracks_widgets 
@@ -694,6 +766,7 @@ workflow:
     id: generate_speedmap_layers 
     task: create_path_layer 
     partial: 
+      data_url: null
       layer_style:
         get_color: speed_bins_colormap
         get_width: 2.85
@@ -716,13 +789,11 @@ workflow:
       argnames: geodataframe
       argvalues: ${{ workflow.filter_speed_cols.return }}
   
-  - name: Combine ldx layers and speedmap layers 
-    id: combined_ldx_speed_layers 
+  - name: Combine overlay layers and speedmap layers
+    id: combined_ldx_speed_layers
     task: combine_deckgl_map_layers
-    partial: 
-      static_layers: 
-        - ${{ workflow.create_ldx_styled_layers.return }}
-        - ${{ workflow.create_ldx_text_layer.return }}
+    partial:
+      static_layers: ${{ workflow.map_overlay.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_speedmap_layers.return }}
@@ -751,15 +822,25 @@ workflow:
         - view_state
       argvalues: ${{ workflow.zip_speedmap_with_viewstate.return }}
 
-  - name: Persist speedmap html 
+  - name: Zip speed filename with text 
+    id: speedmap_file_text 
+    task: zip_groupbykey
+    partial:
+      sequences: 
+        - ${{ workflow.speedmap_filename.return }}
+        - ${{ workflow.draw_speedmap.return }}
+
+  - name: Persist speedmap html
     id: persist_speedmap_html
-    task: persist_text 
+    task: persist_text
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename_suffix: speedmap 
+      filename_suffix: null
     mapvalues:
-      argnames: text 
-      argvalues: ${{ workflow.draw_speedmap.return }}
+      argnames: 
+        - filename
+        - text 
+      argvalues: ${{ workflow.speedmap_file_text.return }}
     
   - name: Create speedmap widgets 
     id: create_speedmap_widgets 
@@ -823,6 +904,7 @@ workflow:
     id: generate_day_night_layers 
     task: create_path_layer
     partial: 
+      data_url: null 
       layer_style:
         get_color: day_night_colors
         get_width: 2.85
@@ -847,13 +929,11 @@ workflow:
       argnames: geodataframe
       argvalues: ${{ workflow.filter_day_night_cols.return }}
 
-  - name: Combine ldx layers and day/night layers 
-    id: combined_ldx_daynight_layers 
+  - name: Combine overlay layers and day/night layers
+    id: combined_ldx_daynight_layers
     task: combine_deckgl_map_layers
-    partial: 
-      static_layers: 
-        - ${{ workflow.create_ldx_styled_layers.return }}
-        - ${{ workflow.create_ldx_text_layer.return }}
+    partial:
+      static_layers: ${{ workflow.map_overlay.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_day_night_layers.return }}
@@ -882,15 +962,25 @@ workflow:
         - view_state
       argvalues: ${{ workflow.zip_day_night_with_viewstate.return }}
 
-  - name: Persist day/night html 
+  - name: Zip day/night filename with text 
+    id: day_night_text 
+    task: zip_groupbykey
+    partial: 
+      sequences: 
+        - ${{ workflow.dn_filename.return }}
+        - ${{ workflow.draw_day_night_map.return }}
+
+  - name: Persist day/night html
     id: persist_day_night_html
-    task: persist_text 
+    task: persist_text
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename_suffix: day_night
+      filename_suffix: null
     mapvalues:
-      argnames: text 
-      argvalues: ${{ workflow.draw_day_night_map.return }}
+      argnames: 
+        - filename
+        - text 
+      argvalues: ${{ workflow.day_night_text.return }}
     
   - name: Create day night widgets 
     id: create_day_night_widgets 
@@ -936,16 +1026,33 @@ workflow:
       argnames: trajectory_gdf 
       argvalues: ${{ workflow.split_traj_by_group.return }}
 
+  - name: Reproject etd to wgs84 
+    id: reproject_etd 
+    task: reproject_gdf 
+    partial: 
+      target_crs: EPSG:4326
+    mapvalues: 
+      argnames: gdf 
+      argvalues: ${{ workflow.generate_etd.return }}
+
+  - name: zip etd filename with df 
+    id: etd_df
+    task: zip_groupbykey
+    partial: 
+      sequences:
+        - ${{ workflow.etd_filename.return }}
+        - ${{ workflow.reproject_etd.return }}
   - name: Persist etd gdf
     id: persist_etd_gdf
-    task: persist_df 
-    partial: 
+    task: persist_df
+    partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       filetype: geoparquet
-      filename: null
-    mapvalues: 
-      argnames: df
-      argvalues: ${{ workflow.generate_etd.return }}
+    mapvalues:
+      argnames: 
+        - filename
+        - df
+      argvalues: ${{ workflow.etd_df.return }}
 
   - name: Determine seasonal windows 
     id: determine_seasonal_windows 
@@ -957,17 +1064,6 @@ workflow:
       argnames: roi 
       argvalues: ${{ workflow.generate_etd.return }}
   
-  - name: Persist seasonal windows csv 
-    id: persist_ndvi_values
-    task: persist_df 
-    partial: 
-      root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filetype: csv
-      filename: null
-    mapvalues: 
-      argnames: df
-      argvalues: ${{ workflow.determine_seasonal_windows.return }}
-
   - name: Zip seasons with trajectories 
     id: zip_etd_with_traj 
     task: zip_groupbykey 
@@ -994,16 +1090,34 @@ workflow:
       argnames: gdf 
       argvalues: ${{ workflow.split_traj_by_group.return }}
   
+  - name: Reproject mcp gdf to wgs84 
+    id: reproject_mcp 
+    task: reproject_gdf 
+    partial: 
+      target_crs: EPSG:4326
+    mapvalues: 
+      argnames: gdf 
+      argvalues: ${{ workflow.generate_mcp.return }}
+
+  - name: Zip mcp filename with gdf 
+    id: mcp_gdf 
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.mcp_filename.return }}
+        - ${{ workflow.generate_mcp.return }}
+
   - name: Persist mcp gdf
     id: persist_mcp_gdf
-    task: persist_df 
-    partial: 
+    task: persist_df
+    partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       filetype: geoparquet
-      filename: null
-    mapvalues: 
-      argnames: df
-      argvalues: ${{ workflow.generate_mcp.return }}
+    mapvalues:
+      argnames: 
+        - filename
+        - df
+      argvalues: ${{ workflow.mcp_gdf.return }}
 
   - name: Apply colormap to home range percentiles 
     id: apply_etd_colormap 
@@ -1014,7 +1128,7 @@ workflow:
       colormap: RdYlGn
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.generate_etd.return }}
+      argvalues: ${{ workflow.reproject_etd.return }}
 
   - name: Exclude unnecessary columns from etd gdf  
     id: filter_etd_cols 
@@ -1033,6 +1147,7 @@ workflow:
     id: generate_home_range_layers 
     task: create_geojson_layer
     partial: 
+      data_url: null
       layer_style: 
         filled: true 
         stroked: true 
@@ -1068,12 +1183,13 @@ workflow:
         - geometry
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.generate_mcp.return }}
+      argvalues: ${{ workflow.reproject_mcp.return }}
 
   - name: Create mcp polygon layer 
     id: create_mcp_polygon_layer 
     task: create_geojson_layer 
     partial: 
+      data_url: null
       layer_style: 
         filled: false  
         stroked: true 
@@ -1107,13 +1223,11 @@ workflow:
         - ${{ workflow.create_mcp_polygon_layer.return }}
         - ${{ workflow.generate_home_range_layers.return }}
 
-  - name: Combine ldx layers and home range layers
-    id: combined_ldx_home_range_layers 
+  - name: Combine overlay layers and home range layers
+    id: combined_ldx_home_range_layers
     task: combine_deckgl_map_layers
-    partial: 
-      static_layers: 
-        - ${{ workflow.create_ldx_styled_layers.return }}
-        - ${{ workflow.create_ldx_text_layer.return }}
+    partial:
+      static_layers: ${{ workflow.map_overlay.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.zip_home_range_with_mcp_layer.return }}
@@ -1142,15 +1256,25 @@ workflow:
         - view_state
       argvalues: ${{ workflow.zip_hr_with_viewstate.return }}
 
-  - name: Persist homerange html 
+  - name: Zip homerange filename with text 
+    id: hr_text_file
+    task: zip_groupbykey
+    partial: 
+      sequences: 
+        - ${{ workflow.hr_filename.return }}
+        - ${{ workflow.draw_home_range_map.return }}
+
+  - name: Persist homerange html
     id: persist_homerange_html
-    task: persist_text 
+    task: persist_text
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename_suffix: homerange
+      filename_suffix: null
     mapvalues:
-      argnames: text 
-      argvalues: ${{ workflow.draw_home_range_map.return }}
+      argnames: 
+        - filename
+        - text 
+      argvalues: ${{ workflow.hr_text_file.return }}
     
   - name: Create homerange widgets 
     id: create_home_range_widgets 
@@ -1172,25 +1296,34 @@ workflow:
     partial: 
       widgets: ${{ workflow.create_home_range_widgets.return }}
 
-# 5. Mean Speed Raster 
-  - name: Generate mean speed raster 
-    id: generate_mean_speed_raster 
-    task: generate_ecograph_raster 
-    partial: 
-      step_length: 2000 
-      dist_col: dist_meters 
-      interpolation: mean 
-      movement_covariate: speed 
+# 5. Mean Speed Raster
+  - name: Zip mean speed raster filename with gdf
+    id: zip_raster_filename_gdf
+    task: zip_groupbykey
+    partial:
+      sequences:
+        - ${{ workflow.mean_speed_raster_filename.return }}
+        - ${{ workflow.split_traj_by_group.return }}
+
+  - name: Generate mean speed raster
+    id: generate_mean_speed_raster
+    task: ecoscope_workflows_ext_ste.tasks.generate_ecograph_raster
+    partial:
+      step_length: 2000
+      dist_col: dist_meters
+      interpolation: mean
+      movement_covariate: speed
       radius: 2
-      cutoff: null 
-      tortuosity_length: 3 
-      resolution: null 
-      network_metric: null 
+      cutoff: null
+      tortuosity_length: 3
+      resolution: null
+      network_metric: null
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: null 
     mapvalues:
-      argnames: gdf 
-      argvalues: ${{ workflow.split_traj_by_group.return }}
+      argnames:
+        - filename
+        - gdf
+      argvalues: ${{ workflow.zip_raster_filename_gdf.return }}
     
   - name: Extract features from mean speed raster 
     id: extract_speed_rasters 
@@ -1210,6 +1343,15 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.extract_speed_rasters.return }}
 
+  - name: Reproject mean speed raster features to wgs84 
+    id: reproject_speed_raster 
+    task: reproject_gdf 
+    partial: 
+      target_crs: EPSG:4326
+    mapvalues:
+      argnames: gdf 
+      argvalues: ${{ workflow.sort_speed_features_by_value.return }}
+
   - name: Apply classification to speed raster features 
     id: apply_classification_raster 
     task: apply_classification
@@ -1224,7 +1366,7 @@ workflow:
         label_decimals: 1
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.sort_speed_features_by_value.return }}
+      argvalues: ${{ workflow.reproject_speed_raster.return }}
     
   - name: Apply colormap to speed raster bins 
     id: apply_speed_raster_colormap 
@@ -1272,7 +1414,9 @@ workflow:
   - name: Create mean speed raster layer
     id: create_mean_speed_raster_layer 
     task: create_geojson_layer 
+
     partial: 
+      data_url: null
       layer_style: 
         filled: true 
         stroked: false 
@@ -1299,13 +1443,11 @@ workflow:
       argnames: geodataframe
       argvalues: ${{ workflow.filter_mean_speed_cols.return }}
 
-  - name: Combine ldx layers and mean speed raster layer
+  - name: Combine overlay layers and mean speed raster layer
     id: combined_ldx_speed_raster
     task: combine_deckgl_map_layers
-    partial: 
-      static_layers: 
-        - ${{ workflow.create_ldx_styled_layers.return }}
-        - ${{ workflow.create_ldx_text_layer.return }}
+    partial:
+      static_layers: ${{ workflow.map_overlay.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.create_mean_speed_raster_layer.return }}
@@ -1334,15 +1476,25 @@ workflow:
         - view_state
       argvalues: ${{ workflow.zip_speed_raster_viewstate.return }}
 
-  - name: Persist mean speed raster html 
+  - name: Zip mean speed raster filename with text 
+    id: mean_speed_text 
+    task: zip_groupbykey 
+    partial: 
+      sequences: 
+        - ${{ workflow.mr_filename.return }}
+        - ${{ workflow.draw_mean_speed_raster_map.return }}
+
+  - name: Persist mean speed raster html
     id: persist_mean_speed_raster_html
-    task: persist_text 
+    task: persist_text
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename_suffix: mean_speed_raster
+      filename_suffix: null
     mapvalues:
-      argnames: text 
-      argvalues: ${{ workflow.draw_mean_speed_raster_map.return }}
+      argnames: 
+        - filename
+        - text 
+      argvalues: ${{ workflow.mean_speed_text.return }}
 
   - name: Create mean speed raster widgets 
     id: create_mean_speed_raster_widgets 
@@ -1389,15 +1541,34 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.seasonal_home_range.return }}
 
+  - name: Zip seasonal etd filename with gdf 
+    id: seasonal_etd_gdf
+    task: zip_groupbykey
+    partial: 
+      sequences: 
+        - ${{ workflow.seasonal_etd_filename.return }}
+        - ${{ workflow.convert_season_to_string.return }}
+
   - name: Persist seasonal etd gdf
     id: persist_seasonal_etd_gdf
-    task: persist_df 
-    partial: 
+    task: persist_df
+    partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       filetype: geoparquet
-      filename: null
+      filename: 
+    mapvalues:
+      argnames: 
+        - filename
+        - df
+      argvalues: ${{ workflow.seasonal_etd_gdf.return }}
+
+  - name: Reproject seasonal home range gdf to wgs84 
+    id: reproject_seasonal_home_range 
+    task: reproject_gdf 
+    partial: 
+      target_crs: EPSG:4326
     mapvalues: 
-      argnames: df
+      argnames: gdf 
       argvalues: ${{ workflow.convert_season_to_string.return }}
 
   - name: Assign season colors to dataframe 
@@ -1407,7 +1578,7 @@ workflow:
       seasons_column: season
     mapvalues:
       argnames: gdf
-      argvalues: ${{ workflow.convert_season_to_string.return }}
+      argvalues: ${{ workflow.reproject_seasonal_home_range.return }}
 
   - name: Exclude unnecessary columns from mean speed raster gdf
     id: filter_season_cols 
@@ -1425,6 +1596,7 @@ workflow:
     id: generate_season_layers 
     task: create_geojson_layer
     partial: 
+      data_url: null
       layer_style: 
         filled: true 
         stroked: true 
@@ -1451,13 +1623,11 @@ workflow:
       argnames: geodataframe
       argvalues: ${{ workflow.filter_season_cols.return }}
     
-  - name: Combine ldx layers and seasonal home range layers
+  - name: Combine overlay layers and seasonal home range layers
     id: combined_ldx_seasonal_hr_layers
     task: combine_deckgl_map_layers
     partial:
-      static_layers: 
-        - ${{ workflow.create_ldx_styled_layers.return }}
-        - ${{ workflow.create_ldx_text_layer.return }}
+      static_layers: ${{ workflow.map_overlay.return }}
     mapvalues:
       argnames: grouped_layers
       argvalues: ${{ workflow.generate_season_layers.return }}
@@ -1486,15 +1656,25 @@ workflow:
         - view_state
       argvalues: ${{ workflow.zip_seasonal_hr_with_viewstate.return }}
 
+  - name: Zip seasonal homerange filename with text 
+    id: seasonal_hr_text 
+    task: zip_groupbykey
+    partial: 
+      sequences: 
+        - ${{ workflow.seasonal_hr_filename.return }}
+        -  ${{ workflow.draw_seasonal_home_range_map.return }}
+
   - name: Persist seasonal home range html
     id: persist_seasonal_home_range_html
-    task: persist_text 
+    task: persist_text
     partial:
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename_suffix: seasonal_home_range
+      filename_suffix: null
     mapvalues:
-      argnames: text 
-      argvalues: ${{ workflow.draw_seasonal_home_range_map.return }}
+      argnames: 
+        - filename
+        - text 
+      argvalues: ${{ workflow.seasonal_hr_text.return }}
 
   - name: Create seasonal home range widgets
     id: create_seasonal_hr_widgets
@@ -1669,11 +1849,15 @@ workflow:
       retries: 2
 
   # Download Logo
-  - name: Report logo
-    id: logo_path
-    task: get_file_path 
-    partial: 
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+  - title: Report logo
+    type: task-group
+    description: Download or fetch the logo to be used in the report cover page. This task can be customized to fetch logos from different sources based on user requirements.
+    tasks:
+      - name: null
+        id: logo_path
+        task: get_file_path 
+        partial: 
+          output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
   - name: Create cover template context 
     id: create_cover_tpl_context
