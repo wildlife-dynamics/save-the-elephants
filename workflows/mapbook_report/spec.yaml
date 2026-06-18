@@ -419,92 +419,118 @@ workflow:
 
   - name: Get first subject name for filenames
     id: first_subject_name
-    task: ecoscope_workflows_ext_ste.tasks.get_split_group_value
+    task: dataframe_column_first_unique_str
     partial:
-      split_data: ${{ workflow.split_traj_by_group.return }}
+      column_name: subject_name
+    mapvalues:
+      argnames: df
+      argvalues: ${{ workflow.split_traj_by_group.return }}
 
   - name: Safe-string subject name for filenames
     id: safe_subject_name
     task: ecoscope_workflows_ext_ste.tasks.safe_string
-    partial:
-      value: ${{ workflow.first_subject_name.return }}
+    mapvalues:
+      argnames: value
+      argvalues: ${{ workflow.first_subject_name.return }}
 
   - name: Build movement tracks filename 
     id: movement_filename 
     task: prefix_string_var
     partial: 
-      prefix: ${{ workflow.safe_subject_name.return }}
       var: _movement_tracks.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
 
   - name: Build speedmap filename 
     id: speedmap_filename 
     task: prefix_string_var
     partial: 
-      prefix: ${{ workflow.safe_subject_name.return }}
       var: _speedmap.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
 
   - name: Build day/night filename 
     id: dn_filename 
     task: prefix_string_var
     partial: 
-      prefix: ${{ workflow.safe_subject_name.return }}
       var: _day_night.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
 
   - name: Build homerange filename 
     id: hr_filename 
     task: prefix_string_var
     partial: 
-      prefix: ${{ workflow.safe_subject_name.return }}
       var: _homerange.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
 
   - name: Build mean speed raster filename 
     id: mr_filename 
     task: prefix_string_var
     partial: 
-      prefix: ${{ workflow.safe_subject_name.return }}
       var: _mean_speed_raster.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
 
   - name: Build seasonal homerange filename 
     id: seasonal_hr_filename 
     task: prefix_string_var
     partial: 
-      prefix: ${{ workflow.safe_subject_name.return }}
       var: _seasonal_homerange.html 
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
 
   - name: Build ETD filename
     id: etd_filename
     task: prefix_string_var
     partial:
-      prefix: ${{ workflow.safe_subject_name.return }}
       var: _etd
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
 
   - name: Build NDVI values filename
     id: ndvi_values_filename
     task: prefix_string_var
     partial:
-      prefix: ${{ workflow.safe_subject_name.return }}
       var: _ndvi_values
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
 
   - name: Build MCP filename
     id: mcp_filename
     task: prefix_string_var
     partial:
-      prefix: ${{ workflow.safe_subject_name.return }}
       var: _mcp
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
 
   - name: Build seasonal ETD filename
     id: seasonal_etd_filename
     task: prefix_string_var
     partial:
-      prefix: ${{ workflow.safe_subject_name.return }}
       var: _seasonal_etd
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
 
   - name: Build mean speed raster filename
     id: mean_speed_raster_filename
     task: prefix_string_var
     partial:
-      prefix: ${{ workflow.safe_subject_name.return }}
       var: _mean_speed_raster
+    mapvalues:
+      argnames: prefix 
+      argvalues: ${{ workflow.safe_subject_name.return }}
 
   - name: Split combined current -previous trajs
     id: split_comb_trajs 
@@ -1270,25 +1296,34 @@ workflow:
     partial: 
       widgets: ${{ workflow.create_home_range_widgets.return }}
 
-# 5. Mean Speed Raster 
-  - name: Generate mean speed raster 
-    id: generate_mean_speed_raster 
+# 5. Mean Speed Raster
+  - name: Zip mean speed raster filename with gdf
+    id: zip_raster_filename_gdf
+    task: zip_groupbykey
+    partial:
+      sequences:
+        - ${{ workflow.mean_speed_raster_filename.return }}
+        - ${{ workflow.split_traj_by_group.return }}
+
+  - name: Generate mean speed raster
+    id: generate_mean_speed_raster
     task: ecoscope_workflows_ext_ste.tasks.generate_ecograph_raster
     partial:
-      step_length: 2000 
-      dist_col: dist_meters 
-      interpolation: mean 
-      movement_covariate: speed 
+      step_length: 2000
+      dist_col: dist_meters
+      interpolation: mean
+      movement_covariate: speed
       radius: 2
-      cutoff: null 
-      tortuosity_length: 3 
-      resolution: null 
-      network_metric: null 
+      cutoff: null
+      tortuosity_length: 3
+      resolution: null
+      network_metric: null
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: ${{ workflow.mean_speed_raster_filename.return }}
     mapvalues:
-      argnames: gdf
-      argvalues: ${{ workflow.split_traj_by_group.return }}
+      argnames:
+        - filename
+        - gdf
+      argvalues: ${{ workflow.zip_raster_filename_gdf.return }}
     
   - name: Extract features from mean speed raster 
     id: extract_speed_rasters 

@@ -151,9 +151,6 @@ from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 from ecoscope_workflows_ext_ste.tasks import (
     get_split_group_column as get_split_group_column,
 )
-from ecoscope_workflows_ext_ste.tasks import (
-    get_split_group_value as get_split_group_value,
-)
 from ecoscope_workflows_ext_ste.tasks import merge_mapbook_files as merge_mapbook_files
 from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple_df
 from ecoscope_workflows_ext_ste.tasks import (
@@ -1348,7 +1345,7 @@ first_subject_name_params = dict()
 
 
 first_subject_name = (
-    get_split_group_value.set_task_instance_id("first_subject_name")
+    dataframe_column_first_unique_str.set_task_instance_id("first_subject_name")
     .handle_errors()
     .with_tracing()
     .skipif(
@@ -1358,8 +1355,8 @@ first_subject_name = (
         ],
         unpack_depth=1,
     )
-    .partial(split_data=split_traj_by_group, **first_subject_name_params)
-    .call()
+    .partial(column_name="subject_name", **first_subject_name_params)
+    .mapvalues(argnames=["df"], argvalues=split_traj_by_group)
 )
 
 
@@ -1386,8 +1383,8 @@ safe_subject_name = (
         ],
         unpack_depth=1,
     )
-    .partial(value=first_subject_name, **safe_subject_name_params)
-    .call()
+    .partial(**safe_subject_name_params)
+    .mapvalues(argnames=["value"], argvalues=first_subject_name)
 )
 
 
@@ -1414,12 +1411,8 @@ movement_filename = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        prefix=safe_subject_name,
-        var="_movement_tracks.html",
-        **movement_filename_params,
-    )
-    .call()
+    .partial(var="_movement_tracks.html", **movement_filename_params)
+    .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
 )
 
 
@@ -1446,8 +1439,8 @@ speedmap_filename = (
         ],
         unpack_depth=1,
     )
-    .partial(prefix=safe_subject_name, var="_speedmap.html", **speedmap_filename_params)
-    .call()
+    .partial(var="_speedmap.html", **speedmap_filename_params)
+    .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
 )
 
 
@@ -1474,8 +1467,8 @@ dn_filename = (
         ],
         unpack_depth=1,
     )
-    .partial(prefix=safe_subject_name, var="_day_night.html", **dn_filename_params)
-    .call()
+    .partial(var="_day_night.html", **dn_filename_params)
+    .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
 )
 
 
@@ -1502,8 +1495,8 @@ hr_filename = (
         ],
         unpack_depth=1,
     )
-    .partial(prefix=safe_subject_name, var="_homerange.html", **hr_filename_params)
-    .call()
+    .partial(var="_homerange.html", **hr_filename_params)
+    .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
 )
 
 
@@ -1530,10 +1523,8 @@ mr_filename = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        prefix=safe_subject_name, var="_mean_speed_raster.html", **mr_filename_params
-    )
-    .call()
+    .partial(var="_mean_speed_raster.html", **mr_filename_params)
+    .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
 )
 
 
@@ -1560,12 +1551,8 @@ seasonal_hr_filename = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        prefix=safe_subject_name,
-        var="_seasonal_homerange.html",
-        **seasonal_hr_filename_params,
-    )
-    .call()
+    .partial(var="_seasonal_homerange.html", **seasonal_hr_filename_params)
+    .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
 )
 
 
@@ -1592,8 +1579,8 @@ etd_filename = (
         ],
         unpack_depth=1,
     )
-    .partial(prefix=safe_subject_name, var="_etd", **etd_filename_params)
-    .call()
+    .partial(var="_etd", **etd_filename_params)
+    .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
 )
 
 
@@ -1620,10 +1607,8 @@ ndvi_values_filename = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        prefix=safe_subject_name, var="_ndvi_values", **ndvi_values_filename_params
-    )
-    .call()
+    .partial(var="_ndvi_values", **ndvi_values_filename_params)
+    .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
 )
 
 
@@ -1650,8 +1635,8 @@ mcp_filename = (
         ],
         unpack_depth=1,
     )
-    .partial(prefix=safe_subject_name, var="_mcp", **mcp_filename_params)
-    .call()
+    .partial(var="_mcp", **mcp_filename_params)
+    .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
 )
 
 
@@ -1678,10 +1663,8 @@ seasonal_etd_filename = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        prefix=safe_subject_name, var="_seasonal_etd", **seasonal_etd_filename_params
-    )
-    .call()
+    .partial(var="_seasonal_etd", **seasonal_etd_filename_params)
+    .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
 )
 
 
@@ -1708,12 +1691,8 @@ mean_speed_raster_filename = (
         ],
         unpack_depth=1,
     )
-    .partial(
-        prefix=safe_subject_name,
-        var="_mean_speed_raster",
-        **mean_speed_raster_filename_params,
-    )
-    .call()
+    .partial(var="_mean_speed_raster", **mean_speed_raster_filename_params)
+    .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
 )
 
 
@@ -3751,6 +3730,37 @@ merge_homerange_widgets = (
 
 
 # %% [markdown]
+# ## Zip mean speed raster filename with gdf
+
+# %%
+# parameters
+
+zip_raster_filename_gdf_params = dict()
+
+# %%
+# call the task
+
+
+zip_raster_filename_gdf = (
+    zip_groupbykey.set_task_instance_id("zip_raster_filename_gdf")
+    .handle_errors()
+    .with_tracing()
+    .skipif(
+        conditions=[
+            any_is_empty_df,
+            any_dependency_skipped,
+        ],
+        unpack_depth=1,
+    )
+    .partial(
+        sequences=[mean_speed_raster_filename, split_traj_by_group],
+        **zip_raster_filename_gdf_params,
+    )
+    .call()
+)
+
+
+# %% [markdown]
 # ## Generate mean speed raster
 
 # %%
@@ -3784,10 +3794,9 @@ generate_mean_speed_raster = (
         resolution=None,
         network_metric=None,
         output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-        filename=mean_speed_raster_filename,
         **generate_mean_speed_raster_params,
     )
-    .mapvalues(argnames=["gdf"], argvalues=split_traj_by_group)
+    .mapvalues(argnames=["filename", "gdf"], argvalues=zip_raster_filename_gdf)
 )
 
 

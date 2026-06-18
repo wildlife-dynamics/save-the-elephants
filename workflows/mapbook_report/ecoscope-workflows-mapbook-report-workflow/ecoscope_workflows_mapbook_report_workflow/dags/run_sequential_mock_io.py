@@ -159,9 +159,6 @@ from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 from ecoscope_workflows_ext_ste.tasks import (
     get_split_group_column as get_split_group_column,
 )
-from ecoscope_workflows_ext_ste.tasks import (
-    get_split_group_value as get_split_group_value,
-)
 from ecoscope_workflows_ext_ste.tasks import merge_mapbook_files as merge_mapbook_files
 from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple_df
 from ecoscope_workflows_ext_ste.tasks import (
@@ -928,7 +925,7 @@ def main(params: Params):
     )
 
     first_subject_name = (
-        get_split_group_value.validate()
+        dataframe_column_first_unique_str.validate()
         .set_task_instance_id("first_subject_name")
         .handle_errors()
         .with_tracing()
@@ -940,10 +937,9 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            split_data=split_traj_by_group,
-            **(params_dict.get("first_subject_name") or {}),
+            column_name="subject_name", **(params_dict.get("first_subject_name") or {})
         )
-        .call()
+        .mapvalues(argnames=["df"], argvalues=split_traj_by_group)
     )
 
     safe_subject_name = (
@@ -958,10 +954,8 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            value=first_subject_name, **(params_dict.get("safe_subject_name") or {})
-        )
-        .call()
+        .partial(**(params_dict.get("safe_subject_name") or {}))
+        .mapvalues(argnames=["value"], argvalues=first_subject_name)
     )
 
     movement_filename = (
@@ -977,11 +971,9 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            prefix=safe_subject_name,
-            var="_movement_tracks.html",
-            **(params_dict.get("movement_filename") or {}),
+            var="_movement_tracks.html", **(params_dict.get("movement_filename") or {})
         )
-        .call()
+        .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     speedmap_filename = (
@@ -996,12 +988,8 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            prefix=safe_subject_name,
-            var="_speedmap.html",
-            **(params_dict.get("speedmap_filename") or {}),
-        )
-        .call()
+        .partial(var="_speedmap.html", **(params_dict.get("speedmap_filename") or {}))
+        .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     dn_filename = (
@@ -1016,12 +1004,8 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            prefix=safe_subject_name,
-            var="_day_night.html",
-            **(params_dict.get("dn_filename") or {}),
-        )
-        .call()
+        .partial(var="_day_night.html", **(params_dict.get("dn_filename") or {}))
+        .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     hr_filename = (
@@ -1036,12 +1020,8 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            prefix=safe_subject_name,
-            var="_homerange.html",
-            **(params_dict.get("hr_filename") or {}),
-        )
-        .call()
+        .partial(var="_homerange.html", **(params_dict.get("hr_filename") or {}))
+        .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     mr_filename = (
@@ -1057,11 +1037,9 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            prefix=safe_subject_name,
-            var="_mean_speed_raster.html",
-            **(params_dict.get("mr_filename") or {}),
+            var="_mean_speed_raster.html", **(params_dict.get("mr_filename") or {})
         )
-        .call()
+        .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     seasonal_hr_filename = (
@@ -1077,11 +1055,10 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            prefix=safe_subject_name,
             var="_seasonal_homerange.html",
             **(params_dict.get("seasonal_hr_filename") or {}),
         )
-        .call()
+        .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     etd_filename = (
@@ -1096,12 +1073,8 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            prefix=safe_subject_name,
-            var="_etd",
-            **(params_dict.get("etd_filename") or {}),
-        )
-        .call()
+        .partial(var="_etd", **(params_dict.get("etd_filename") or {}))
+        .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     ndvi_values_filename = (
@@ -1116,12 +1089,8 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            prefix=safe_subject_name,
-            var="_ndvi_values",
-            **(params_dict.get("ndvi_values_filename") or {}),
-        )
-        .call()
+        .partial(var="_ndvi_values", **(params_dict.get("ndvi_values_filename") or {}))
+        .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     mcp_filename = (
@@ -1136,12 +1105,8 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            prefix=safe_subject_name,
-            var="_mcp",
-            **(params_dict.get("mcp_filename") or {}),
-        )
-        .call()
+        .partial(var="_mcp", **(params_dict.get("mcp_filename") or {}))
+        .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     seasonal_etd_filename = (
@@ -1157,11 +1122,9 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            prefix=safe_subject_name,
-            var="_seasonal_etd",
-            **(params_dict.get("seasonal_etd_filename") or {}),
+            var="_seasonal_etd", **(params_dict.get("seasonal_etd_filename") or {})
         )
-        .call()
+        .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     mean_speed_raster_filename = (
@@ -1177,11 +1140,10 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            prefix=safe_subject_name,
             var="_mean_speed_raster",
             **(params_dict.get("mean_speed_raster_filename") or {}),
         )
-        .call()
+        .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     split_comb_trajs = (
@@ -2517,6 +2479,25 @@ def main(params: Params):
         .call()
     )
 
+    zip_raster_filename_gdf = (
+        zip_groupbykey.validate()
+        .set_task_instance_id("zip_raster_filename_gdf")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            sequences=[mean_speed_raster_filename, split_traj_by_group],
+            **(params_dict.get("zip_raster_filename_gdf") or {}),
+        )
+        .call()
+    )
+
     generate_mean_speed_raster = (
         generate_ecograph_raster.validate()
         .set_task_instance_id("generate_mean_speed_raster")
@@ -2540,10 +2521,9 @@ def main(params: Params):
             resolution=None,
             network_metric=None,
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename=mean_speed_raster_filename,
             **(params_dict.get("generate_mean_speed_raster") or {}),
         )
-        .mapvalues(argnames=["gdf"], argvalues=split_traj_by_group)
+        .mapvalues(argnames=["filename", "gdf"], argvalues=zip_raster_filename_gdf)
     )
 
     extract_speed_rasters = (

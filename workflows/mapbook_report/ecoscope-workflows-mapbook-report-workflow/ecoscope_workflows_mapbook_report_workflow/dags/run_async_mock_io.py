@@ -160,9 +160,6 @@ from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
 from ecoscope_workflows_ext_ste.tasks import (
     get_split_group_column as get_split_group_column,
 )
-from ecoscope_workflows_ext_ste.tasks import (
-    get_split_group_value as get_split_group_value,
-)
 from ecoscope_workflows_ext_ste.tasks import merge_mapbook_files as merge_mapbook_files
 from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple_df
 from ecoscope_workflows_ext_ste.tasks import (
@@ -327,10 +324,11 @@ def main(params: Params):
         "persist_homerange_html": ["hr_text_file"],
         "create_home_range_widgets": ["persist_homerange_html"],
         "merge_homerange_widgets": ["create_home_range_widgets"],
-        "generate_mean_speed_raster": [
+        "zip_raster_filename_gdf": [
             "mean_speed_raster_filename",
             "split_traj_by_group",
         ],
+        "generate_mean_speed_raster": ["zip_raster_filename_gdf"],
         "extract_speed_rasters": ["generate_mean_speed_raster"],
         "sort_speed_features_by_value": ["extract_speed_rasters"],
         "reproject_speed_raster": ["sort_speed_features_by_value"],
@@ -1217,7 +1215,7 @@ def main(params: Params):
             method="call",
         ),
         "first_subject_name": Node(
-            async_task=get_split_group_value.validate()
+            async_task=dataframe_column_first_unique_str.validate()
             .set_task_instance_id("first_subject_name")
             .handle_errors()
             .with_tracing()
@@ -1230,10 +1228,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "split_data": DependsOn("split_traj_by_group"),
+                "column_name": "subject_name",
             }
             | (params_dict.get("first_subject_name") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["df"],
+                "argvalues": DependsOn("split_traj_by_group"),
+            },
         ),
         "safe_subject_name": Node(
             async_task=safe_string.validate()
@@ -1248,11 +1250,12 @@ def main(params: Params):
                 unpack_depth=1,
             )
             .set_executor("lithops"),
-            partial={
-                "value": DependsOn("first_subject_name"),
-            }
-            | (params_dict.get("safe_subject_name") or {}),
-            method="call",
+            partial=(params_dict.get("safe_subject_name") or {}),
+            method="mapvalues",
+            kwargs={
+                "argnames": ["value"],
+                "argvalues": DependsOn("first_subject_name"),
+            },
         ),
         "movement_filename": Node(
             async_task=prefix_string_var.validate()
@@ -1268,11 +1271,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "prefix": DependsOn("safe_subject_name"),
                 "var": "_movement_tracks.html",
             }
             | (params_dict.get("movement_filename") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["prefix"],
+                "argvalues": DependsOn("safe_subject_name"),
+            },
         ),
         "speedmap_filename": Node(
             async_task=prefix_string_var.validate()
@@ -1288,11 +1294,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "prefix": DependsOn("safe_subject_name"),
                 "var": "_speedmap.html",
             }
             | (params_dict.get("speedmap_filename") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["prefix"],
+                "argvalues": DependsOn("safe_subject_name"),
+            },
         ),
         "dn_filename": Node(
             async_task=prefix_string_var.validate()
@@ -1308,11 +1317,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "prefix": DependsOn("safe_subject_name"),
                 "var": "_day_night.html",
             }
             | (params_dict.get("dn_filename") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["prefix"],
+                "argvalues": DependsOn("safe_subject_name"),
+            },
         ),
         "hr_filename": Node(
             async_task=prefix_string_var.validate()
@@ -1328,11 +1340,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "prefix": DependsOn("safe_subject_name"),
                 "var": "_homerange.html",
             }
             | (params_dict.get("hr_filename") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["prefix"],
+                "argvalues": DependsOn("safe_subject_name"),
+            },
         ),
         "mr_filename": Node(
             async_task=prefix_string_var.validate()
@@ -1348,11 +1363,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "prefix": DependsOn("safe_subject_name"),
                 "var": "_mean_speed_raster.html",
             }
             | (params_dict.get("mr_filename") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["prefix"],
+                "argvalues": DependsOn("safe_subject_name"),
+            },
         ),
         "seasonal_hr_filename": Node(
             async_task=prefix_string_var.validate()
@@ -1368,11 +1386,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "prefix": DependsOn("safe_subject_name"),
                 "var": "_seasonal_homerange.html",
             }
             | (params_dict.get("seasonal_hr_filename") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["prefix"],
+                "argvalues": DependsOn("safe_subject_name"),
+            },
         ),
         "etd_filename": Node(
             async_task=prefix_string_var.validate()
@@ -1388,11 +1409,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "prefix": DependsOn("safe_subject_name"),
                 "var": "_etd",
             }
             | (params_dict.get("etd_filename") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["prefix"],
+                "argvalues": DependsOn("safe_subject_name"),
+            },
         ),
         "ndvi_values_filename": Node(
             async_task=prefix_string_var.validate()
@@ -1408,11 +1432,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "prefix": DependsOn("safe_subject_name"),
                 "var": "_ndvi_values",
             }
             | (params_dict.get("ndvi_values_filename") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["prefix"],
+                "argvalues": DependsOn("safe_subject_name"),
+            },
         ),
         "mcp_filename": Node(
             async_task=prefix_string_var.validate()
@@ -1428,11 +1455,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "prefix": DependsOn("safe_subject_name"),
                 "var": "_mcp",
             }
             | (params_dict.get("mcp_filename") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["prefix"],
+                "argvalues": DependsOn("safe_subject_name"),
+            },
         ),
         "seasonal_etd_filename": Node(
             async_task=prefix_string_var.validate()
@@ -1448,11 +1478,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "prefix": DependsOn("safe_subject_name"),
                 "var": "_seasonal_etd",
             }
             | (params_dict.get("seasonal_etd_filename") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["prefix"],
+                "argvalues": DependsOn("safe_subject_name"),
+            },
         ),
         "mean_speed_raster_filename": Node(
             async_task=prefix_string_var.validate()
@@ -1468,11 +1501,14 @@ def main(params: Params):
             )
             .set_executor("lithops"),
             partial={
-                "prefix": DependsOn("safe_subject_name"),
                 "var": "_mean_speed_raster",
             }
             | (params_dict.get("mean_speed_raster_filename") or {}),
-            method="call",
+            method="mapvalues",
+            kwargs={
+                "argnames": ["prefix"],
+                "argvalues": DependsOn("safe_subject_name"),
+            },
         ),
         "split_comb_trajs": Node(
             async_task=split_groups.validate()
@@ -3096,6 +3132,28 @@ def main(params: Params):
             | (params_dict.get("merge_homerange_widgets") or {}),
             method="call",
         ),
+        "zip_raster_filename_gdf": Node(
+            async_task=zip_groupbykey.validate()
+            .set_task_instance_id("zip_raster_filename_gdf")
+            .handle_errors()
+            .with_tracing()
+            .skipif(
+                conditions=[
+                    any_is_empty_df,
+                    any_dependency_skipped,
+                ],
+                unpack_depth=1,
+            )
+            .set_executor("lithops"),
+            partial={
+                "sequences": [
+                    DependsOn("mean_speed_raster_filename"),
+                    DependsOn("split_traj_by_group"),
+                ],
+            }
+            | (params_dict.get("zip_raster_filename_gdf") or {}),
+            method="call",
+        ),
         "generate_mean_speed_raster": Node(
             async_task=generate_ecograph_raster.validate()
             .set_task_instance_id("generate_mean_speed_raster")
@@ -3120,13 +3178,12 @@ def main(params: Params):
                 "resolution": None,
                 "network_metric": None,
                 "output_dir": os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-                "filename": DependsOn("mean_speed_raster_filename"),
             }
             | (params_dict.get("generate_mean_speed_raster") or {}),
             method="mapvalues",
             kwargs={
-                "argnames": ["gdf"],
-                "argvalues": DependsOn("split_traj_by_group"),
+                "argnames": ["filename", "gdf"],
+                "argvalues": DependsOn("zip_raster_filename_gdf"),
             },
         ),
         "extract_speed_rasters": Node(

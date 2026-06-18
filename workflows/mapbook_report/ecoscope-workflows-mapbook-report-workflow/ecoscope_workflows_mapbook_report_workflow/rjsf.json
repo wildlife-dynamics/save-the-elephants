@@ -407,7 +407,7 @@
           "type": "string"
         },
         "fill_opacity": {
-          "default": 0.0,
+          "default": 0.35,
           "description": "Fill opacity for polygon interiors. Set to 0 to show outlines only.",
           "maximum": 1.0,
           "minimum": 0.0,
@@ -415,7 +415,7 @@
           "type": "number"
         },
         "line_opacity": {
-          "default": 1.0,
+          "default": 0.75,
           "description": "Opacity of polygon borders from 0 (transparent) to 1 (fully opaque).",
           "maximum": 1.0,
           "minimum": 0.0,

@@ -314,12 +314,12 @@ class ERSpatialFeatureOverlayOption(BaseModel):
         "Legend", description="Label shown in the map legend.", title="Legend Title"
     )
     fill_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
-        0.0,
+        0.35,
         description="Fill opacity for polygon interiors. Set to 0 to show outlines only.",
         title="Fill Opacity",
     )
     line_opacity: Optional[confloat(ge=0.0, le=1.0)] = Field(
-        1.0,
+        0.75,
         description="Opacity of polygon borders from 0 (transparent) to 1 (fully opaque).",
         title="Line Opacity",
     )
