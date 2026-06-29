@@ -105,7 +105,7 @@ workflow:
     tasks: 
       - name: null
         id: set_previous_period
-        task: determine_previous_period
+        task: determine_previous_period # improve this 
         partial: 
           current_time_range: ${{ workflow.time_range.return }}
 
@@ -144,7 +144,7 @@ workflow:
     tasks:
       - name: null
         id: map_overlay
-        task: ecoscope_workflows_ext_ste.tasks.select_map_overlay
+        task: ecoscope_workflows_ext_ste.tasks.select_map_overlay # allow user to include multiple ER spatial features
         skipif:
           conditions:
             - never
@@ -191,7 +191,7 @@ workflow:
     tasks:
       - name: null
         id: custom_trajs_filter
-        task: custom_trajectory_segment_filter
+        task: custom_trajectory_segment_filter #allow user to use multiple trajsegfilter 
 
   - name: Convert relocations to trajectories 
     id: convert_to_trajectories 
@@ -320,7 +320,7 @@ workflow:
     
   - name: Persist trajectories as geoparquet
     id: persist_trajs_geoparquet
-    task: persist_df
+    task: persist_df #we can use persist df wrapper 
     partial:
       df: ${{ workflow.rename_traj_cols.return }}
       filetype: geoparquet
@@ -329,7 +329,7 @@ workflow:
 
   - name: Persist previous period trajectories as geoparquet
     id: persist_prev_trajs_geoparquet
-    task: persist_df
+    task: persist_df #we can use persist df wrapper 
     partial:
       df: ${{ workflow.rename_prev_traj_cols.return }}
       filetype: geoparquet
@@ -338,7 +338,7 @@ workflow:
 
   - name: Persist relocations as geoparquet
     id: persist_relocs_geoparquet
-    task: persist_df
+    task: persist_df #we can use persist df wrapper 
     partial:
       df: ${{ workflow.subject_reloc.return }}
       filetype: geoparquet
@@ -347,7 +347,7 @@ workflow:
 
   - name: Persist previous period relocations as geoparquet
     id: persist_prev_relocs_geoparquet
-    task: persist_df
+    task: persist_df #we can use persist df wrapper 
     partial:
       df: ${{ workflow.previous_relocs.return }}
       filetype: geoparquet
@@ -356,7 +356,7 @@ workflow:
 
   - name: Create column for current duration status 
     id: create_current_duration_column 
-    task: create_column
+    task: create_column 
     partial:
       df: ${{ workflow.rename_traj_cols.return }}
       col_name: duration_status
@@ -373,7 +373,7 @@ workflow:
   # We should merge previous and current trajs here to allow us to draw the movement tracks ecomap easily 
   - name: Merge current - previous trajectories 
     id: merge_current_prev_trajs 
-    task: merge_multiple_df 
+    task: merge_multiple_df # merge_two_dataframes
     partial:
       list_df: 
         - ${{ workflow.create_current_duration_column.return }}
@@ -384,7 +384,7 @@ workflow:
 
   - name: Extract grouper names 
     id: extract_grouper_names 
-    task: extract_index_names
+    task: extract_index_names 
     partial: 
       groupers: ${{ workflow.groupers.return }}
 

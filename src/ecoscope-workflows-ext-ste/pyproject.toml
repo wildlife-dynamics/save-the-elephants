@@ -4,6 +4,9 @@ dynamic = ["version"]
 requires-python = ">=3.10"
 description = "Extension tasks and connections for the template repo."
 readme = "README.md"
+dependencies = [
+    "wt-registry",
+]
 classifiers = [
     "Development Status :: 1 - Planning",
     "Operating System :: OS Independent",
@@ -13,7 +16,7 @@ classifiers = [
     "Topic :: Scientific/Engineering",
 ]
 license = { text = "BSD-3-Clause" }
-[project.entry-points."ecoscope_workflows"]
+[project.entry-points."wt_registry"]
 tasks = "ecoscope_workflows_ext_ste.tasks"
 
 
@@ -36,15 +39,14 @@ fallback-version = "9999"
 root = "../.."
 
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = [
-    "https://prefix.dev/ecoscope-workflows",  
+    "https://prefix.dev/ecoscope-workflows-custom",
+    "https://prefix.dev/ecoscope-workflows",
     "conda-forge",
-    "https://prefix.dev/ecoscope-workflows-custom", # our custom channel, you can add your own
-
 ]
-
-platforms = ["linux-64", "osx-arm64","win-64"]
+platforms = ["linux-64", "osx-arm64", "win-64", "osx-64"]
+channel-priority = "disabled"
 
 [tool.pixi.pypi-dependencies]
 ecoscope-workflows-ext-ste = { path = ".", editable = true }
@@ -62,23 +64,27 @@ py-rattler = ">=0.15.0,<0.16"
 "ruamel.yaml" = "*"
 ruff = "*"
 tomli-w = "*"
-ecoscope-workflows-core = ">=0.22.18"
 geopandas="*"
 shapely = "*"
-ecoscope-workflows-ext-ecoscope=">=0.22.18"
-ecoscope-workflows-ext-custom = "0.0.56.*"
-ecoscope-workflows-ext-big-life = "0.0.8.*"
+# ecoscope-workflows-core = ">=0.22.18"
+# ecoscope-workflows-ext-ecoscope=">=0.22.18"
+# ecoscope-workflows-ext-big-life = "0.0.8.*"
+
+ecoscope-workflows-ext-custom = "0.1.0rc14.*"
+
 #ecoscope = { extras = ["analysis"], version = "*" }
-earthengine-api ="*"
+
 docxtpl="*"
-docxcompose = "*"
-playwright="*"
-setuptools = "81.0.0.*" 
 pillow ="*"
+playwright="*"
+docxcompose = "*"
+earthengine-api ="*"
+setuptools = "<=81.0.0"
 
 # additional dependencies added by this extension
 [tool.mypy]
 plugins = ["pandera.mypy", "pydantic.mypy"]
+
 [tool.pixi.feature.mypy]
 dependencies = { mypy = "*", pandas-stubs = "*", pandera-mypy = "*" }
 pypi-dependencies = { types-shapely = "*" }

@@ -60,257 +60,64 @@
       "description": "Choose the period of time to analyze.",
       "title": "Time range"
     },
-    "configure_base_maps": {
-      "additionalProperties": false,
+    "Define Region of Interest": {
+      "type": "object",
+      "description": "Define the region of interest for the aerial survey by uploading a geospatial file (GeoJSON, GeoPackage or GeoParquet) that contains the boundary of the area to be surveyed. This file will be loaded and processed to generate the survey lines.",
+      "ecoscope:task_group": true,
       "properties": {
-        "base_maps": {
-          "default": [
-            {
-              "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-              "opacity": 1,
-              "max_zoom": 20
-            },
-            {
-              "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-              "opacity": 0.5,
-              "max_zoom": 20
+        "retrieve_file_params": {
+          "additionalProperties": false,
+          "properties": {
+            "input_method": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DownloadFile"
+                },
+                {
+                  "$ref": "#/$defs/LocalFile"
+                }
+              ],
+              "title": "Input Method"
             }
-          ],
-          "items": {
-            "title": "Base Layer",
-            "anyOf": [
-              {
-                "description": "A tiled raster layer loaded on-demand from a URL template (e.g., base maps).",
-                "properties": {
-                  "url": {
-                    "default": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                    "title": "Preset Layer URL",
-                    "type": "string",
-                    "const": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                    "enum": [
-                      "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    ]
-                  },
-                  "opacity": {
-                    "default": 1,
-                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
-                    "title": "Layer Opacity",
-                    "type": "number"
-                  }
-                },
-                "title": "Open Street Map",
-                "type": "object"
-              },
-              {
-                "description": "A tiled raster layer loaded on-demand from a URL template (e.g., base maps).",
-                "properties": {
-                  "url": {
-                    "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
-                    "title": "Preset Layer URL",
-                    "type": "string",
-                    "const": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
-                    "enum": [
-                      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-                    ]
-                  },
-                  "opacity": {
-                    "default": 1,
-                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
-                    "title": "Layer Opacity",
-                    "type": "number"
-                  }
-                },
-                "title": "Roadmap",
-                "type": "object"
-              },
-              {
-                "description": "A tiled raster layer loaded on-demand from a URL template (e.g., base maps).",
-                "properties": {
-                  "url": {
-                    "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                    "title": "Preset Layer URL",
-                    "type": "string",
-                    "const": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                    "enum": [
-                      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    ]
-                  },
-                  "opacity": {
-                    "default": 1,
-                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
-                    "title": "Layer Opacity",
-                    "type": "number"
-                  }
-                },
-                "title": "Satellite",
-                "type": "object"
-              },
-              {
-                "description": "A tiled raster layer loaded on-demand from a URL template (e.g., base maps).",
-                "properties": {
-                  "url": {
-                    "default": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-                    "title": "Preset Layer URL",
-                    "type": "string",
-                    "const": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-                    "enum": [
-                      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
-                    ]
-                  },
-                  "opacity": {
-                    "default": 1,
-                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
-                    "title": "Layer Opacity",
-                    "type": "number"
-                  }
-                },
-                "title": "Terrain",
-                "type": "object"
-              },
-              {
-                "description": "A tiled raster layer loaded on-demand from a URL template (e.g., base maps).",
-                "properties": {
-                  "url": {
-                    "default": "https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}",
-                    "title": "Preset Layer URL",
-                    "type": "string",
-                    "const": "https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}",
-                    "enum": [
-                      "https://tiles.arcgis.com/tiles/POUcpLYXNckpLjnY/arcgis/rest/services/landDx_basemap_tiles_mapservice/MapServer/tile/{z}/{y}/{x}"
-                    ]
-                  },
-                  "opacity": {
-                    "default": 1,
-                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
-                    "title": "Layer Opacity",
-                    "type": "number"
-                  }
-                },
-                "title": "LandDx",
-                "type": "object"
-              },
-              {
-                "description": "A tiled raster layer loaded on-demand from a URL template (e.g., base maps).",
-                "properties": {
-                  "url": {
-                    "default": "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
-                    "title": "Preset Layer URL",
-                    "type": "string",
-                    "const": "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
-                    "enum": [
-                      "https://server.arcgisonline.com/arcgis/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
-                    ]
-                  },
-                  "opacity": {
-                    "default": 1,
-                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
-                    "title": "Layer Opacity",
-                    "type": "number"
-                  }
-                },
-                "title": "USGS Hillshade",
-                "type": "object"
-              },
-              {
-                "description": "A tiled raster layer loaded on-demand from a URL template (e.g., base maps).",
-                "properties": {
-                  "url": {
-                    "default": "https://example.tiles.com/{z}/{x}/{y}.png",
-                    "description": "The URL of a publicly accessible tiled raster service.",
-                    "pattern": "https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}([-a-zA-Z0-9()@:%_\\+.~#?&//=\\{\\}]*)",
-                    "title": "Custom Layer URL",
-                    "type": "string"
-                  },
-                  "opacity": {
-                    "default": 1,
-                    "description": "Set layer transparency from 1 (fully visible) to 0 (hidden).",
-                    "maximum": 1.0,
-                    "minimum": 0.0,
-                    "title": "Custom Layer Opacity",
-                    "type": "number"
-                  },
-                  "max_zoom": {
-                    "default": 20,
-                    "description": "Set the maximum zoom level to fetch tiles for.",
-                    "title": "Custom Layer Max Zoom",
-                    "type": "integer"
-                  },
-                  "min_zoom": {
-                    "default": 0,
-                    "description": "Set the minimum zoom level to fetch tiles for.",
-                    "title": "Custom Layer Min Zoom",
-                    "type": "integer"
-                  }
-                },
-                "title": "Custom Layer (Advanced)",
-                "type": "object"
-              }
-            ]
           },
-          "title": " ",
-          "type": "array",
-          "description": "Select tile layers to use as base layers in map outputs. The first layer in the list will be the bottommost layer displayed.",
-          "ecoscope:advanced": true
+          "required": [
+            "input_method"
+          ],
+          "type": "object",
+          "title": ""
         }
-      },
-      "type": "object",
-      "required": [],
-      "title": "Configure base map layers"
+      }
     },
-    "retrieve_file_params": {
-      "additionalProperties": false,
+    "Draw Aerial Survey Lines": {
+      "type": "object",
+      "description": "Generate aerial survey lines across the defined region of interest based on the specified direction and spacing. The survey lines will be created as a geospatial dataframe and visualized on an interactive map.",
+      "ecoscope:task_group": true,
       "properties": {
-        "input_method": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/DownloadFile"
+        "survey_lines": {
+          "additionalProperties": false,
+          "properties": {
+            "direction": {
+              "default": "North South",
+              "enum": [
+                "North South",
+                "East West"
+              ],
+              "title": "Survey Direction (degrees)",
+              "type": "string",
+              "description": "Compass bearing the survey lines will run from the region of interest (0 = North, 90 = East)."
             },
-            {
-              "$ref": "#/$defs/LocalFile"
+            "spacing": {
+              "default": 300,
+              "title": "Line Spacing (m)",
+              "type": "integer",
+              "description": "Distance in metres between adjacent survey lines across the region of interest."
             }
-          ],
-          "title": "Input Method"
+          },
+          "required": [],
+          "type": "object",
+          "title": ""
         }
-      },
-      "required": [
-        "input_method"
-      ],
-      "type": "object",
-      "title": "Define Region of Interest"
-    },
-    "survey_lines": {
-      "additionalProperties": false,
-      "properties": {
-        "direction": {
-          "default": "North South",
-          "enum": [
-            "North South",
-            "East West"
-          ],
-          "title": "Direction",
-          "type": "string"
-        },
-        "spacing": {
-          "default": 500,
-          "title": "Spacing",
-          "type": "integer"
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Draw Aerial Survey Lines"
+      }
     }
   },
   "$defs": {
@@ -386,18 +193,19 @@
         "time_format"
       ]
     },
-    "survey_lines": {
-      "ui:order": [
-        "direction",
-        "spacing"
-      ]
+    "Draw Aerial Survey Lines": {
+      "survey_lines": {
+        "ui:order": [
+          "direction",
+          "spacing"
+        ]
+      }
     },
     "ui:order": [
       "workflow_details",
       "time_range",
-      "configure_base_maps",
-      "retrieve_file_params",
-      "survey_lines"
+      "Define Region of Interest",
+      "Draw Aerial Survey Lines"
     ]
   },
   "additionalProperties": false
