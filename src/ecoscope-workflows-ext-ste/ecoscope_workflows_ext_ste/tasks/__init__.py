@@ -141,3 +141,6 @@ from . import io as io
 from . import transformation as transformation
 from . import spatial_operations as spatial_operations
 from . import reporting as reporting
+from . import filter as filter
+from . import results as results
+from . import landdx as landdx

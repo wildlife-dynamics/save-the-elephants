@@ -1,8 +1,6 @@
 import os
 import email
 import zipfile
-import logging
-import warnings
 import requests
 from pathlib import Path
 from pydantic import Field
@@ -11,13 +9,9 @@ from urllib.parse import urlparse
 from ecoscope.io import download_file
 from typing_extensions import TypeAlias
 from pydantic import BaseModel, ConfigDict
-from ._path_utils import get_local_geo_path
+from ._path_utils import get_local_file_path
 from typing import Annotated, Union, Optional
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
-
-
-logger = logging.getLogger(__name__)
-warnings.filterwarnings("ignore")
 
 
 class DownloadFile(BaseModel):
@@ -60,7 +54,7 @@ def fetch_and_persist_file(
     If output_path is not specified, saves to the current working directory.
     Returns the full path to the downloaded file, or if unzipped, the path to the extracted directory.
     """
-    logger.info(f"Downloading file from URL: {url}")
+    print(f"Downloading file from URL: {url}")
     if output_path is None or str(output_path).strip() == "":
         output_path = os.getcwd()
     else:
@@ -151,7 +145,7 @@ def fetch_and_persist_file(
             )
         else:
             raise FileNotFoundError(f"Download failed — {persisted_path}. Parent dir missing: {parent}")
-    logger.info(f"File downloaded and persisted at: {persisted_path}")
+    print(f"File downloaded and persisted at: {persisted_path}")
     return persisted_path
 
 
@@ -171,6 +165,6 @@ def get_file_path(
             unzip=False,
         )
     elif isinstance(input_method, LocalFile):
-        return get_local_geo_path(file_path=input_method.file_path)
+        return get_local_file_path(file_path=input_method.file_path)
     else:
         raise ValueError(f"Unsupported input method: {type(input_method)}")
