@@ -3,7 +3,7 @@ from pydantic import Field
 from wt_registry import register
 from typing import Annotated, Any, cast
 from ecoscope.platform.annotations import AnyDataFrame, AnyGeoDataFrame
-from ecoscope_workflows_ext_ecoscope.tasks.analysis._time_density import (
+from ecoscope.platform.tasks.analysis._time_density import (
     AutoScaleGridCellSize,
     CustomGridCellSize,
     calculate_elliptical_time_density,

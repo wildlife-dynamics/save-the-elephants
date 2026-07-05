@@ -7,7 +7,7 @@ from ecoscope.platform.annotations import AnyDataFrame
 
 @register()
 def add_status_color_columns(
-    gdf: AnyDataFrame,
+    df: AnyDataFrame,
     hex_column: str,
     previous_color_hex: str,
     use_hex_column_for_current: bool = True,
@@ -26,7 +26,7 @@ def add_status_color_columns(
         current_status: The value in `status_column` treated as "current".
         status_column: Column holding the status labels.
     """
-    out = gdf.copy()
+    out = df.copy()
 
     # Choose the color source for "current" rows.
     if use_hex_column_for_current:

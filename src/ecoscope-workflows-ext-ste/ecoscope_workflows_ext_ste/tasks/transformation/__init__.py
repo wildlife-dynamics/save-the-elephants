@@ -8,6 +8,9 @@ from ._tabular import (
     add_rgba_from_hex,
     add_new_column,
     column_first_unique_value,
+    convert_columns_to_string,
+    safe_string,
+    round_off_values,
 )
 
 __all__ = [
@@ -21,4 +24,7 @@ __all__ = [
     "trajectory_segment_filter",
     "add_new_column",
     "column_first_unique_value",
+    "convert_columns_to_string",
+    "safe_string",
+    "round_off_values",
 ]

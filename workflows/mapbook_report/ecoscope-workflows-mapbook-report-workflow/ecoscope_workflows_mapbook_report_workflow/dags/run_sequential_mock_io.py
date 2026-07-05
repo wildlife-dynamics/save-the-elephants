@@ -7,181 +7,197 @@ Lines specific to the testing context are marked with a test tube emoji (🧪) t
 that they would not be included (or would be different) in the production version of this file.
 """
 
-import json
 import os
 import warnings  # 🧪
+from typing import Any
 
-from ecoscope_workflows_core.tasks.config import set_string_var as set_string_var
-from ecoscope_workflows_core.tasks.config import (
-    set_workflow_details as set_workflow_details,
+from ecoscope.platform.tasks.config import set_string_var as set_string_var
+from ecoscope.platform.tasks.config import set_workflow_details as set_workflow_details
+from ecoscope.platform.tasks.filter import (
+    get_timezone_from_time_range as get_timezone_from_time_range,
 )
-from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
-from ecoscope_workflows_core.tasks.groupby import set_groupers as set_groupers
-from ecoscope_workflows_core.tasks.io import set_er_connection as set_er_connection
-from ecoscope_workflows_core.tasks.io import set_gee_connection as set_gee_connection
-from ecoscope_workflows_core.tasks.skip import (
+from ecoscope.platform.tasks.filter import set_time_range as set_time_range
+from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
+from ecoscope.platform.tasks.io import set_er_connection as set_er_connection
+from ecoscope.platform.tasks.io import set_gee_connection as set_gee_connection
+from ecoscope.platform.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
 )
-from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
-from ecoscope_workflows_core.testing import create_task_magicmock  # 🧪
+from ecoscope.platform.tasks.skip import any_is_empty_df as any_is_empty_df
+from ecoscope.platform.tasks.skip import never as never
 from ecoscope_workflows_ext_custom.tasks.results import (
     set_base_maps_pydeck as set_base_maps_pydeck,
 )
-from ecoscope_workflows_ext_ste.tasks import (
-    determine_previous_period as determine_previous_period,
+from ecoscope_workflows_ext_ste.tasks.filter import (
+    flexible_previous_period as flexible_previous_period,
 )
+from ecoscope_workflows_ext_ste.tasks.landdx import (
+    select_map_overlay as select_map_overlay,
+)
+from wt_contracts import validate as _validate
+from wt_task import task
+from wt_task.testing import create_func_magicmock  # 🧪
 
-get_subjectgroup_observations = create_task_magicmock(  # 🧪
-    anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
+from .. import metadata as _metadata
+
+get_subjectgroup_observations = create_func_magicmock(  # 🧪
+    anchor="ecoscope.platform.tasks.io",  # 🧪
     func_name="get_subjectgroup_observations",  # 🧪
 )  # 🧪
-from ecoscope_workflows_core.tasks.skip import never as never
-from ecoscope_workflows_core.tasks.transformation import (
-    add_temporal_index as add_temporal_index,
-)
-from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
+from ecoscope.platform.tasks.preprocessing import (
     process_relocations as process_relocations,
 )
-from ecoscope_workflows_ext_ecoscope.tasks.preprocessing import (
+from ecoscope.platform.tasks.preprocessing import (
     relocations_to_trajectory as relocations_to_trajectory,
 )
-from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
+from ecoscope.platform.tasks.transformation import (
+    add_temporal_index as add_temporal_index,
+)
+from ecoscope.platform.tasks.transformation import (
     classify_is_night as classify_is_night,
 )
-from ecoscope_workflows_ext_ste.tasks import (
-    custom_trajectory_segment_filter as custom_trajectory_segment_filter,
+from ecoscope.platform.tasks.transformation import (
+    convert_values_to_timezone as convert_values_to_timezone,
 )
-from ecoscope_workflows_ext_ste.tasks import select_map_overlay as select_map_overlay
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    trajectory_segment_filter as trajectory_segment_filter,
+)
 
-get_subjectgroup_observations = create_task_magicmock(  # 🧪
-    anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
+get_subjectgroup_observations = create_func_magicmock(  # 🧪
+    anchor="ecoscope.platform.tasks.io",  # 🧪
     func_name="get_subjectgroup_observations",  # 🧪
 )  # 🧪
-from ecoscope_workflows_core.tasks.analysis import (
+from ecoscope.platform.tasks.analysis import (
+    calculate_elliptical_time_density as calculate_elliptical_time_density,
+)
+from ecoscope.platform.tasks.analysis import (
     dataframe_column_nunique as dataframe_column_nunique,
 )
-from ecoscope_workflows_core.tasks.analysis import (
+from ecoscope.platform.tasks.analysis import (
     dataframe_column_sum as dataframe_column_sum,
 )
-from ecoscope_workflows_core.tasks.config import prefix_string_var as prefix_string_var
-from ecoscope_workflows_core.tasks.groupby import split_groups as split_groups
-from ecoscope_workflows_core.tasks.io import persist_text as persist_text
-from ecoscope_workflows_core.tasks.results import (
+from ecoscope.platform.tasks.config import prefix_string_var as prefix_string_var
+from ecoscope.platform.tasks.groupby import groupbykey as groupbykey
+from ecoscope.platform.tasks.groupby import split_groups as split_groups
+from ecoscope.platform.tasks.io import persist_df as persist_df
+from ecoscope.platform.tasks.io import persist_text as persist_text
+from ecoscope.platform.tasks.results import (
     create_map_widget_single_view as create_map_widget_single_view,
 )
-from ecoscope_workflows_core.tasks.results import (
+from ecoscope.platform.tasks.results import (
     create_single_value_widget_single_view as create_single_value_widget_single_view,
 )
-from ecoscope_workflows_core.tasks.results import (
+from ecoscope.platform.tasks.results import (
     create_text_widget_single_view as create_text_widget_single_view,
 )
-from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
-from ecoscope_workflows_core.tasks.results import (
-    merge_widget_views as merge_widget_views,
+from ecoscope.platform.tasks.results import gather_dashboard as gather_dashboard
+from ecoscope.platform.tasks.results import merge_widget_views as merge_widget_views
+from ecoscope.platform.tasks.skip import (
+    any_keyed_iterables_are_skips as any_keyed_iterables_are_skips,
 )
-from ecoscope_workflows_core.tasks.transformation import map_columns as map_columns
-from ecoscope_workflows_core.tasks.transformation import (
+from ecoscope.platform.tasks.transformation import (
+    apply_classification as apply_classification,
+)
+from ecoscope.platform.tasks.transformation import apply_color_map as apply_color_map
+from ecoscope.platform.tasks.transformation import map_columns as map_columns
+from ecoscope.platform.tasks.transformation import (
     map_values_with_unit as map_values_with_unit,
 )
-from ecoscope_workflows_core.tasks.transformation import sort_values as sort_values
+from ecoscope.platform.tasks.transformation import sort_values as sort_values
+from ecoscope_workflows_ext_custom.tasks.io import html_to_png as html_to_png
 from ecoscope_workflows_ext_custom.tasks.results import (
-    create_geojson_layer as create_geojson_layer,
+    create_geojson_layer as create_geojson_layer_1,
 )
 from ecoscope_workflows_ext_custom.tasks.results import (
-    create_path_layer as create_path_layer,
+    create_path_layer as create_path_layer_1,
 )
-from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map
+from ecoscope_workflows_ext_custom.tasks.results import draw_map as draw_map_1
 from ecoscope_workflows_ext_custom.tasks.spatial_ops import (
     reproject_gdf as reproject_gdf,
 )
 from ecoscope_workflows_ext_custom.tasks.transformation import (
     to_quantity as to_quantity,
 )
-from ecoscope_workflows_ext_ecoscope.tasks.analysis import (
-    calculate_elliptical_time_density as calculate_elliptical_time_density,
+from ecoscope_workflows_ext_ste.tasks.filter import get_duration as get_duration
+from ecoscope_workflows_ext_ste.tasks.io import (
+    compute_seasons_from_ndvi as compute_seasons_from_ndvi,
 )
-from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
-from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
-    apply_classification as apply_classification,
-)
-from ecoscope_workflows_ext_ecoscope.tasks.transformation import (
-    apply_color_map as apply_color_map,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    adjust_map_zoom_and_screenshot as adjust_map_zoom_and_screenshot,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    assign_season_colors as assign_season_colors,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    calculate_seasonal_home_range as calculate_seasonal_home_range,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    combine_deckgl_map_layers as combine_deckgl_map_layers,
-)
-from ecoscope_workflows_ext_ste.tasks import convert_to_str as convert_to_str
-from ecoscope_workflows_ext_ste.tasks import create_column as create_column
-from ecoscope_workflows_ext_ste.tasks import create_context_page as create_context_page
-from ecoscope_workflows_ext_ste.tasks import create_grouper_page as create_grouper_page
-from ecoscope_workflows_ext_ste.tasks import (
-    create_mapbook_ctx_cover as create_mapbook_ctx_cover,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    create_mapbook_grouper_ctx as create_mapbook_grouper_ctx,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    create_seasonal_labels as create_seasonal_labels,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    custom_determine_season_windows as custom_determine_season_windows,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    custom_view_state_from_gdf as custom_view_state_from_gdf,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    dataframe_column_first_unique_str as dataframe_column_first_unique_str,
-)
-from ecoscope_workflows_ext_ste.tasks import envelope_gdf as envelope_gdf
-from ecoscope_workflows_ext_ste.tasks import extract_index_names as extract_index_names
-from ecoscope_workflows_ext_ste.tasks import (
+from ecoscope_workflows_ext_ste.tasks.io import (
     fetch_and_persist_file as fetch_and_persist_file,
 )
-from ecoscope_workflows_ext_ste.tasks import filter_df_cols as filter_df_cols
-from ecoscope_workflows_ext_ste.tasks import (
-    filter_groups_by_value_criteria as filter_groups_by_value_criteria,
+from ecoscope_workflows_ext_ste.tasks.io import get_file_path as get_file_path
+from ecoscope_workflows_ext_ste.tasks.io import raster_to_gdf as raster_to_gdf
+from ecoscope_workflows_ext_ste.tasks.io._seasons import (
+    create_seasonal_labels as create_seasonal_labels,
 )
-from ecoscope_workflows_ext_ste.tasks import (
+from ecoscope_workflows_ext_ste.tasks.reporting import (
+    create_context_page as create_context_page,
+)
+from ecoscope_workflows_ext_ste.tasks.reporting import (
+    create_mapbook_context as create_mapbook_context,
+)
+from ecoscope_workflows_ext_ste.tasks.reporting import (
+    merge_docx_documents as merge_docx_documents,
+)
+from ecoscope_workflows_ext_ste.tasks.reporting import (
+    prepare_cover_metadata as prepare_cover_metadata,
+)
+from ecoscope_workflows_ext_ste.tasks.reporting import (
+    render_mapbook_page as render_mapbook_page,
+)
+from ecoscope_workflows_ext_ste.tasks.results import (
     generate_ecograph_raster as generate_ecograph_raster,
 )
-from ecoscope_workflows_ext_ste.tasks import generate_mcp_gdf as generate_mcp_gdf
-from ecoscope_workflows_ext_ste.tasks import get_duration as get_duration
-from ecoscope_workflows_ext_ste.tasks import get_file_path as get_file_path
-from ecoscope_workflows_ext_ste.tasks import (
-    get_split_group_column as get_split_group_column,
+from ecoscope_workflows_ext_ste.tasks.skip import skip_file as skip_file
+from ecoscope_workflows_ext_ste.tasks.skip import skip_toggle as skip_toggle
+from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
+    calculate_elliptical_time_density_grouped as calculate_elliptical_time_density_grouped,
 )
-from ecoscope_workflows_ext_ste.tasks import merge_mapbook_files as merge_mapbook_files
-from ecoscope_workflows_ext_ste.tasks import merge_multiple_df as merge_multiple_df
-from ecoscope_workflows_ext_ste.tasks import (
-    modify_status_colors as modify_status_colors,
+from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
+    combine_deckgl_map_layers as combine_deckgl_map_layers,
 )
-from ecoscope_workflows_ext_ste.tasks import (
-    retrieve_feature_gdf as retrieve_feature_gdf,
+from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
+    compute_minimum_convex_polygon as compute_minimum_convex_polygon,
 )
-from ecoscope_workflows_ext_ste.tasks import round_off_values as round_off_values
-from ecoscope_workflows_ext_ste.tasks import safe_string as safe_string
-from ecoscope_workflows_ext_ste.tasks import view_state_deck_gdf as view_state_deck_gdf
-from ecoscope_workflows_ext_ste.tasks import zip_groupbykey as zip_groupbykey
+from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
+    compute_view_state_from_gdf as compute_view_state_from_gdf,
+)
+from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
+    envelope_gdf as envelope_gdf,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    add_new_column as add_new_column,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    add_status_color_columns as add_status_color_columns,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    column_first_unique_value as column_first_unique_value,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    concatenate_dataframes as concatenate_dataframes,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    convert_columns_to_string as convert_columns_to_string,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    round_off_values as round_off_values,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import safe_string as safe_string
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    subset_columns as subset_columns,
+)
 
-from ..params import Params
 
-
-def main(params: Params):
+def main(params: dict[str, Any], validate_params_schema: bool = True):
     warnings.warn("This test script should not be used in production!")  # 🧪
 
-    params_dict = json.loads(params.model_dump_json(exclude_unset=True))
+    if validate_params_schema:
+        _validate(params, _metadata.load_params_schema())
 
     workflow_details = (
-        set_workflow_details.validate()
+        task(set_workflow_details)
+        .validate()
         .set_task_instance_id("workflow_details")
         .handle_errors()
         .with_tracing()
@@ -192,12 +208,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("workflow_details") or {}))
+        .partial(**(params.get("workflow_details") or {}))
         .call()
     )
 
     time_range = (
-        set_time_range.validate()
+        task(set_time_range)
+        .validate()
         .set_task_instance_id("time_range")
         .handle_errors()
         .with_tracing()
@@ -208,12 +225,64 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("time_range") or {}))
+        .partial(**(params.get("time_range") or {}))
+        .call()
+    )
+
+    get_timezone = (
+        task(get_timezone_from_time_range)
+        .validate()
+        .set_task_instance_id("get_timezone")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(time_range=time_range, **(params.get("get_timezone") or {}))
+        .call()
+    )
+
+    er_client_name = (
+        task(set_er_connection)
+        .validate()
+        .set_task_instance_id("er_client_name")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("er_client_name") or {}))
+        .call()
+    )
+
+    gee_project_name = (
+        task(set_gee_connection)
+        .validate()
+        .set_task_instance_id("gee_project_name")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("gee_project_name") or {}))
         .call()
     )
 
     groupers = (
-        set_groupers.validate()
+        task(set_groupers)
+        .validate()
         .set_task_instance_id("groupers")
         .handle_errors()
         .with_tracing()
@@ -225,14 +294,14 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            groupers=[{"index_name": "subject_name"}],
-            **(params_dict.get("groupers") or {}),
+            groupers=[{"index_name": "subject_name"}], **(params.get("groupers") or {})
         )
         .call()
     )
 
     configure_base_maps = (
-        set_base_maps_pydeck.validate()
+        task(set_base_maps_pydeck)
+        .validate()
         .set_task_instance_id("configure_base_maps")
         .handle_errors()
         .with_tracing()
@@ -251,64 +320,14 @@ def main(params: Params):
                     "max_zoom": 20,
                 }
             ],
-            **(params_dict.get("configure_base_maps") or {}),
+            **(params.get("configure_base_maps") or {}),
         )
-        .call()
-    )
-
-    set_previous_period = (
-        determine_previous_period.validate()
-        .set_task_instance_id("set_previous_period")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            current_time_range=time_range,
-            **(params_dict.get("set_previous_period") or {}),
-        )
-        .call()
-    )
-
-    er_client_name = (
-        set_er_connection.validate()
-        .set_task_instance_id("er_client_name")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params_dict.get("er_client_name") or {}))
-        .call()
-    )
-
-    gee_project_name = (
-        set_gee_connection.validate()
-        .set_task_instance_id("gee_project_name")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params_dict.get("gee_project_name") or {}))
         .call()
     )
 
     subject_group_var = (
-        set_string_var.validate()
+        task(set_string_var)
+        .validate()
         .set_task_instance_id("subject_group_var")
         .handle_errors()
         .with_tracing()
@@ -319,12 +338,51 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("subject_group_var") or {}))
+        .partial(**(params.get("subject_group_var") or {}))
+        .call()
+    )
+
+    set_previous_period = (
+        task(flexible_previous_period)
+        .validate()
+        .set_task_instance_id("set_previous_period")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(timerange=time_range, **(params.get("set_previous_period") or {}))
+        .call()
+    )
+
+    map_overlay = (
+        task(select_map_overlay)
+        .validate()
+        .set_task_instance_id("map_overlay")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                never,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            client=er_client_name,
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            ldx_url="https://www.dropbox.com/scl/fi/uitptfgxk4wnfcnv9k96a/mapbook_ldx_layers.gpkg?rlkey=xi2azbfzqix9udytv3smsf6eh&st=249w3d2x&dl=0",
+            **(params.get("map_overlay") or {}),
+        )
         .call()
     )
 
     subject_observations = (
-        get_subjectgroup_observations.validate()
+        task(get_subjectgroup_observations)
+        # 🧪 validation omitted for mocked IO task (returns pre-loaded example data)
         .set_task_instance_id("subject_observations")
         .handle_errors()
         .with_tracing()
@@ -343,33 +401,36 @@ def main(params: Params):
             raise_on_empty=False,
             include_details=False,
             include_subjectsource_details=False,
-            **(params_dict.get("subject_observations") or {}),
+            **(params.get("subject_observations") or {}),
         )
         .call()
     )
 
-    map_overlay = (
-        select_map_overlay.validate()
-        .set_task_instance_id("map_overlay")
+    convert_relocs_timezone = (
+        task(convert_values_to_timezone)
+        .validate()
+        .set_task_instance_id("convert_relocs_timezone")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                never,
+                any_is_empty_df,
+                any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            client=er_client_name,
-            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            ldx_url="https://www.dropbox.com/scl/fi/uitptfgxk4wnfcnv9k96a/mapbook_ldx_layers.gpkg?rlkey=xi2azbfzqix9udytv3smsf6eh&st=249w3d2x&dl=0",
-            **(params_dict.get("map_overlay") or {}),
+            df=subject_observations,
+            timezone=get_timezone,
+            columns=["fixtime"],
+            **(params.get("convert_relocs_timezone") or {}),
         )
         .call()
     )
 
     subject_reloc = (
-        process_relocations.validate()
+        task(process_relocations)
+        .validate()
         .set_task_instance_id("subject_reloc")
         .handle_errors()
         .with_tracing()
@@ -381,7 +442,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            observations=subject_observations,
+            observations=convert_relocs_timezone,
             relocs_columns=[
                 "groupby_col",
                 "fixtime",
@@ -398,13 +459,14 @@ def main(params: Params):
                 {"x": 0.0, "y": 0.0},
                 {"x": 1.0, "y": 1.0},
             ],
-            **(params_dict.get("subject_reloc") or {}),
+            **(params.get("subject_reloc") or {}),
         )
         .call()
     )
 
     annotate_day_night = (
-        classify_is_night.validate()
+        task(classify_is_night)
+        .validate()
         .set_task_instance_id("annotate_day_night")
         .handle_errors()
         .with_tracing()
@@ -415,14 +477,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            relocations=subject_reloc, **(params_dict.get("annotate_day_night") or {})
-        )
+        .partial(relocations=subject_reloc, **(params.get("annotate_day_night") or {}))
         .call()
     )
 
     custom_trajs_filter = (
-        custom_trajectory_segment_filter.validate()
+        task(trajectory_segment_filter)
+        .validate()
         .set_task_instance_id("custom_trajs_filter")
         .handle_errors()
         .with_tracing()
@@ -433,12 +494,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("custom_trajs_filter") or {}))
+        .partial(**(params.get("custom_trajs_filter") or {}))
         .call()
     )
 
     convert_to_trajectories = (
-        relocations_to_trajectory.validate()
+        task(relocations_to_trajectory)
+        .validate()
         .set_task_instance_id("convert_to_trajectories")
         .handle_errors()
         .with_tracing()
@@ -452,13 +514,14 @@ def main(params: Params):
         .partial(
             relocations=annotate_day_night,
             trajectory_segment_filter=custom_trajs_filter,
-            **(params_dict.get("convert_to_trajectories") or {}),
+            **(params.get("convert_to_trajectories") or {}),
         )
         .call()
     )
 
     add_temporal_index_to_traj = (
-        add_temporal_index.validate()
+        task(add_temporal_index)
+        .validate()
         .set_task_instance_id("add_temporal_index_to_traj")
         .handle_errors()
         .with_tracing()
@@ -475,13 +538,14 @@ def main(params: Params):
             groupers=groupers,
             cast_to_datetime=True,
             format="mixed",
-            **(params_dict.get("add_temporal_index_to_traj") or {}),
+            **(params.get("add_temporal_index_to_traj") or {}),
         )
         .call()
     )
 
     previous_observations = (
-        get_subjectgroup_observations.validate()
+        task(get_subjectgroup_observations)
+        # 🧪 validation omitted for mocked IO task (returns pre-loaded example data)
         .set_task_instance_id("previous_observations")
         .handle_errors()
         .with_tracing()
@@ -500,13 +564,36 @@ def main(params: Params):
             raise_on_empty=False,
             include_details=False,
             include_subjectsource_details=False,
-            **(params_dict.get("previous_observations") or {}),
+            **(params.get("previous_observations") or {}),
+        )
+        .call()
+    )
+
+    convert_prev_timezone = (
+        task(convert_values_to_timezone)
+        .validate()
+        .set_task_instance_id("convert_prev_timezone")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=previous_observations,
+            timezone=get_timezone,
+            columns=["fixtime"],
+            **(params.get("convert_prev_timezone") or {}),
         )
         .call()
     )
 
     previous_relocs = (
-        process_relocations.validate()
+        task(process_relocations)
+        .validate()
         .set_task_instance_id("previous_relocs")
         .handle_errors()
         .with_tracing()
@@ -518,7 +605,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            observations=previous_observations,
+            observations=convert_prev_timezone,
             relocs_columns=[
                 "groupby_col",
                 "fixtime",
@@ -535,13 +622,14 @@ def main(params: Params):
                 {"x": 0.0, "y": 0.0},
                 {"x": 1.0, "y": 1.0},
             ],
-            **(params_dict.get("previous_relocs") or {}),
+            **(params.get("previous_relocs") or {}),
         )
         .call()
     )
 
     annotate_prev_day_night = (
-        classify_is_night.validate()
+        task(classify_is_night)
+        .validate()
         .set_task_instance_id("annotate_prev_day_night")
         .handle_errors()
         .with_tracing()
@@ -553,14 +641,14 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            relocations=previous_relocs,
-            **(params_dict.get("annotate_prev_day_night") or {}),
+            relocations=previous_relocs, **(params.get("annotate_prev_day_night") or {})
         )
         .call()
     )
 
     convert_prev_to_trajectories = (
-        relocations_to_trajectory.validate()
+        task(relocations_to_trajectory)
+        .validate()
         .set_task_instance_id("convert_prev_to_trajectories")
         .handle_errors()
         .with_tracing()
@@ -574,13 +662,14 @@ def main(params: Params):
         .partial(
             relocations=annotate_prev_day_night,
             trajectory_segment_filter=custom_trajs_filter,
-            **(params_dict.get("convert_prev_to_trajectories") or {}),
+            **(params.get("convert_prev_to_trajectories") or {}),
         )
         .call()
     )
 
     add_temporal_prev_index_to_traj = (
-        add_temporal_index.validate()
+        task(add_temporal_index)
+        .validate()
         .set_task_instance_id("add_temporal_prev_index_to_traj")
         .handle_errors()
         .with_tracing()
@@ -597,13 +686,14 @@ def main(params: Params):
             groupers=groupers,
             cast_to_datetime=True,
             format="mixed",
-            **(params_dict.get("add_temporal_prev_index_to_traj") or {}),
+            **(params.get("add_temporal_prev_index_to_traj") or {}),
         )
         .call()
     )
 
     rename_prev_traj_cols = (
-        map_columns.validate()
+        task(map_columns)
+        .validate()
         .set_task_instance_id("rename_prev_traj_cols")
         .handle_errors()
         .with_tracing()
@@ -615,7 +705,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            raise_if_not_found=True,
+            raise_if_not_found=False,
             df=add_temporal_prev_index_to_traj,
             drop_columns=[],
             retain_columns=[],
@@ -627,13 +717,14 @@ def main(params: Params):
                 "extra__subject_subtype": "subject_subtype",
                 "extra__created_at": "created_at",
             },
-            **(params_dict.get("rename_prev_traj_cols") or {}),
+            **(params.get("rename_prev_traj_cols") or {}),
         )
         .call()
     )
 
     classify_trajectories_speed_bins = (
-        apply_classification.validate()
+        task(apply_classification)
+        .validate()
         .set_task_instance_id("classify_trajectories_speed_bins")
         .handle_errors()
         .with_tracing()
@@ -654,13 +745,14 @@ def main(params: Params):
                 "label_decimals": 1,
                 "label_suffix": " km/h",
             },
-            **(params_dict.get("classify_trajectories_speed_bins") or {}),
+            **(params.get("classify_trajectories_speed_bins") or {}),
         )
         .call()
     )
 
     rename_traj_cols = (
-        map_columns.validate()
+        task(map_columns)
+        .validate()
         .set_task_instance_id("rename_traj_cols")
         .handle_errors()
         .with_tracing()
@@ -684,13 +776,14 @@ def main(params: Params):
                 "extra__subject_subtype": "subject_subtype",
                 "extra__created_at": "created_at",
             },
-            **(params_dict.get("rename_traj_cols") or {}),
+            **(params.get("rename_traj_cols") or {}),
         )
         .call()
     )
 
     persist_trajs_geoparquet = (
-        persist_df.validate()
+        task(persist_df)
+        .validate()
         .set_task_instance_id("persist_trajs_geoparquet")
         .handle_errors()
         .with_tracing()
@@ -705,14 +798,15 @@ def main(params: Params):
             df=rename_traj_cols,
             filetype="geoparquet",
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename="_trajectories",
-            **(params_dict.get("persist_trajs_geoparquet") or {}),
+            filename="trajectories",
+            **(params.get("persist_trajs_geoparquet") or {}),
         )
         .call()
     )
 
     persist_prev_trajs_geoparquet = (
-        persist_df.validate()
+        task(persist_df)
+        .validate()
         .set_task_instance_id("persist_prev_trajs_geoparquet")
         .handle_errors()
         .with_tracing()
@@ -727,14 +821,15 @@ def main(params: Params):
             df=rename_prev_traj_cols,
             filetype="geoparquet",
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename="_previous_period_trajectories",
-            **(params_dict.get("persist_prev_trajs_geoparquet") or {}),
+            filename="previous_period_trajectories",
+            **(params.get("persist_prev_trajs_geoparquet") or {}),
         )
         .call()
     )
 
     persist_relocs_geoparquet = (
-        persist_df.validate()
+        task(persist_df)
+        .validate()
         .set_task_instance_id("persist_relocs_geoparquet")
         .handle_errors()
         .with_tracing()
@@ -750,13 +845,14 @@ def main(params: Params):
             filetype="geoparquet",
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filename="relocations",
-            **(params_dict.get("persist_relocs_geoparquet") or {}),
+            **(params.get("persist_relocs_geoparquet") or {}),
         )
         .call()
     )
 
     persist_prev_relocs_geoparquet = (
-        persist_df.validate()
+        task(persist_df)
+        .validate()
         .set_task_instance_id("persist_prev_relocs_geoparquet")
         .handle_errors()
         .with_tracing()
@@ -771,14 +867,15 @@ def main(params: Params):
             df=previous_relocs,
             filetype="geoparquet",
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename="_previous_period_relocations",
-            **(params_dict.get("persist_prev_relocs_geoparquet") or {}),
+            filename="previous_period_relocations",
+            **(params.get("persist_prev_relocs_geoparquet") or {}),
         )
         .call()
     )
 
     create_current_duration_column = (
-        create_column.validate()
+        task(add_new_column)
+        .validate()
         .set_task_instance_id("create_current_duration_column")
         .handle_errors()
         .with_tracing()
@@ -791,15 +888,16 @@ def main(params: Params):
         )
         .partial(
             df=rename_traj_cols,
-            col_name="duration_status",
-            value="Current tracks",
-            **(params_dict.get("create_current_duration_column") or {}),
+            column_name="duration_status",
+            default_value="Current tracks",
+            **(params.get("create_current_duration_column") or {}),
         )
         .call()
     )
 
     create_previous_duration_column = (
-        create_column.validate()
+        task(add_new_column)
+        .validate()
         .set_task_instance_id("create_previous_duration_column")
         .handle_errors()
         .with_tracing()
@@ -812,77 +910,44 @@ def main(params: Params):
         )
         .partial(
             df=rename_prev_traj_cols,
-            col_name="duration_status",
-            value="Previous tracks",
-            **(params_dict.get("create_previous_duration_column") or {}),
+            column_name="duration_status",
+            default_value="Previous tracks",
+            **(params.get("create_previous_duration_column") or {}),
         )
         .call()
     )
 
     merge_current_prev_trajs = (
-        merge_multiple_df.validate()
+        task(concatenate_dataframes)
+        .validate()
         .set_task_instance_id("merge_current_prev_trajs")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
+                never,
             ],
             unpack_depth=1,
         )
         .partial(
             list_df=[create_current_duration_column, create_previous_duration_column],
+            axis=0,
+            join="outer",
             ignore_index=True,
-            sort=False,
-            **(params_dict.get("merge_current_prev_trajs") or {}),
-        )
-        .call()
-    )
-
-    extract_grouper_names = (
-        extract_index_names.validate()
-        .set_task_instance_id("extract_grouper_names")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(groupers=groupers, **(params_dict.get("extract_grouper_names") or {}))
-        .call()
-    )
-
-    filter_prev_groupers = (
-        filter_groups_by_value_criteria.validate()
-        .set_task_instance_id("filter_prev_groupers")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            df=merge_current_prev_trajs,
-            groupby_col=extract_grouper_names,
-            filter_col="duration_status",
-            criteria="priority",
-            priority_value="Current tracks",
-            required_values=None,
-            min_count=None,
-            **(params_dict.get("filter_prev_groupers") or {}),
+            keys=None,
+            levels=None,
+            names=None,
+            verify_integrity=False,
+            sort=True,
+            copy=None,
+            **(params.get("merge_current_prev_trajs") or {}),
         )
         .call()
     )
 
     add_temporal_index_to_comb_trajs = (
-        add_temporal_index.validate()
+        task(add_temporal_index)
+        .validate()
         .set_task_instance_id("add_temporal_index_to_comb_trajs")
         .handle_errors()
         .with_tracing()
@@ -894,18 +959,19 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            df=filter_prev_groupers,
+            df=merge_current_prev_trajs,
             time_col="segment_start",
             groupers=groupers,
             cast_to_datetime=True,
             format="mixed",
-            **(params_dict.get("add_temporal_index_to_comb_trajs") or {}),
+            **(params.get("add_temporal_index_to_comb_trajs") or {}),
         )
         .call()
     )
 
     split_traj_by_group = (
-        split_groups.validate()
+        task(split_groups)
+        .validate()
         .set_task_instance_id("split_traj_by_group")
         .handle_errors()
         .with_tracing()
@@ -919,14 +985,15 @@ def main(params: Params):
         .partial(
             df=create_current_duration_column,
             groupers=groupers,
-            **(params_dict.get("split_traj_by_group") or {}),
+            **(params.get("split_traj_by_group") or {}),
         )
         .call()
     )
 
-    first_subject_name = (
-        dataframe_column_first_unique_str.validate()
-        .set_task_instance_id("first_subject_name")
+    unique_subject_name = (
+        task(column_first_unique_value)
+        .validate()
+        .set_task_instance_id("unique_subject_name")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -937,13 +1004,14 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            column_name="subject_name", **(params_dict.get("first_subject_name") or {})
+            column_name="subject_name", **(params.get("unique_subject_name") or {})
         )
         .mapvalues(argnames=["df"], argvalues=split_traj_by_group)
     )
 
     safe_subject_name = (
-        safe_string.validate()
+        task(safe_string)
+        .validate()
         .set_task_instance_id("safe_subject_name")
         .handle_errors()
         .with_tracing()
@@ -954,12 +1022,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("safe_subject_name") or {}))
-        .mapvalues(argnames=["value"], argvalues=first_subject_name)
+        .partial(**(params.get("safe_subject_name") or {}))
+        .mapvalues(argnames=["value"], argvalues=unique_subject_name)
     )
 
     movement_filename = (
-        prefix_string_var.validate()
+        task(prefix_string_var)
+        .validate()
         .set_task_instance_id("movement_filename")
         .handle_errors()
         .with_tracing()
@@ -970,14 +1039,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            var="_movement_tracks.html", **(params_dict.get("movement_filename") or {})
-        )
+        .partial(var="_movement_tracks.html", **(params.get("movement_filename") or {}))
         .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     speedmap_filename = (
-        prefix_string_var.validate()
+        task(prefix_string_var)
+        .validate()
         .set_task_instance_id("speedmap_filename")
         .handle_errors()
         .with_tracing()
@@ -988,12 +1056,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(var="_speedmap.html", **(params_dict.get("speedmap_filename") or {}))
+        .partial(var="_speedmap.html", **(params.get("speedmap_filename") or {}))
         .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     dn_filename = (
-        prefix_string_var.validate()
+        task(prefix_string_var)
+        .validate()
         .set_task_instance_id("dn_filename")
         .handle_errors()
         .with_tracing()
@@ -1004,12 +1073,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(var="_day_night.html", **(params_dict.get("dn_filename") or {}))
+        .partial(var="_day_night.html", **(params.get("dn_filename") or {}))
         .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     hr_filename = (
-        prefix_string_var.validate()
+        task(prefix_string_var)
+        .validate()
         .set_task_instance_id("hr_filename")
         .handle_errors()
         .with_tracing()
@@ -1020,12 +1090,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(var="_homerange.html", **(params_dict.get("hr_filename") or {}))
+        .partial(var="_homerange.html", **(params.get("hr_filename") or {}))
         .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     mr_filename = (
-        prefix_string_var.validate()
+        task(prefix_string_var)
+        .validate()
         .set_task_instance_id("mr_filename")
         .handle_errors()
         .with_tracing()
@@ -1036,14 +1107,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            var="_mean_speed_raster.html", **(params_dict.get("mr_filename") or {})
-        )
+        .partial(var="_mean_speed_raster.html", **(params.get("mr_filename") or {}))
         .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     seasonal_hr_filename = (
-        prefix_string_var.validate()
+        task(prefix_string_var)
+        .validate()
         .set_task_instance_id("seasonal_hr_filename")
         .handle_errors()
         .with_tracing()
@@ -1055,14 +1125,14 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            var="_seasonal_homerange.html",
-            **(params_dict.get("seasonal_hr_filename") or {}),
+            var="_seasonal_homerange.html", **(params.get("seasonal_hr_filename") or {})
         )
         .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     etd_filename = (
-        prefix_string_var.validate()
+        task(prefix_string_var)
+        .validate()
         .set_task_instance_id("etd_filename")
         .handle_errors()
         .with_tracing()
@@ -1073,12 +1143,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(var="_etd", **(params_dict.get("etd_filename") or {}))
+        .partial(var="_etd", **(params.get("etd_filename") or {}))
         .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     ndvi_values_filename = (
-        prefix_string_var.validate()
+        task(prefix_string_var)
+        .validate()
         .set_task_instance_id("ndvi_values_filename")
         .handle_errors()
         .with_tracing()
@@ -1089,12 +1160,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(var="_ndvi_values", **(params_dict.get("ndvi_values_filename") or {}))
+        .partial(var="_ndvi_values", **(params.get("ndvi_values_filename") or {}))
         .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     mcp_filename = (
-        prefix_string_var.validate()
+        task(prefix_string_var)
+        .validate()
         .set_task_instance_id("mcp_filename")
         .handle_errors()
         .with_tracing()
@@ -1105,12 +1177,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(var="_mcp", **(params_dict.get("mcp_filename") or {}))
+        .partial(var="_mcp", **(params.get("mcp_filename") or {}))
         .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     seasonal_etd_filename = (
-        prefix_string_var.validate()
+        task(prefix_string_var)
+        .validate()
         .set_task_instance_id("seasonal_etd_filename")
         .handle_errors()
         .with_tracing()
@@ -1121,14 +1194,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            var="_seasonal_etd", **(params_dict.get("seasonal_etd_filename") or {})
-        )
+        .partial(var="_seasonal_etd", **(params.get("seasonal_etd_filename") or {}))
         .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     mean_speed_raster_filename = (
-        prefix_string_var.validate()
+        task(prefix_string_var)
+        .validate()
         .set_task_instance_id("mean_speed_raster_filename")
         .handle_errors()
         .with_tracing()
@@ -1140,14 +1212,14 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            var="_mean_speed_raster",
-            **(params_dict.get("mean_speed_raster_filename") or {}),
+            var="_mean_speed_raster", **(params.get("mean_speed_raster_filename") or {})
         )
         .mapvalues(argnames=["prefix"], argvalues=safe_subject_name)
     )
 
     split_comb_trajs = (
-        split_groups.validate()
+        task(split_groups)
+        .validate()
         .set_task_instance_id("split_comb_trajs")
         .handle_errors()
         .with_tracing()
@@ -1161,50 +1233,14 @@ def main(params: Params):
         .partial(
             df=add_temporal_index_to_comb_trajs,
             groupers=groupers,
-            **(params_dict.get("split_comb_trajs") or {}),
-        )
-        .call()
-    )
-
-    split_group_column = (
-        get_split_group_column.validate()
-        .set_task_instance_id("split_group_column")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            split_data=split_traj_by_group,
-            **(params_dict.get("split_group_column") or {}),
-        )
-        .call()
-    )
-
-    split_comb_cols = (
-        get_split_group_column.validate()
-        .set_task_instance_id("split_comb_cols")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            split_data=split_comb_trajs, **(params_dict.get("split_comb_cols") or {})
+            **(params.get("split_comb_trajs") or {}),
         )
         .call()
     )
 
     assign_duration_colors = (
-        modify_status_colors.validate()
+        task(add_status_color_columns)
+        .validate()
         .set_task_instance_id("assign_duration_colors")
         .handle_errors()
         .with_tracing()
@@ -1216,14 +1252,20 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            grouper_value=split_comb_cols,
-            **(params_dict.get("assign_duration_colors") or {}),
+            hex_column="hex_color",
+            previous_color_hex="#808080",
+            use_hex_column_for_current=True,
+            default_current_hex="#00008b",
+            current_status="Current tracks",
+            status_column="duration_status",
+            **(params.get("assign_duration_colors") or {}),
         )
-        .mapvalues(argnames=["gdf"], argvalues=split_comb_trajs)
+        .mapvalues(argnames=["df"], argvalues=split_comb_trajs)
     )
 
     sort_trajs_by_status = (
-        sort_values.validate()
+        task(sort_values)
+        .validate()
         .set_task_instance_id("sort_trajs_by_status")
         .handle_errors()
         .with_tracing()
@@ -1238,13 +1280,14 @@ def main(params: Params):
             column_name="duration_status",
             na_position="first",
             ascending=False,
-            **(params_dict.get("sort_trajs_by_status") or {}),
+            **(params.get("sort_trajs_by_status") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=assign_duration_colors)
     )
 
     filter_movement_cols = (
-        filter_df_cols.validate()
+        task(subset_columns)
+        .validate()
         .set_task_instance_id("filter_movement_cols")
         .handle_errors()
         .with_tracing()
@@ -1262,13 +1305,16 @@ def main(params: Params):
                 "is_night",
                 "geometry",
             ],
-            **(params_dict.get("filter_movement_cols") or {}),
+            exclude=None,
+            strict=False,
+            **(params.get("filter_movement_cols") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=sort_trajs_by_status)
     )
 
     generate_track_layers = (
-        create_path_layer.validate()
+        task(create_path_layer_1)
+        .validate()
         .set_task_instance_id("generate_track_layers")
         .handle_errors()
         .with_tracing()
@@ -1283,7 +1329,7 @@ def main(params: Params):
             data_url=None,
             layer_style={
                 "get_color": "duration_status_colors",
-                "get_width": 2.85,
+                "get_width": 2.25,
                 "width_scale": 1,
                 "width_min_pixels": 2,
                 "width_max_pixels": 8,
@@ -1291,7 +1337,7 @@ def main(params: Params):
                 "cap_rounded": True,
                 "joint_rounded": True,
                 "billboard": False,
-                "opacity": 0.55,
+                "opacity": 0.45,
                 "stroked": True,
             },
             legend={
@@ -1301,13 +1347,14 @@ def main(params: Params):
                 "sort": "ascending",
                 "label_suffix": None,
             },
-            **(params_dict.get("generate_track_layers") or {}),
+            **(params.get("generate_track_layers") or {}),
         )
         .mapvalues(argnames=["geodataframe"], argvalues=filter_movement_cols)
     )
 
     combined_ldx_movement_layers = (
-        combine_deckgl_map_layers.validate()
+        task(combine_deckgl_map_layers)
+        .validate()
         .set_task_instance_id("combined_ldx_movement_layers")
         .handle_errors()
         .with_tracing()
@@ -1320,13 +1367,14 @@ def main(params: Params):
         )
         .partial(
             static_layers=map_overlay,
-            **(params_dict.get("combined_ldx_movement_layers") or {}),
+            **(params.get("combined_ldx_movement_layers") or {}),
         )
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_track_layers)
     )
 
     zoom_to_envelope = (
-        envelope_gdf.validate()
+        task(envelope_gdf)
+        .validate()
         .set_task_instance_id("zoom_to_envelope")
         .handle_errors()
         .with_tracing()
@@ -1337,12 +1385,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(expansion_factor=1.05, **(params_dict.get("zoom_to_envelope") or {}))
+        .partial(**(params.get("zoom_to_envelope") or {}))
         .mapvalues(argnames=["gdf"], argvalues=filter_movement_cols)
     )
 
     gdf_image_extent = (
-        view_state_deck_gdf.validate()
+        task(compute_view_state_from_gdf)
+        .validate()
         .set_task_instance_id("gdf_image_extent")
         .handle_errors()
         .with_tracing()
@@ -1353,47 +1402,35 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(pitch=0, bearing=0, **(params_dict.get("gdf_image_extent") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=filter_movement_cols)
-    )
-
-    zoom_speed_gdf_extent = (
-        custom_view_state_from_gdf.validate()
-        .set_task_instance_id("zoom_speed_gdf_extent")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
+        .partial(
+            pitch=0, bearing=0, max_zoom=15, **(params.get("gdf_image_extent") or {})
         )
-        .partial(max_zoom=20, **(params_dict.get("zoom_speed_gdf_extent") or {}))
         .mapvalues(argnames=["gdf"], argvalues=zoom_to_envelope)
     )
 
     zip_tracks_with_viewstate = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("zip_tracks_with_viewstate")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[combined_ldx_movement_layers, zoom_speed_gdf_extent],
-            **(params_dict.get("zip_tracks_with_viewstate") or {}),
+            iterables=[combined_ldx_movement_layers, gdf_image_extent],
+            **(params.get("zip_tracks_with_viewstate") or {}),
         )
         .call()
     )
 
     draw_movement_tracks = (
-        draw_map.validate()
+        task(draw_map_1)
+        .validate()
         .set_task_instance_id("draw_movement_tracks")
         .handle_errors()
         .with_tracing()
@@ -1410,7 +1447,7 @@ def main(params: Params):
             title=None,
             max_zoom=10,
             legend_style={"placement": "bottom-right"},
-            **(params_dict.get("draw_movement_tracks") or {}),
+            **(params.get("draw_movement_tracks") or {}),
         )
         .mapvalues(
             argnames=["geo_layers", "view_state"], argvalues=zip_tracks_with_viewstate
@@ -1418,26 +1455,28 @@ def main(params: Params):
     )
 
     movement_tracks_text = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("movement_tracks_text")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[movement_filename, draw_movement_tracks],
-            **(params_dict.get("movement_tracks_text") or {}),
+            iterables=[movement_filename, draw_movement_tracks],
+            **(params.get("movement_tracks_text") or {}),
         )
         .call()
     )
 
     persist_movement_tracks_html = (
-        persist_text.validate()
+        task(persist_text)
+        .validate()
         .set_task_instance_id("persist_movement_tracks_html")
         .handle_errors()
         .with_tracing()
@@ -1451,13 +1490,14 @@ def main(params: Params):
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filename_suffix=None,
-            **(params_dict.get("persist_movement_tracks_html") or {}),
+            **(params.get("persist_movement_tracks_html") or {}),
         )
         .mapvalues(argnames=["filename", "text"], argvalues=movement_tracks_text)
     )
 
     create_movement_tracks_widgets = (
-        create_map_widget_single_view.validate()
+        task(create_map_widget_single_view)
+        .validate()
         .set_task_instance_id("create_movement_tracks_widgets")
         .handle_errors()
         .with_tracing()
@@ -1469,13 +1509,14 @@ def main(params: Params):
         )
         .partial(
             title="Movement Tracks",
-            **(params_dict.get("create_movement_tracks_widgets") or {}),
+            **(params.get("create_movement_tracks_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=persist_movement_tracks_html)
     )
 
     merge_movement_tracks_widgets = (
-        merge_widget_views.validate()
+        task(merge_widget_views)
+        .validate()
         .set_task_instance_id("merge_movement_tracks_widgets")
         .handle_errors()
         .with_tracing()
@@ -1488,13 +1529,14 @@ def main(params: Params):
         )
         .partial(
             widgets=create_movement_tracks_widgets,
-            **(params_dict.get("merge_movement_tracks_widgets") or {}),
+            **(params.get("merge_movement_tracks_widgets") or {}),
         )
         .call()
     )
 
     sort_trajs_by_speed = (
-        sort_values.validate()
+        task(sort_values)
+        .validate()
         .set_task_instance_id("sort_trajs_by_speed")
         .handle_errors()
         .with_tracing()
@@ -1509,13 +1551,14 @@ def main(params: Params):
             column_name="speed_bins",
             na_position="first",
             ascending=True,
-            **(params_dict.get("sort_trajs_by_speed") or {}),
+            **(params.get("sort_trajs_by_speed") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=split_traj_by_group)
     )
 
     apply_speed_colormap = (
-        apply_color_map.validate()
+        task(apply_color_map)
+        .validate()
         .set_task_instance_id("apply_speed_colormap")
         .handle_errors()
         .with_tracing()
@@ -1530,13 +1573,14 @@ def main(params: Params):
             input_column_name="speed_bins",
             output_column_name="speed_bins_colormap",
             colormap=["#1a9850", "#91cf60", "#d9ef8b", "#fee08b", "#fc8d59", "#d73027"],
-            **(params_dict.get("apply_speed_colormap") or {}),
+            **(params.get("apply_speed_colormap") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=sort_trajs_by_speed)
     )
 
     filter_speed_cols = (
-        filter_df_cols.validate()
+        task(subset_columns)
+        .validate()
         .set_task_instance_id("filter_speed_cols")
         .handle_errors()
         .with_tracing()
@@ -1556,13 +1600,16 @@ def main(params: Params):
                 "hex_color",
                 "speed_bins",
             ],
-            **(params_dict.get("filter_speed_cols") or {}),
+            exclude=None,
+            strict=False,
+            **(params.get("filter_speed_cols") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=apply_speed_colormap)
     )
 
     generate_speedmap_layers = (
-        create_path_layer.validate()
+        task(create_path_layer_1)
+        .validate()
         .set_task_instance_id("generate_speedmap_layers")
         .handle_errors()
         .with_tracing()
@@ -1577,7 +1624,7 @@ def main(params: Params):
             data_url=None,
             layer_style={
                 "get_color": "speed_bins_colormap",
-                "get_width": 2.85,
+                "get_width": 2.25,
                 "width_scale": 1,
                 "width_min_pixels": 2,
                 "width_max_pixels": 8,
@@ -1585,7 +1632,7 @@ def main(params: Params):
                 "cap_rounded": True,
                 "joint_rounded": True,
                 "billboard": False,
-                "opacity": 0.55,
+                "opacity": 0.45,
                 "stroked": True,
             },
             legend={
@@ -1595,13 +1642,14 @@ def main(params: Params):
                 "sort": "ascending",
                 "label_suffix": None,
             },
-            **(params_dict.get("generate_speedmap_layers") or {}),
+            **(params.get("generate_speedmap_layers") or {}),
         )
         .mapvalues(argnames=["geodataframe"], argvalues=filter_speed_cols)
     )
 
     combined_ldx_speed_layers = (
-        combine_deckgl_map_layers.validate()
+        task(combine_deckgl_map_layers)
+        .validate()
         .set_task_instance_id("combined_ldx_speed_layers")
         .handle_errors()
         .with_tracing()
@@ -1613,33 +1661,34 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            static_layers=map_overlay,
-            **(params_dict.get("combined_ldx_speed_layers") or {}),
+            static_layers=map_overlay, **(params.get("combined_ldx_speed_layers") or {})
         )
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_speedmap_layers)
     )
 
     zip_speedmap_with_viewstate = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("zip_speedmap_with_viewstate")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[combined_ldx_speed_layers, zoom_speed_gdf_extent],
-            **(params_dict.get("zip_speedmap_with_viewstate") or {}),
+            iterables=[combined_ldx_speed_layers, gdf_image_extent],
+            **(params.get("zip_speedmap_with_viewstate") or {}),
         )
         .call()
     )
 
     draw_speedmap = (
-        draw_map.validate()
+        task(draw_map_1)
+        .validate()
         .set_task_instance_id("draw_speedmap")
         .handle_errors()
         .with_tracing()
@@ -1656,7 +1705,7 @@ def main(params: Params):
             title=None,
             max_zoom=10,
             legend_style={"placement": "bottom-right"},
-            **(params_dict.get("draw_speedmap") or {}),
+            **(params.get("draw_speedmap") or {}),
         )
         .mapvalues(
             argnames=["geo_layers", "view_state"], argvalues=zip_speedmap_with_viewstate
@@ -1664,26 +1713,28 @@ def main(params: Params):
     )
 
     speedmap_file_text = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("speedmap_file_text")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[speedmap_filename, draw_speedmap],
-            **(params_dict.get("speedmap_file_text") or {}),
+            iterables=[speedmap_filename, draw_speedmap],
+            **(params.get("speedmap_file_text") or {}),
         )
         .call()
     )
 
     persist_speedmap_html = (
-        persist_text.validate()
+        task(persist_text)
+        .validate()
         .set_task_instance_id("persist_speedmap_html")
         .handle_errors()
         .with_tracing()
@@ -1697,13 +1748,14 @@ def main(params: Params):
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filename_suffix=None,
-            **(params_dict.get("persist_speedmap_html") or {}),
+            **(params.get("persist_speedmap_html") or {}),
         )
         .mapvalues(argnames=["filename", "text"], argvalues=speedmap_file_text)
     )
 
     create_speedmap_widgets = (
-        create_map_widget_single_view.validate()
+        task(create_map_widget_single_view)
+        .validate()
         .set_task_instance_id("create_speedmap_widgets")
         .handle_errors()
         .with_tracing()
@@ -1713,14 +1765,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            title="Speed Map", **(params_dict.get("create_speedmap_widgets") or {})
-        )
+        .partial(title="Speed Map", **(params.get("create_speedmap_widgets") or {}))
         .map(argnames=["view", "data"], argvalues=persist_speedmap_html)
     )
 
     merge_speedmap_widgets = (
-        merge_widget_views.validate()
+        task(merge_widget_views)
+        .validate()
         .set_task_instance_id("merge_speedmap_widgets")
         .handle_errors()
         .with_tracing()
@@ -1733,13 +1784,14 @@ def main(params: Params):
         )
         .partial(
             widgets=create_speedmap_widgets,
-            **(params_dict.get("merge_speedmap_widgets") or {}),
+            **(params.get("merge_speedmap_widgets") or {}),
         )
         .call()
     )
 
     sort_trajs_by_day_night = (
-        sort_values.validate()
+        task(sort_values)
+        .validate()
         .set_task_instance_id("sort_trajs_by_day_night")
         .handle_errors()
         .with_tracing()
@@ -1754,13 +1806,14 @@ def main(params: Params):
             column_name="is_night",
             na_position="first",
             ascending=True,
-            **(params_dict.get("sort_trajs_by_day_night") or {}),
+            **(params.get("sort_trajs_by_day_night") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=split_traj_by_group)
     )
 
     apply_day_night_colormap = (
-        apply_color_map.validate()
+        task(apply_color_map)
+        .validate()
         .set_task_instance_id("apply_day_night_colormap")
         .handle_errors()
         .with_tracing()
@@ -1775,13 +1828,14 @@ def main(params: Params):
             colormap=["#e7a553", "#292965"],
             input_column_name="is_night",
             output_column_name="day_night_colors",
-            **(params_dict.get("apply_day_night_colormap") or {}),
+            **(params.get("apply_day_night_colormap") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=sort_trajs_by_day_night)
     )
 
     filter_day_night_cols = (
-        filter_df_cols.validate()
+        task(subset_columns)
+        .validate()
         .set_task_instance_id("filter_day_night_cols")
         .handle_errors()
         .with_tracing()
@@ -1794,13 +1848,16 @@ def main(params: Params):
         )
         .partial(
             columns=["dist_meters", "is_night", "day_night_colors", "geometry"],
-            **(params_dict.get("filter_day_night_cols") or {}),
+            exclude=None,
+            strict=False,
+            **(params.get("filter_day_night_cols") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=apply_day_night_colormap)
     )
 
     generate_day_night_layers = (
-        create_path_layer.validate()
+        task(create_path_layer_1)
+        .validate()
         .set_task_instance_id("generate_day_night_layers")
         .handle_errors()
         .with_tracing()
@@ -1815,7 +1872,7 @@ def main(params: Params):
             data_url=None,
             layer_style={
                 "get_color": "day_night_colors",
-                "get_width": 2.85,
+                "get_width": 2.25,
                 "width_scale": 1,
                 "width_min_pixels": 2,
                 "width_max_pixels": 8,
@@ -1823,7 +1880,7 @@ def main(params: Params):
                 "cap_rounded": True,
                 "joint_rounded": True,
                 "billboard": False,
-                "opacity": 0.55,
+                "opacity": 0.45,
                 "stroked": True,
             },
             legend={
@@ -1833,13 +1890,14 @@ def main(params: Params):
                     {"label": "Night", "color": "#292965"},
                 ],
             },
-            **(params_dict.get("generate_day_night_layers") or {}),
+            **(params.get("generate_day_night_layers") or {}),
         )
         .mapvalues(argnames=["geodataframe"], argvalues=filter_day_night_cols)
     )
 
     combined_ldx_daynight_layers = (
-        combine_deckgl_map_layers.validate()
+        task(combine_deckgl_map_layers)
+        .validate()
         .set_task_instance_id("combined_ldx_daynight_layers")
         .handle_errors()
         .with_tracing()
@@ -1852,32 +1910,34 @@ def main(params: Params):
         )
         .partial(
             static_layers=map_overlay,
-            **(params_dict.get("combined_ldx_daynight_layers") or {}),
+            **(params.get("combined_ldx_daynight_layers") or {}),
         )
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_day_night_layers)
     )
 
     zip_day_night_with_viewstate = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("zip_day_night_with_viewstate")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[combined_ldx_daynight_layers, zoom_speed_gdf_extent],
-            **(params_dict.get("zip_day_night_with_viewstate") or {}),
+            iterables=[combined_ldx_daynight_layers, gdf_image_extent],
+            **(params.get("zip_day_night_with_viewstate") or {}),
         )
         .call()
     )
 
     draw_day_night_map = (
-        draw_map.validate()
+        task(draw_map_1)
+        .validate()
         .set_task_instance_id("draw_day_night_map")
         .handle_errors()
         .with_tracing()
@@ -1894,7 +1954,7 @@ def main(params: Params):
             title=None,
             max_zoom=10,
             legend_style={"placement": "bottom-right"},
-            **(params_dict.get("draw_day_night_map") or {}),
+            **(params.get("draw_day_night_map") or {}),
         )
         .mapvalues(
             argnames=["geo_layers", "view_state"],
@@ -1903,26 +1963,28 @@ def main(params: Params):
     )
 
     day_night_text = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("day_night_text")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[dn_filename, draw_day_night_map],
-            **(params_dict.get("day_night_text") or {}),
+            iterables=[dn_filename, draw_day_night_map],
+            **(params.get("day_night_text") or {}),
         )
         .call()
     )
 
     persist_day_night_html = (
-        persist_text.validate()
+        task(persist_text)
+        .validate()
         .set_task_instance_id("persist_day_night_html")
         .handle_errors()
         .with_tracing()
@@ -1936,13 +1998,14 @@ def main(params: Params):
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filename_suffix=None,
-            **(params_dict.get("persist_day_night_html") or {}),
+            **(params.get("persist_day_night_html") or {}),
         )
         .mapvalues(argnames=["filename", "text"], argvalues=day_night_text)
     )
 
     create_day_night_widgets = (
-        create_map_widget_single_view.validate()
+        task(create_map_widget_single_view)
+        .validate()
         .set_task_instance_id("create_day_night_widgets")
         .handle_errors()
         .with_tracing()
@@ -1953,14 +2016,14 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            title="Day Night Tracks",
-            **(params_dict.get("create_day_night_widgets") or {}),
+            title="Day Night Tracks", **(params.get("create_day_night_widgets") or {})
         )
         .map(argnames=["view", "data"], argvalues=persist_day_night_html)
     )
 
     merge_day_night_widgets = (
-        merge_widget_views.validate()
+        task(merge_widget_views)
+        .validate()
         .set_task_instance_id("merge_day_night_widgets")
         .handle_errors()
         .with_tracing()
@@ -1973,13 +2036,14 @@ def main(params: Params):
         )
         .partial(
             widgets=create_day_night_widgets,
-            **(params_dict.get("merge_day_night_widgets") or {}),
+            **(params.get("merge_day_night_widgets") or {}),
         )
         .call()
     )
 
     generate_etd = (
-        calculate_elliptical_time_density.validate()
+        task(calculate_elliptical_time_density)
+        .validate()
         .set_task_instance_id("generate_etd")
         .handle_errors()
         .with_tracing()
@@ -1998,13 +2062,14 @@ def main(params: Params):
             band_count=1,
             max_speed_factor=1.05,
             expansion_factor=1.3,
-            **(params_dict.get("generate_etd") or {}),
+            **(params.get("generate_etd") or {}),
         )
         .mapvalues(argnames=["trajectory_gdf"], argvalues=split_traj_by_group)
     )
 
     reproject_etd = (
-        reproject_gdf.validate()
+        task(reproject_gdf)
+        .validate()
         .set_task_instance_id("reproject_etd")
         .handle_errors()
         .with_tracing()
@@ -2015,30 +2080,32 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(target_crs="EPSG:4326", **(params_dict.get("reproject_etd") or {}))
+        .partial(target_crs="EPSG:4326", **(params.get("reproject_etd") or {}))
         .mapvalues(argnames=["gdf"], argvalues=generate_etd)
     )
 
     etd_df = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("etd_df")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[etd_filename, reproject_etd], **(params_dict.get("etd_df") or {})
+            iterables=[etd_filename, reproject_etd], **(params.get("etd_df") or {})
         )
         .call()
     )
 
     persist_etd_gdf = (
-        persist_df.validate()
+        task(persist_df)
+        .validate()
         .set_task_instance_id("persist_etd_gdf")
         .handle_errors()
         .with_tracing()
@@ -2052,13 +2119,14 @@ def main(params: Params):
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filetype="geoparquet",
-            **(params_dict.get("persist_etd_gdf") or {}),
+            **(params.get("persist_etd_gdf") or {}),
         )
         .mapvalues(argnames=["filename", "df"], argvalues=etd_df)
     )
 
     determine_seasonal_windows = (
-        custom_determine_season_windows.validate()
+        task(compute_seasons_from_ndvi)
+        .validate()
         .set_task_instance_id("determine_seasonal_windows")
         .handle_errors()
         .with_tracing()
@@ -2072,32 +2140,38 @@ def main(params: Params):
         .partial(
             client=gee_project_name,
             time_range=time_range,
-            **(params_dict.get("determine_seasonal_windows") or {}),
+            img_collection="MODIS/061/MCD43A4",
+            nir_band="Nadir_Reflectance_Band2",
+            red_band="Nadir_Reflectance_Band1",
+            chunk_count=5,
+            **(params.get("determine_seasonal_windows") or {}),
         )
         .mapvalues(argnames=["roi"], argvalues=generate_etd)
     )
 
     zip_etd_with_traj = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("zip_etd_with_traj")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[determine_seasonal_windows, split_traj_by_group],
-            **(params_dict.get("zip_etd_with_traj") or {}),
+            iterables=[determine_seasonal_windows, split_traj_by_group],
+            **(params.get("zip_etd_with_traj") or {}),
         )
         .call()
     )
 
     add_season_labels = (
-        create_seasonal_labels.validate()
+        task(create_seasonal_labels)
+        .validate()
         .set_task_instance_id("add_season_labels")
         .handle_errors()
         .with_tracing()
@@ -2108,12 +2182,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("add_season_labels") or {}))
+        .partial(**(params.get("add_season_labels") or {}))
         .mapvalues(argnames=["seasons_df", "trajectories"], argvalues=zip_etd_with_traj)
     )
 
     generate_mcp = (
-        generate_mcp_gdf.validate()
+        task(compute_minimum_convex_polygon)
+        .validate()
         .set_task_instance_id("generate_mcp")
         .handle_errors()
         .with_tracing()
@@ -2124,12 +2199,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(planar_crs="ESRI:53042", **(params_dict.get("generate_mcp") or {}))
+        .partial(planar_crs="ESRI:53042", **(params.get("generate_mcp") or {}))
         .mapvalues(argnames=["gdf"], argvalues=split_traj_by_group)
     )
 
     reproject_mcp = (
-        reproject_gdf.validate()
+        task(reproject_gdf)
+        .validate()
         .set_task_instance_id("reproject_mcp")
         .handle_errors()
         .with_tracing()
@@ -2140,30 +2216,32 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(target_crs="EPSG:4326", **(params_dict.get("reproject_mcp") or {}))
+        .partial(target_crs="EPSG:4326", **(params.get("reproject_mcp") or {}))
         .mapvalues(argnames=["gdf"], argvalues=generate_mcp)
     )
 
     mcp_gdf = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("mcp_gdf")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[mcp_filename, generate_mcp], **(params_dict.get("mcp_gdf") or {})
+            iterables=[mcp_filename, generate_mcp], **(params.get("mcp_gdf") or {})
         )
         .call()
     )
 
     persist_mcp_gdf = (
-        persist_df.validate()
+        task(persist_df)
+        .validate()
         .set_task_instance_id("persist_mcp_gdf")
         .handle_errors()
         .with_tracing()
@@ -2177,13 +2255,14 @@ def main(params: Params):
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filetype="geoparquet",
-            **(params_dict.get("persist_mcp_gdf") or {}),
+            **(params.get("persist_mcp_gdf") or {}),
         )
         .mapvalues(argnames=["filename", "df"], argvalues=mcp_gdf)
     )
 
     apply_etd_colormap = (
-        apply_color_map.validate()
+        task(apply_color_map)
+        .validate()
         .set_task_instance_id("apply_etd_colormap")
         .handle_errors()
         .with_tracing()
@@ -2198,13 +2277,14 @@ def main(params: Params):
             input_column_name="percentile",
             output_column_name="etd_percentile_colors",
             colormap="RdYlGn",
-            **(params_dict.get("apply_etd_colormap") or {}),
+            **(params.get("apply_etd_colormap") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=reproject_etd)
     )
 
     filter_etd_cols = (
-        filter_df_cols.validate()
+        task(subset_columns)
+        .validate()
         .set_task_instance_id("filter_etd_cols")
         .handle_errors()
         .with_tracing()
@@ -2217,13 +2297,16 @@ def main(params: Params):
         )
         .partial(
             columns=["etd_percentile_colors", "percentile", "area_sqkm", "geometry"],
-            **(params_dict.get("filter_etd_cols") or {}),
+            exclude=None,
+            strict=False,
+            **(params.get("filter_etd_cols") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=apply_etd_colormap)
     )
 
     generate_home_range_layers = (
-        create_geojson_layer.validate()
+        task(create_geojson_layer_1)
+        .validate()
         .set_task_instance_id("generate_home_range_layers")
         .handle_errors()
         .with_tracing()
@@ -2243,7 +2326,7 @@ def main(params: Params):
                 "wireframe": False,
                 "get_fill_color": "etd_percentile_colors",
                 "get_line_color": "etd_percentile_colors",
-                "opacity": 0.55,
+                "opacity": 0.45,
                 "get_line_width": 1.55,
                 "get_elevation": 0,
                 "get_point_radius": 1,
@@ -2259,13 +2342,14 @@ def main(params: Params):
                 "sort": "ascending",
                 "label_suffix": None,
             },
-            **(params_dict.get("generate_home_range_layers") or {}),
+            **(params.get("generate_home_range_layers") or {}),
         )
         .mapvalues(argnames=["geodataframe"], argvalues=filter_etd_cols)
     )
 
     filter_mcp_cols = (
-        filter_df_cols.validate()
+        task(subset_columns)
+        .validate()
         .set_task_instance_id("filter_mcp_cols")
         .handle_errors()
         .with_tracing()
@@ -2278,13 +2362,16 @@ def main(params: Params):
         )
         .partial(
             columns=["area_km2", "geometry"],
-            **(params_dict.get("filter_mcp_cols") or {}),
+            exclude=None,
+            strict=False,
+            **(params.get("filter_mcp_cols") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=reproject_mcp)
     )
 
     create_mcp_polygon_layer = (
-        create_geojson_layer.validate()
+        task(create_geojson_layer_1)
+        .validate()
         .set_task_instance_id("create_mcp_polygon_layer")
         .handle_errors()
         .with_tracing()
@@ -2304,8 +2391,8 @@ def main(params: Params):
                 "wireframe": False,
                 "get_fill_color": [255, 20, 147, 50],
                 "get_line_color": [255, 20, 147, 200],
-                "opacity": 0.55,
-                "get_line_width": 3.55,
+                "opacity": 0.45,
+                "get_line_width": 2.25,
                 "get_elevation": 0,
                 "get_point_radius": 1,
                 "line_width_units": "pixels",
@@ -2317,32 +2404,34 @@ def main(params: Params):
                 "title": "Minimum Convex Polygon",
                 "values": [{"label": "MCP", "color": "#ff1493"}],
             },
-            **(params_dict.get("create_mcp_polygon_layer") or {}),
+            **(params.get("create_mcp_polygon_layer") or {}),
         )
         .mapvalues(argnames=["geodataframe"], argvalues=filter_mcp_cols)
     )
 
     zip_home_range_with_mcp_layer = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("zip_home_range_with_mcp_layer")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[create_mcp_polygon_layer, generate_home_range_layers],
-            **(params_dict.get("zip_home_range_with_mcp_layer") or {}),
+            iterables=[create_mcp_polygon_layer, generate_home_range_layers],
+            **(params.get("zip_home_range_with_mcp_layer") or {}),
         )
         .call()
     )
 
     combined_ldx_home_range_layers = (
-        combine_deckgl_map_layers.validate()
+        task(combine_deckgl_map_layers)
+        .validate()
         .set_task_instance_id("combined_ldx_home_range_layers")
         .handle_errors()
         .with_tracing()
@@ -2355,32 +2444,34 @@ def main(params: Params):
         )
         .partial(
             static_layers=map_overlay,
-            **(params_dict.get("combined_ldx_home_range_layers") or {}),
+            **(params.get("combined_ldx_home_range_layers") or {}),
         )
         .mapvalues(argnames=["grouped_layers"], argvalues=zip_home_range_with_mcp_layer)
     )
 
     zip_hr_with_viewstate = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("zip_hr_with_viewstate")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[combined_ldx_home_range_layers, zoom_speed_gdf_extent],
-            **(params_dict.get("zip_hr_with_viewstate") or {}),
+            iterables=[combined_ldx_home_range_layers, gdf_image_extent],
+            **(params.get("zip_hr_with_viewstate") or {}),
         )
         .call()
     )
 
     draw_home_range_map = (
-        draw_map.validate()
+        task(draw_map_1)
+        .validate()
         .set_task_instance_id("draw_home_range_map")
         .handle_errors()
         .with_tracing()
@@ -2397,7 +2488,7 @@ def main(params: Params):
             title=None,
             max_zoom=10,
             legend_style={"placement": "bottom-right"},
-            **(params_dict.get("draw_home_range_map") or {}),
+            **(params.get("draw_home_range_map") or {}),
         )
         .mapvalues(
             argnames=["geo_layers", "view_state"], argvalues=zip_hr_with_viewstate
@@ -2405,26 +2496,28 @@ def main(params: Params):
     )
 
     hr_text_file = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("hr_text_file")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[hr_filename, draw_home_range_map],
-            **(params_dict.get("hr_text_file") or {}),
+            iterables=[hr_filename, draw_home_range_map],
+            **(params.get("hr_text_file") or {}),
         )
         .call()
     )
 
     persist_homerange_html = (
-        persist_text.validate()
+        task(persist_text)
+        .validate()
         .set_task_instance_id("persist_homerange_html")
         .handle_errors()
         .with_tracing()
@@ -2438,13 +2531,14 @@ def main(params: Params):
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filename_suffix=None,
-            **(params_dict.get("persist_homerange_html") or {}),
+            **(params.get("persist_homerange_html") or {}),
         )
         .mapvalues(argnames=["filename", "text"], argvalues=hr_text_file)
     )
 
     create_home_range_widgets = (
-        create_map_widget_single_view.validate()
+        task(create_map_widget_single_view)
+        .validate()
         .set_task_instance_id("create_home_range_widgets")
         .handle_errors()
         .with_tracing()
@@ -2454,14 +2548,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            title="Home Range", **(params_dict.get("create_home_range_widgets") or {})
-        )
+        .partial(title="Home Range", **(params.get("create_home_range_widgets") or {}))
         .map(argnames=["view", "data"], argvalues=persist_homerange_html)
     )
 
     merge_homerange_widgets = (
-        merge_widget_views.validate()
+        task(merge_widget_views)
+        .validate()
         .set_task_instance_id("merge_homerange_widgets")
         .handle_errors()
         .with_tracing()
@@ -2474,32 +2567,34 @@ def main(params: Params):
         )
         .partial(
             widgets=create_home_range_widgets,
-            **(params_dict.get("merge_homerange_widgets") or {}),
+            **(params.get("merge_homerange_widgets") or {}),
         )
         .call()
     )
 
     zip_raster_filename_gdf = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("zip_raster_filename_gdf")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[mean_speed_raster_filename, split_traj_by_group],
-            **(params_dict.get("zip_raster_filename_gdf") or {}),
+            iterables=[mean_speed_raster_filename, split_traj_by_group],
+            **(params.get("zip_raster_filename_gdf") or {}),
         )
         .call()
     )
 
     generate_mean_speed_raster = (
-        generate_ecograph_raster.validate()
+        task(generate_ecograph_raster)
+        .validate()
         .set_task_instance_id("generate_mean_speed_raster")
         .handle_errors()
         .with_tracing()
@@ -2511,7 +2606,6 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            step_length=2000,
             dist_col="dist_meters",
             interpolation="mean",
             movement_covariate="speed",
@@ -2521,13 +2615,14 @@ def main(params: Params):
             resolution=None,
             network_metric=None,
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            **(params_dict.get("generate_mean_speed_raster") or {}),
+            **(params.get("generate_mean_speed_raster") or {}),
         )
         .mapvalues(argnames=["filename", "gdf"], argvalues=zip_raster_filename_gdf)
     )
 
     extract_speed_rasters = (
-        retrieve_feature_gdf.validate()
+        task(raster_to_gdf)
+        .validate()
         .set_task_instance_id("extract_speed_rasters")
         .handle_errors()
         .with_tracing()
@@ -2538,12 +2633,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("extract_speed_rasters") or {}))
+        .partial(**(params.get("extract_speed_rasters") or {}))
         .mapvalues(argnames=["file_path"], argvalues=generate_mean_speed_raster)
     )
 
     sort_speed_features_by_value = (
-        sort_values.validate()
+        task(sort_values)
+        .validate()
         .set_task_instance_id("sort_speed_features_by_value")
         .handle_errors()
         .with_tracing()
@@ -2558,13 +2654,14 @@ def main(params: Params):
             column_name="value",
             na_position="last",
             ascending=True,
-            **(params_dict.get("sort_speed_features_by_value") or {}),
+            **(params.get("sort_speed_features_by_value") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=extract_speed_rasters)
     )
 
     reproject_speed_raster = (
-        reproject_gdf.validate()
+        task(reproject_gdf)
+        .validate()
         .set_task_instance_id("reproject_speed_raster")
         .handle_errors()
         .with_tracing()
@@ -2575,14 +2672,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            target_crs="EPSG:4326", **(params_dict.get("reproject_speed_raster") or {})
-        )
+        .partial(target_crs="EPSG:4326", **(params.get("reproject_speed_raster") or {}))
         .mapvalues(argnames=["gdf"], argvalues=sort_speed_features_by_value)
     )
 
     apply_classification_raster = (
-        apply_classification.validate()
+        task(apply_classification)
+        .validate()
         .set_task_instance_id("apply_classification_raster")
         .handle_errors()
         .with_tracing()
@@ -2598,13 +2694,14 @@ def main(params: Params):
             output_column_name="value_bins",
             classification_options={"scheme": "natural_breaks", "k": 6},
             label_options={"label_range": False, "label_decimals": 1},
-            **(params_dict.get("apply_classification_raster") or {}),
+            **(params.get("apply_classification_raster") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=reproject_speed_raster)
     )
 
     apply_speed_raster_colormap = (
-        apply_color_map.validate()
+        task(apply_color_map)
+        .validate()
         .set_task_instance_id("apply_speed_raster_colormap")
         .handle_errors()
         .with_tracing()
@@ -2619,13 +2716,14 @@ def main(params: Params):
             input_column_name="value_bins",
             output_column_name="speedraster_bins_colormap",
             colormap=["#1a9850", "#91cf60", "#d9ef8b", "#fee08b", "#fc8d59", "#d73027"],
-            **(params_dict.get("apply_speed_raster_colormap") or {}),
+            **(params.get("apply_speed_raster_colormap") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=apply_classification_raster)
     )
 
     format_speed_raster_labels = (
-        map_values_with_unit.validate()
+        task(map_values_with_unit)
+        .validate()
         .set_task_instance_id("format_speed_raster_labels")
         .handle_errors()
         .with_tracing()
@@ -2642,13 +2740,14 @@ def main(params: Params):
             original_unit="km/h",
             new_unit="km/h",
             decimal_places=1,
-            **(params_dict.get("format_speed_raster_labels") or {}),
+            **(params.get("format_speed_raster_labels") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=apply_speed_raster_colormap)
     )
 
     filter_mean_speed_cols = (
-        filter_df_cols.validate()
+        task(subset_columns)
+        .validate()
         .set_task_instance_id("filter_mean_speed_cols")
         .handle_errors()
         .with_tracing()
@@ -2666,13 +2765,16 @@ def main(params: Params):
                 "speedraster_bins_colormap",
                 "geometry",
             ],
-            **(params_dict.get("filter_mean_speed_cols") or {}),
+            exclude=None,
+            strict=False,
+            **(params.get("filter_mean_speed_cols") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=format_speed_raster_labels)
     )
 
     create_mean_speed_raster_layer = (
-        create_geojson_layer.validate()
+        task(create_geojson_layer_1)
+        .validate()
         .set_task_instance_id("create_mean_speed_raster_layer")
         .handle_errors()
         .with_tracing()
@@ -2692,7 +2794,7 @@ def main(params: Params):
                 "wireframe": False,
                 "get_fill_color": "speedraster_bins_colormap",
                 "get_line_color": "speedraster_bins_colormap",
-                "opacity": 0.55,
+                "opacity": 0.45,
                 "get_line_width": 1.55,
                 "get_elevation": 0,
                 "get_point_radius": 1,
@@ -2708,13 +2810,14 @@ def main(params: Params):
                 "sort": "ascending",
                 "label_suffix": None,
             },
-            **(params_dict.get("create_mean_speed_raster_layer") or {}),
+            **(params.get("create_mean_speed_raster_layer") or {}),
         )
         .mapvalues(argnames=["geodataframe"], argvalues=filter_mean_speed_cols)
     )
 
     combined_ldx_speed_raster = (
-        combine_deckgl_map_layers.validate()
+        task(combine_deckgl_map_layers)
+        .validate()
         .set_task_instance_id("combined_ldx_speed_raster")
         .handle_errors()
         .with_tracing()
@@ -2726,8 +2829,7 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            static_layers=map_overlay,
-            **(params_dict.get("combined_ldx_speed_raster") or {}),
+            static_layers=map_overlay, **(params.get("combined_ldx_speed_raster") or {})
         )
         .mapvalues(
             argnames=["grouped_layers"], argvalues=create_mean_speed_raster_layer
@@ -2735,26 +2837,28 @@ def main(params: Params):
     )
 
     zip_speed_raster_viewstate = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("zip_speed_raster_viewstate")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[combined_ldx_speed_raster, zoom_speed_gdf_extent],
-            **(params_dict.get("zip_speed_raster_viewstate") or {}),
+            iterables=[combined_ldx_speed_raster, gdf_image_extent],
+            **(params.get("zip_speed_raster_viewstate") or {}),
         )
         .call()
     )
 
     draw_mean_speed_raster_map = (
-        draw_map.validate()
+        task(draw_map_1)
+        .validate()
         .set_task_instance_id("draw_mean_speed_raster_map")
         .handle_errors()
         .with_tracing()
@@ -2771,7 +2875,7 @@ def main(params: Params):
             title=None,
             max_zoom=10,
             legend_style={"placement": "bottom-right"},
-            **(params_dict.get("draw_mean_speed_raster_map") or {}),
+            **(params.get("draw_mean_speed_raster_map") or {}),
         )
         .mapvalues(
             argnames=["geo_layers", "view_state"], argvalues=zip_speed_raster_viewstate
@@ -2779,26 +2883,28 @@ def main(params: Params):
     )
 
     mean_speed_text = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("mean_speed_text")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[mr_filename, draw_mean_speed_raster_map],
-            **(params_dict.get("mean_speed_text") or {}),
+            iterables=[mr_filename, draw_mean_speed_raster_map],
+            **(params.get("mean_speed_text") or {}),
         )
         .call()
     )
 
     persist_mean_speed_raster_html = (
-        persist_text.validate()
+        task(persist_text)
+        .validate()
         .set_task_instance_id("persist_mean_speed_raster_html")
         .handle_errors()
         .with_tracing()
@@ -2812,13 +2918,14 @@ def main(params: Params):
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filename_suffix=None,
-            **(params_dict.get("persist_mean_speed_raster_html") or {}),
+            **(params.get("persist_mean_speed_raster_html") or {}),
         )
         .mapvalues(argnames=["filename", "text"], argvalues=mean_speed_text)
     )
 
     create_mean_speed_raster_widgets = (
-        create_map_widget_single_view.validate()
+        task(create_map_widget_single_view)
+        .validate()
         .set_task_instance_id("create_mean_speed_raster_widgets")
         .handle_errors()
         .with_tracing()
@@ -2830,13 +2937,14 @@ def main(params: Params):
         )
         .partial(
             title="Mean Speed Raster",
-            **(params_dict.get("create_mean_speed_raster_widgets") or {}),
+            **(params.get("create_mean_speed_raster_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=persist_mean_speed_raster_html)
     )
 
     merge_mean_speed_raster_widgets = (
-        merge_widget_views.validate()
+        task(merge_widget_views)
+        .validate()
         .set_task_instance_id("merge_mean_speed_raster_widgets")
         .handle_errors()
         .with_tracing()
@@ -2849,13 +2957,14 @@ def main(params: Params):
         )
         .partial(
             widgets=create_mean_speed_raster_widgets,
-            **(params_dict.get("merge_mean_speed_raster_widgets") or {}),
+            **(params.get("merge_mean_speed_raster_widgets") or {}),
         )
         .call()
     )
 
     seasonal_home_range = (
-        calculate_seasonal_home_range.validate()
+        task(calculate_elliptical_time_density_grouped)
+        .validate()
         .set_task_instance_id("seasonal_home_range")
         .handle_errors()
         .with_tracing()
@@ -2869,14 +2978,16 @@ def main(params: Params):
         .partial(
             groupby_cols=["season"],
             percentiles=[99.9],
-            auto_scale_or_custom_cell_size={"auto_scale_or_custom": "Auto-scale"},
-            **(params_dict.get("seasonal_home_range") or {}),
+            cell_size={"auto_scale_or_custom": "Auto-scale"},
+            drop_null_groups=True,
+            **(params.get("seasonal_home_range") or {}),
         )
         .mapvalues(argnames=["gdf"], argvalues=add_season_labels)
     )
 
     convert_season_to_string = (
-        convert_to_str.validate()
+        task(convert_columns_to_string)
+        .validate()
         .set_task_instance_id("convert_season_to_string")
         .handle_errors()
         .with_tracing()
@@ -2887,33 +2998,33 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            columns=["season"], **(params_dict.get("convert_season_to_string") or {})
-        )
+        .partial(columns=["season"], **(params.get("convert_season_to_string") or {}))
         .mapvalues(argnames=["df"], argvalues=seasonal_home_range)
     )
 
     seasonal_etd_gdf = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("seasonal_etd_gdf")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[seasonal_etd_filename, convert_season_to_string],
-            **(params_dict.get("seasonal_etd_gdf") or {}),
+            iterables=[seasonal_etd_filename, convert_season_to_string],
+            **(params.get("seasonal_etd_gdf") or {}),
         )
         .call()
     )
 
     persist_seasonal_etd_gdf = (
-        persist_df.validate()
+        task(persist_df)
+        .validate()
         .set_task_instance_id("persist_seasonal_etd_gdf")
         .handle_errors()
         .with_tracing()
@@ -2927,14 +3038,14 @@ def main(params: Params):
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filetype="geoparquet",
-            filename=None,
-            **(params_dict.get("persist_seasonal_etd_gdf") or {}),
+            **(params.get("persist_seasonal_etd_gdf") or {}),
         )
         .mapvalues(argnames=["filename", "df"], argvalues=seasonal_etd_gdf)
     )
 
     reproject_seasonal_home_range = (
-        reproject_gdf.validate()
+        task(reproject_gdf)
+        .validate()
         .set_task_instance_id("reproject_seasonal_home_range")
         .handle_errors()
         .with_tracing()
@@ -2947,13 +3058,36 @@ def main(params: Params):
         )
         .partial(
             target_crs="EPSG:4326",
-            **(params_dict.get("reproject_seasonal_home_range") or {}),
+            **(params.get("reproject_seasonal_home_range") or {}),
         )
         .mapvalues(argnames=["gdf"], argvalues=convert_season_to_string)
     )
 
+    sort_seasons = (
+        task(sort_values)
+        .validate()
+        .set_task_instance_id("sort_seasons")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            column_name="season",
+            na_position="first",
+            ascending=True,
+            **(params.get("sort_seasons") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=reproject_seasonal_home_range)
+    )
+
     assign_season_df = (
-        assign_season_colors.validate()
+        task(apply_color_map)
+        .validate()
         .set_task_instance_id("assign_season_df")
         .handle_errors()
         .with_tracing()
@@ -2964,12 +3098,18 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(seasons_column="season", **(params_dict.get("assign_season_df") or {}))
-        .mapvalues(argnames=["gdf"], argvalues=reproject_seasonal_home_range)
+        .partial(
+            colormap=["#f57c00", "#255084"],
+            input_column_name="season",
+            output_column_name="season_colors",
+            **(params.get("assign_season_df") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=sort_seasons)
     )
 
     filter_season_cols = (
-        filter_df_cols.validate()
+        task(subset_columns)
+        .validate()
         .set_task_instance_id("filter_season_cols")
         .handle_errors()
         .with_tracing()
@@ -2982,13 +3122,16 @@ def main(params: Params):
         )
         .partial(
             columns=["season_colors", "season", "geometry"],
-            **(params_dict.get("filter_season_cols") or {}),
+            exclude=None,
+            strict=False,
+            **(params.get("filter_season_cols") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=assign_season_df)
     )
 
     generate_season_layers = (
-        create_geojson_layer.validate()
+        task(create_geojson_layer_1)
+        .validate()
         .set_task_instance_id("generate_season_layers")
         .handle_errors()
         .with_tracing()
@@ -3008,7 +3151,7 @@ def main(params: Params):
                 "wireframe": False,
                 "get_fill_color": "season_colors",
                 "get_line_color": "season_colors",
-                "opacity": 0.55,
+                "opacity": 0.45,
                 "get_line_width": 0.35,
                 "get_elevation": 0,
                 "get_point_radius": 1,
@@ -3024,13 +3167,14 @@ def main(params: Params):
                 "sort": "ascending",
                 "label_suffix": None,
             },
-            **(params_dict.get("generate_season_layers") or {}),
+            **(params.get("generate_season_layers") or {}),
         )
         .mapvalues(argnames=["geodataframe"], argvalues=filter_season_cols)
     )
 
     combined_ldx_seasonal_hr_layers = (
-        combine_deckgl_map_layers.validate()
+        task(combine_deckgl_map_layers)
+        .validate()
         .set_task_instance_id("combined_ldx_seasonal_hr_layers")
         .handle_errors()
         .with_tracing()
@@ -3043,32 +3187,34 @@ def main(params: Params):
         )
         .partial(
             static_layers=map_overlay,
-            **(params_dict.get("combined_ldx_seasonal_hr_layers") or {}),
+            **(params.get("combined_ldx_seasonal_hr_layers") or {}),
         )
         .mapvalues(argnames=["grouped_layers"], argvalues=generate_season_layers)
     )
 
     zip_seasonal_hr_with_viewstate = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("zip_seasonal_hr_with_viewstate")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[combined_ldx_seasonal_hr_layers, zoom_speed_gdf_extent],
-            **(params_dict.get("zip_seasonal_hr_with_viewstate") or {}),
+            iterables=[combined_ldx_seasonal_hr_layers, gdf_image_extent],
+            **(params.get("zip_seasonal_hr_with_viewstate") or {}),
         )
         .call()
     )
 
     draw_seasonal_home_range_map = (
-        draw_map.validate()
+        task(draw_map_1)
+        .validate()
         .set_task_instance_id("draw_seasonal_home_range_map")
         .handle_errors()
         .with_tracing()
@@ -3085,7 +3231,7 @@ def main(params: Params):
             title=None,
             max_zoom=10,
             legend_style={"placement": "bottom-right"},
-            **(params_dict.get("draw_seasonal_home_range_map") or {}),
+            **(params.get("draw_seasonal_home_range_map") or {}),
         )
         .mapvalues(
             argnames=["geo_layers", "view_state"],
@@ -3094,26 +3240,28 @@ def main(params: Params):
     )
 
     seasonal_hr_text = (
-        zip_groupbykey.validate()
+        task(groupbykey)
+        .validate()
         .set_task_instance_id("seasonal_hr_text")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[seasonal_hr_filename, draw_seasonal_home_range_map],
-            **(params_dict.get("seasonal_hr_text") or {}),
+            iterables=[seasonal_hr_filename, draw_seasonal_home_range_map],
+            **(params.get("seasonal_hr_text") or {}),
         )
         .call()
     )
 
     persist_seasonal_home_range_html = (
-        persist_text.validate()
+        task(persist_text)
+        .validate()
         .set_task_instance_id("persist_seasonal_home_range_html")
         .handle_errors()
         .with_tracing()
@@ -3127,13 +3275,14 @@ def main(params: Params):
         .partial(
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filename_suffix=None,
-            **(params_dict.get("persist_seasonal_home_range_html") or {}),
+            **(params.get("persist_seasonal_home_range_html") or {}),
         )
         .mapvalues(argnames=["filename", "text"], argvalues=seasonal_hr_text)
     )
 
     create_seasonal_hr_widgets = (
-        create_map_widget_single_view.validate()
+        task(create_map_widget_single_view)
+        .validate()
         .set_task_instance_id("create_seasonal_hr_widgets")
         .handle_errors()
         .with_tracing()
@@ -3145,13 +3294,14 @@ def main(params: Params):
         )
         .partial(
             title="Seasonal Home Range",
-            **(params_dict.get("create_seasonal_hr_widgets") or {}),
+            **(params.get("create_seasonal_hr_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=persist_seasonal_home_range_html)
     )
 
     merge_seasonal_hr_widgets = (
-        merge_widget_views.validate()
+        task(merge_widget_views)
+        .validate()
         .set_task_instance_id("merge_seasonal_hr_widgets")
         .handle_errors()
         .with_tracing()
@@ -3164,13 +3314,14 @@ def main(params: Params):
         )
         .partial(
             widgets=create_seasonal_hr_widgets,
-            **(params_dict.get("merge_seasonal_hr_widgets") or {}),
+            **(params.get("merge_seasonal_hr_widgets") or {}),
         )
         .call()
     )
 
     total_mcp_area = (
-        dataframe_column_sum.validate()
+        task(dataframe_column_sum)
+        .validate()
         .set_task_instance_id("total_mcp_area")
         .handle_errors()
         .with_tracing()
@@ -3181,12 +3332,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(column_name="area_km2", **(params_dict.get("total_mcp_area") or {}))
+        .partial(column_name="area_km2", **(params.get("total_mcp_area") or {}))
         .mapvalues(argnames=["df"], argvalues=generate_mcp)
     )
 
     coverage_mcp_quantity = (
-        to_quantity.validate()
+        task(to_quantity)
+        .validate()
         .set_task_instance_id("coverage_mcp_quantity")
         .handle_errors()
         .with_tracing()
@@ -3197,12 +3349,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(unit="km²", **(params_dict.get("coverage_mcp_quantity") or {}))
+        .partial(unit="km²", **(params.get("coverage_mcp_quantity") or {}))
         .mapvalues(argnames=["value"], argvalues=total_mcp_area)
     )
 
     total_mcp_sv_widgets = (
-        create_single_value_widget_single_view.validate()
+        task(create_single_value_widget_single_view)
+        .validate()
         .set_task_instance_id("total_mcp_sv_widgets")
         .handle_errors()
         .with_tracing()
@@ -3215,13 +3368,14 @@ def main(params: Params):
         .partial(
             title="Total MCP Area",
             decimal_places=2,
-            **(params_dict.get("total_mcp_sv_widgets") or {}),
+            **(params.get("total_mcp_sv_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=coverage_mcp_quantity)
     )
 
     total_mcp_grouped_sv_widget = (
-        merge_widget_views.validate()
+        task(merge_widget_views)
+        .validate()
         .set_task_instance_id("total_mcp_grouped_sv_widget")
         .handle_errors()
         .with_tracing()
@@ -3234,13 +3388,14 @@ def main(params: Params):
         )
         .partial(
             widgets=total_mcp_sv_widgets,
-            **(params_dict.get("total_mcp_grouped_sv_widget") or {}),
+            **(params.get("total_mcp_grouped_sv_widget") or {}),
         )
         .call()
     )
 
     total_grid_area = (
-        dataframe_column_sum.validate()
+        task(dataframe_column_sum)
+        .validate()
         .set_task_instance_id("total_grid_area")
         .handle_errors()
         .with_tracing()
@@ -3251,12 +3406,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(column_name="area_sqkm", **(params_dict.get("total_grid_area") or {}))
+        .partial(column_name="area_sqkm", **(params.get("total_grid_area") or {}))
         .mapvalues(argnames=["df"], argvalues=generate_etd)
     )
 
     coverage_grid_quantity = (
-        to_quantity.validate()
+        task(to_quantity)
+        .validate()
         .set_task_instance_id("coverage_grid_quantity")
         .handle_errors()
         .with_tracing()
@@ -3267,12 +3423,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(unit="km²", **(params_dict.get("coverage_grid_quantity") or {}))
+        .partial(unit="km²", **(params.get("coverage_grid_quantity") or {}))
         .mapvalues(argnames=["value"], argvalues=total_grid_area)
     )
 
     total_grid_sv_widgets = (
-        create_single_value_widget_single_view.validate()
+        task(create_single_value_widget_single_view)
+        .validate()
         .set_task_instance_id("total_grid_sv_widgets")
         .handle_errors()
         .with_tracing()
@@ -3285,13 +3442,14 @@ def main(params: Params):
         .partial(
             title="Total Grid Area",
             decimal_places=2,
-            **(params_dict.get("total_grid_sv_widgets") or {}),
+            **(params.get("total_grid_sv_widgets") or {}),
         )
         .map(argnames=["view", "data"], argvalues=coverage_grid_quantity)
     )
 
     total_grid_grouped_sv_widget = (
-        merge_widget_views.validate()
+        task(merge_widget_views)
+        .validate()
         .set_task_instance_id("total_grid_grouped_sv_widget")
         .handle_errors()
         .with_tracing()
@@ -3304,13 +3462,14 @@ def main(params: Params):
         )
         .partial(
             widgets=total_grid_sv_widgets,
-            **(params_dict.get("total_grid_grouped_sv_widget") or {}),
+            **(params.get("total_grid_grouped_sv_widget") or {}),
         )
         .call()
     )
 
     subject_gender = (
-        dataframe_column_first_unique_str.validate()
+        task(column_first_unique_value)
+        .validate()
         .set_task_instance_id("subject_gender")
         .handle_errors()
         .with_tracing()
@@ -3321,12 +3480,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(column_name="subject_sex", **(params_dict.get("subject_gender") or {}))
+        .partial(column_name="subject_sex", **(params.get("subject_gender") or {}))
         .mapvalues(argnames=["df"], argvalues=split_traj_by_group)
     )
 
     gender_widgets = (
-        create_text_widget_single_view.validate()
+        task(create_text_widget_single_view)
+        .validate()
         .set_task_instance_id("gender_widgets")
         .handle_errors()
         .with_tracing()
@@ -3336,12 +3496,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(title="Gender", **(params_dict.get("gender_widgets") or {}))
+        .partial(title="Gender", **(params.get("gender_widgets") or {}))
         .map(argnames=["view", "data"], argvalues=subject_gender)
     )
 
     gender_sv_widget = (
-        merge_widget_views.validate()
+        task(merge_widget_views)
+        .validate()
         .set_task_instance_id("gender_sv_widget")
         .handle_errors()
         .with_tracing()
@@ -3352,12 +3513,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(widgets=gender_widgets, **(params_dict.get("gender_sv_widget") or {}))
+        .partial(widgets=gender_widgets, **(params.get("gender_sv_widget") or {}))
         .call()
     )
 
     report_duration = (
-        get_duration.validate()
+        task(get_duration)
+        .validate()
         .set_task_instance_id("report_duration")
         .handle_errors()
         .with_tracing()
@@ -3371,13 +3533,14 @@ def main(params: Params):
         .partial(
             time_range=time_range,
             time_unit="months",
-            **(params_dict.get("report_duration") or {}),
+            **(params.get("report_duration") or {}),
         )
         .call()
     )
 
     round_report_duration = (
-        round_off_values.validate()
+        task(round_off_values)
+        .validate()
         .set_task_instance_id("round_report_duration")
         .handle_errors()
         .with_tracing()
@@ -3389,15 +3552,14 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            dp=2,
-            value=report_duration,
-            **(params_dict.get("round_report_duration") or {}),
+            dp=2, value=report_duration, **(params.get("round_report_duration") or {})
         )
         .call()
     )
 
     unique_subjects = (
-        dataframe_column_nunique.validate()
+        task(dataframe_column_nunique)
+        .validate()
         .set_task_instance_id("unique_subjects")
         .handle_errors()
         .with_tracing()
@@ -3411,13 +3573,324 @@ def main(params: Params):
         .partial(
             df=rename_traj_cols,
             column_name="subject_name",
-            **(params_dict.get("unique_subjects") or {}),
+            **(params.get("unique_subjects") or {}),
         )
         .call()
     )
 
+    logo_path = (
+        task(get_file_path)
+        .validate()
+        .set_task_instance_id("logo_path")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            **(params.get("logo_path") or {}),
+        )
+        .call()
+    )
+
+    include_maps_toggle = (
+        task(skip_toggle)
+        .validate()
+        .set_task_instance_id("include_maps_toggle")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("include_maps_toggle") or {}))
+        .call()
+    )
+
+    skip_movement_tracks_html = (
+        task(skip_file)
+        .validate()
+        .set_task_instance_id("skip_movement_tracks_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            enabled=include_maps_toggle,
+            **(params.get("skip_movement_tracks_html") or {}),
+        )
+        .mapvalues(argnames=["filename"], argvalues=persist_movement_tracks_html)
+    )
+
+    skip_speedmap_html = (
+        task(skip_file)
+        .validate()
+        .set_task_instance_id("skip_speedmap_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            enabled=include_maps_toggle, **(params.get("skip_speedmap_html") or {})
+        )
+        .mapvalues(argnames=["filename"], argvalues=persist_speedmap_html)
+    )
+
+    skip_day_night_html = (
+        task(skip_file)
+        .validate()
+        .set_task_instance_id("skip_day_night_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            enabled=include_maps_toggle, **(params.get("skip_day_night_html") or {})
+        )
+        .mapvalues(argnames=["filename"], argvalues=persist_day_night_html)
+    )
+
+    skip_homerange_html = (
+        task(skip_file)
+        .validate()
+        .set_task_instance_id("skip_homerange_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            enabled=include_maps_toggle, **(params.get("skip_homerange_html") or {})
+        )
+        .mapvalues(argnames=["filename"], argvalues=persist_homerange_html)
+    )
+
+    skip_mean_speed_raster_html = (
+        task(skip_file)
+        .validate()
+        .set_task_instance_id("skip_mean_speed_raster_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            enabled=include_maps_toggle,
+            **(params.get("skip_mean_speed_raster_html") or {}),
+        )
+        .mapvalues(argnames=["filename"], argvalues=persist_mean_speed_raster_html)
+    )
+
+    skip_seasonal_home_range_html = (
+        task(skip_file)
+        .validate()
+        .set_task_instance_id("skip_seasonal_home_range_html")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            enabled=include_maps_toggle,
+            **(params.get("skip_seasonal_home_range_html") or {}),
+        )
+        .mapvalues(argnames=["filename"], argvalues=persist_seasonal_home_range_html)
+    )
+
+    movement_png = (
+        task(html_to_png)
+        .validate()
+        .set_task_instance_id("movement_png")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params.get("movement_png") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=skip_movement_tracks_html)
+    )
+
+    speedmap_png = (
+        task(html_to_png)
+        .validate()
+        .set_task_instance_id("speedmap_png")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params.get("speedmap_png") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=skip_speedmap_html)
+    )
+
+    day_night_png = (
+        task(html_to_png)
+        .validate()
+        .set_task_instance_id("day_night_png")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params.get("day_night_png") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=skip_day_night_html)
+    )
+
+    homerange_png = (
+        task(html_to_png)
+        .validate()
+        .set_task_instance_id("homerange_png")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params.get("homerange_png") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=skip_homerange_html)
+    )
+
+    mean_speed_raster_png = (
+        task(html_to_png)
+        .validate()
+        .set_task_instance_id("mean_speed_raster_png")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params.get("mean_speed_raster_png") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=skip_mean_speed_raster_html)
+    )
+
+    seasonal_hr_png = (
+        task(html_to_png)
+        .validate()
+        .set_task_instance_id("seasonal_hr_png")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            config={
+                "full_page": False,
+                "device_scale_factor": 2.0,
+                "wait_for_timeout": 40000,
+                "max_concurrent_pages": 1,
+            },
+            **(params.get("seasonal_hr_png") or {}),
+        )
+        .mapvalues(argnames=["html_path"], argvalues=skip_seasonal_home_range_html)
+    )
+
     download_mapbook_cover_page = (
-        fetch_and_persist_file.validate()
+        task(fetch_and_persist_file)
+        .validate()
         .set_task_instance_id("download_mapbook_cover_page")
         .handle_errors()
         .with_tracing()
@@ -3434,13 +3907,14 @@ def main(params: Params):
             overwrite_existing=False,
             unzip=False,
             retries=2,
-            **(params_dict.get("download_mapbook_cover_page") or {}),
+            **(params.get("download_mapbook_cover_page") or {}),
         )
         .call()
     )
 
     download_sect_templates = (
-        fetch_and_persist_file.validate()
+        task(fetch_and_persist_file)
+        .validate()
         .set_task_instance_id("download_sect_templates")
         .handle_errors()
         .with_tracing()
@@ -3457,14 +3931,15 @@ def main(params: Params):
             overwrite_existing=False,
             unzip=False,
             retries=2,
-            **(params_dict.get("download_sect_templates") or {}),
+            **(params.get("download_sect_templates") or {}),
         )
         .call()
     )
 
-    logo_path = (
-        get_file_path.validate()
-        .set_task_instance_id("logo_path")
+    skip_logo_path = (
+        task(skip_file)
+        .validate()
+        .set_task_instance_id("skip_logo_path")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -3475,15 +3950,17 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            **(params_dict.get("logo_path") or {}),
+            enabled=include_maps_toggle,
+            filename=logo_path,
+            **(params.get("skip_logo_path") or {}),
         )
         .call()
     )
 
-    create_cover_tpl_context = (
-        create_mapbook_ctx_cover.validate()
-        .set_task_instance_id("create_cover_tpl_context")
+    cover_page_context = (
+        task(prepare_cover_metadata)
+        .validate()
+        .set_task_instance_id("cover_page_context")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -3494,18 +3971,20 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            count=unique_subjects,
+            org_logo_path=skip_logo_path,
             report_period=time_range,
             prepared_by="Ecoscope",
-            org_logo_path=logo_path,
-            **(params_dict.get("create_cover_tpl_context") or {}),
+            extra_fields={"count": unique_subjects},
+            time_generated_format="%Y-%m-%d %H:%M:%S",
+            **(params.get("cover_page_context") or {}),
         )
         .call()
     )
 
-    persist_cover_context = (
-        create_context_page.validate()
-        .set_task_instance_id("persist_cover_context")
+    persist_cover_page = (
+        task(create_context_page)
+        .validate()
+        .set_task_instance_id("persist_cover_page")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -3518,316 +3997,47 @@ def main(params: Params):
         .partial(
             template_path=download_mapbook_cover_page,
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            context=create_cover_tpl_context,
-            filename="mapbook_context_page.docx",
-            **(params_dict.get("persist_cover_context") or {}),
+            context=cover_page_context,
+            filename="cover_page.docx",
+            **(params.get("persist_cover_page") or {}),
         )
         .call()
     )
 
-    zip_speed_value = (
-        zip_groupbykey.validate()
-        .set_task_instance_id("zip_speed_value")
+    group_mapbook_ctx = (
+        task(groupbykey)
+        .validate()
+        .set_task_instance_id("group_mapbook_ctx")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
+                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
         )
         .partial(
-            sequences=[gdf_image_extent, persist_speedmap_html],
-            **(params_dict.get("zip_speed_value") or {}),
-        )
-        .call()
-    )
-
-    generate_speedmap_png = (
-        adjust_map_zoom_and_screenshot.validate()
-        .set_task_instance_id("generate_speedmap_png")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            screenshot_config={
-                "full_page": False,
-                "device_scale_factor": 2.0,
-                "wait_for_timeout": 40000,
-                "max_concurrent_pages": 1,
-            },
-            **(params_dict.get("generate_speedmap_png") or {}),
-        )
-        .mapvalues(argnames=["view_state", "input_file"], argvalues=zip_speed_value)
-    )
-
-    zip_dn_value = (
-        zip_groupbykey.validate()
-        .set_task_instance_id("zip_dn_value")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            sequences=[gdf_image_extent, persist_day_night_html],
-            **(params_dict.get("zip_dn_value") or {}),
-        )
-        .call()
-    )
-
-    generate_day_night_png = (
-        adjust_map_zoom_and_screenshot.validate()
-        .set_task_instance_id("generate_day_night_png")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            screenshot_config={
-                "full_page": False,
-                "device_scale_factor": 2.0,
-                "wait_for_timeout": 40000,
-                "max_concurrent_pages": 1,
-            },
-            **(params_dict.get("generate_day_night_png") or {}),
-        )
-        .mapvalues(argnames=["view_state", "input_file"], argvalues=zip_dn_value)
-    )
-
-    zip_movement_value = (
-        zip_groupbykey.validate()
-        .set_task_instance_id("zip_movement_value")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            sequences=[gdf_image_extent, persist_movement_tracks_html],
-            **(params_dict.get("zip_movement_value") or {}),
-        )
-        .call()
-    )
-
-    generate_movement_png = (
-        adjust_map_zoom_and_screenshot.validate()
-        .set_task_instance_id("generate_movement_png")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            screenshot_config={
-                "full_page": False,
-                "device_scale_factor": 2.0,
-                "wait_for_timeout": 40000,
-                "max_concurrent_pages": 1,
-            },
-            **(params_dict.get("generate_movement_png") or {}),
-        )
-        .mapvalues(argnames=["view_state", "input_file"], argvalues=zip_movement_value)
-    )
-
-    zip_hr_value = (
-        zip_groupbykey.validate()
-        .set_task_instance_id("zip_hr_value")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            sequences=[gdf_image_extent, persist_homerange_html],
-            **(params_dict.get("zip_hr_value") or {}),
-        )
-        .call()
-    )
-
-    generate_homerange_png = (
-        adjust_map_zoom_and_screenshot.validate()
-        .set_task_instance_id("generate_homerange_png")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            screenshot_config={
-                "full_page": False,
-                "device_scale_factor": 2.0,
-                "wait_for_timeout": 40000,
-                "max_concurrent_pages": 1,
-            },
-            **(params_dict.get("generate_homerange_png") or {}),
-        )
-        .mapvalues(argnames=["view_state", "input_file"], argvalues=zip_hr_value)
-    )
-
-    zip_mean_speed_value = (
-        zip_groupbykey.validate()
-        .set_task_instance_id("zip_mean_speed_value")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            sequences=[gdf_image_extent, persist_mean_speed_raster_html],
-            **(params_dict.get("zip_mean_speed_value") or {}),
-        )
-        .call()
-    )
-
-    generate_raster_png = (
-        adjust_map_zoom_and_screenshot.validate()
-        .set_task_instance_id("generate_raster_png")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            screenshot_config={
-                "full_page": False,
-                "device_scale_factor": 2.0,
-                "wait_for_timeout": 40000,
-                "max_concurrent_pages": 1,
-            },
-            **(params_dict.get("generate_raster_png") or {}),
-        )
-        .mapvalues(
-            argnames=["view_state", "input_file"], argvalues=zip_mean_speed_value
-        )
-    )
-
-    zip_season_value = (
-        zip_groupbykey.validate()
-        .set_task_instance_id("zip_season_value")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            sequences=[gdf_image_extent, persist_seasonal_home_range_html],
-            **(params_dict.get("zip_season_value") or {}),
-        )
-        .call()
-    )
-
-    generate_seasonal_png = (
-        adjust_map_zoom_and_screenshot.validate()
-        .set_task_instance_id("generate_seasonal_png")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            screenshot_config={
-                "full_page": False,
-                "device_scale_factor": 2.0,
-                "wait_for_timeout": 40000,
-                "max_concurrent_pages": 1,
-            },
-            **(params_dict.get("generate_seasonal_png") or {}),
-        )
-        .mapvalues(argnames=["view_state", "input_file"], argvalues=zip_season_value)
-    )
-
-    group_context_values = (
-        zip_groupbykey.validate()
-        .set_task_instance_id("group_context_values")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            sequences=[
-                apply_speed_colormap,
+            iterables=[
+                split_traj_by_group,
                 coverage_grid_quantity,
                 coverage_mcp_quantity,
-                generate_speedmap_png,
-                generate_day_night_png,
-                generate_movement_png,
-                generate_homerange_png,
-                generate_raster_png,
-                generate_seasonal_png,
             ],
-            **(params_dict.get("group_context_values") or {}),
+            **(params.get("group_mapbook_ctx") or {}),
         )
         .call()
     )
 
-    indv_mapbook_ctx = (
-        create_mapbook_grouper_ctx.validate()
-        .set_task_instance_id("indv_mapbook_ctx")
+    build_mapbook_context = (
+        task(create_mapbook_context)
+        .validate()
+        .set_task_instance_id("build_mapbook_context")
         .handle_errors()
         .with_tracing()
         .skipif(
             conditions=[
-                never,
+                any_is_empty_df,
+                any_dependency_skipped,
             ],
             unpack_depth=1,
         )
@@ -3835,28 +4045,18 @@ def main(params: Params):
             current_period=time_range,
             previous_period=set_previous_period,
             period=round_report_duration,
-            grouper_name=groupers,
-            **(params_dict.get("indv_mapbook_ctx") or {}),
+            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
+            **(params.get("build_mapbook_context") or {}),
         )
         .mapvalues(
-            argnames=[
-                "df",
-                "grid_area",
-                "mcp_area",
-                "speedmap",
-                "day_night",
-                "movement_tracks",
-                "home_range",
-                "mean_raster",
-                "seasonal_homerange",
-            ],
-            argvalues=group_context_values,
+            argnames=["df", "grid_area", "mcp_area"], argvalues=group_mapbook_ctx
         )
     )
 
-    create_grouper_doc = (
-        create_grouper_page.validate()
-        .set_task_instance_id("create_grouper_doc")
+    persist_mapbook_page = (
+        task(render_mapbook_page)
+        .validate()
+        .set_task_instance_id("persist_mapbook_page")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -3870,17 +4070,18 @@ def main(params: Params):
             template_path=download_sect_templates,
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             filename=None,
-            validate_images=True,
+            strict_images=True,
             box_h_cm=6.5,
             box_w_cm=11.11,
-            **(params_dict.get("create_grouper_doc") or {}),
+            **(params.get("persist_mapbook_page") or {}),
         )
-        .mapvalues(argnames=["context"], argvalues=indv_mapbook_ctx)
+        .mapvalues(argnames=["context"], argvalues=build_mapbook_context)
     )
 
-    merge_mapbook_docx = (
-        merge_mapbook_files.validate()
-        .set_task_instance_id("merge_mapbook_docx")
+    merge_mapbook_docs = (
+        task(merge_docx_documents)
+        .validate()
+        .set_task_instance_id("merge_mapbook_docs")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -3891,17 +4092,19 @@ def main(params: Params):
             unpack_depth=1,
         )
         .partial(
-            cover_page_path=persist_cover_context,
+            cover_page_path=persist_cover_page,
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            context_page_items=create_grouper_doc,
-            filename=None,
-            **(params_dict.get("merge_mapbook_docx") or {}),
+            order_by="name",
+            filename="overall_report.docx",
+            context_page_items=persist_mapbook_page,
+            **(params.get("merge_mapbook_docs") or {}),
         )
         .call()
     )
 
     mapbook_dashboard = (
-        gather_dashboard.validate()
+        task(gather_dashboard)
+        .validate()
         .set_task_instance_id("mapbook_dashboard")
         .handle_errors()
         .with_tracing()
@@ -3927,7 +4130,7 @@ def main(params: Params):
             ],
             time_range=time_range,
             groupers=groupers,
-            **(params_dict.get("mapbook_dashboard") or {}),
+            **(params.get("mapbook_dashboard") or {}),
         )
         .call()
     )

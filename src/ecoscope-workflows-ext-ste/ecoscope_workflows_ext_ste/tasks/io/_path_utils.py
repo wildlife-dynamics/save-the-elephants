@@ -60,5 +60,9 @@ def get_local_file_path(
         ),
     ],
 ) -> str:
+    file_path = Path(file_path)
+    if not file_path.is_file():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    validate_any_file(file_path)
     print(f"[get_local_file_path] Resolved path: {file_path} (type: {file_path.suffix.lower()})")
     return remove_file_scheme(str(file_path))

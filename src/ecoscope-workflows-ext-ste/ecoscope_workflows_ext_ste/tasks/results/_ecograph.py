@@ -41,22 +41,25 @@ def generate_ecograph_raster(
     ] = None,
     dist_col: Annotated[
         str,
-        AdvancedField(description="Column name for step distance."),
+        AdvancedField(default="dist_meters", description="Column name for step distance."),
     ] = "dist_meters",
     output_dir: Annotated[
         Optional[str],
-        AdvancedField(description="Directory to save the output raster. Defaults to CWD."),
+        AdvancedField(default=None, description="Directory to save the output raster. Defaults to CWD."),
     ] = None,
     filename: Annotated[
         Optional[str],
         AdvancedField(
+            default=None,
             description="Filename for the output GeoTIFF (no extension). " "If None, a hash of the input data is used.",
             exclude=True,
         ),
     ] = None,
     resolution: Annotated[
         Optional[float],
-        AdvancedField(description="Raster resolution. If None, uses `step_length` or the mean of `dist_col`."),
+        AdvancedField(
+            default=None, description="Raster resolution. If None, uses `step_length` or the mean of `dist_col`."
+        ),
     ] = None,
     radius: Annotated[
         int,
@@ -77,10 +80,10 @@ def generate_ecograph_raster(
     step_length: Annotated[
         Optional[int],
         AdvancedField(
-            default=None,
+            default=2000,
             description="Mean step length, used as the resolution if `resolution` is None.",
         ),
-    ] = None,
+    ] = 2000,
 ) -> str:
     """
     Build an Ecograph from trajectory data and write a raster of one

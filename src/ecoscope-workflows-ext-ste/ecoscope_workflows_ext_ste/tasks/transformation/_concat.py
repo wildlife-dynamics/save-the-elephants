@@ -2,12 +2,13 @@ import pandas as pd
 from typing import List
 from wt_registry import register
 from typing import Literal, Optional, Sequence
+from wt_task.skip import SkipSentinel
 from ecoscope.platform.annotations import AnyDataFrame
 
 
 @register()
 def concatenate_dataframes(
-    list_df: List[AnyDataFrame],
+    list_df: List[AnyDataFrame | SkipSentinel],
     axis: Literal[0, 1, "index", "columns"] = 0,
     join: Literal["inner", "outer"] = "outer",
     ignore_index: bool = True,
@@ -38,8 +39,10 @@ def concatenate_dataframes(
     Returns:
         A single merged dataframe.
     """
-    if not list_df:
-        raise ValueError("list_df cannot be empty")
+    valid_dfs = [df for df in list_df if not isinstance(df, SkipSentinel)]
+    if not valid_dfs:
+        raise ValueError("list_df has no valid DataFrames (all entries are skipped)")
+    list_df = valid_dfs
 
     kwargs = dict(
         axis=axis,

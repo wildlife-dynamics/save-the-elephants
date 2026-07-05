@@ -75,7 +75,7 @@ def envelope_gdf(
     ],
     expansion_factor: Annotated[
         float,
-        Field(description="Factor to expand the bounding box (e.g., 1.2 = 20% larger)"),
+        AdvancedField(default=1.50, description="Factor to expand the bounding box (e.g., 1.2 = 20% larger)"),
     ] = 1.50,
 ) -> Annotated[
     AnyGeoDataFrame,
@@ -159,7 +159,10 @@ def _zoom_from_bbox(
 
 @register()
 def compute_view_state_from_gdf(
-    gdf,
+    gdf: Annotated[
+        AnyGeoDataFrame,
+        Field(description="GeoDataFrame whose geometry extent is used to compute the map view state."),
+    ],
     pitch: Annotated[int, AdvancedField(default=0, ge=0, le=90, description="...")] = 0,
     bearing: Annotated[int, AdvancedField(default=0, ge=-180, le=180, description="...")] = 0,
     max_zoom: Annotated[

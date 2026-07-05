@@ -19,7 +19,7 @@ from ecoscope_workflows_ext_custom.tasks.results._map import (
     _color_tuple_to_css,
 )
 
-from spatial_operations._spatial_features import (
+from ..spatial_operations._spatial_features import (
     EarthRangerQuery,
     LocalSpatialLayer,
     _apply_column_style,

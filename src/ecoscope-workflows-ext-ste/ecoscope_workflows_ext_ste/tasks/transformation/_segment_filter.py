@@ -1,4 +1,6 @@
+from typing import Annotated
 from wt_registry import register
+from ecoscope.platform.annotations import AdvancedField
 from ecoscope.platform.tasks.preprocessing._preprocessing import (
     TrajectorySegmentFilter,
 )
@@ -6,12 +8,30 @@ from ecoscope.platform.tasks.preprocessing._preprocessing import (
 
 @register()
 def trajectory_segment_filter(
-    min_length_meters: float = 0.001,
-    max_length_meters: float = 5000,
-    min_time_secs: float = 1,
-    max_time_secs: float = 21600,
-    min_speed_kmhr: float = 0.01,
-    max_speed_kmhr: float = 9.0,
+    min_length_meters: Annotated[
+        float,
+        AdvancedField(default=0.001, description="Minimum segment length in meters."),
+    ] = 0.001,
+    max_length_meters: Annotated[
+        float,
+        AdvancedField(default=5000, description="Maximum segment length in meters."),
+    ] = 5000,
+    min_time_secs: Annotated[
+        float,
+        AdvancedField(default=1, description="Minimum segment duration in seconds."),
+    ] = 1,
+    max_time_secs: Annotated[
+        float,
+        AdvancedField(default=21600, description="Maximum segment duration in seconds."),
+    ] = 21600,
+    min_speed_kmhr: Annotated[
+        float,
+        AdvancedField(default=0.01, description="Minimum segment speed in km/h."),
+    ] = 0.01,
+    max_speed_kmhr: Annotated[
+        float,
+        AdvancedField(default=9.0, description="Maximum segment speed in km/h."),
+    ] = 9.0,
 ) -> TrajectorySegmentFilter:
     """
     Build a TrajectorySegmentFilter with the project's default thresholds.

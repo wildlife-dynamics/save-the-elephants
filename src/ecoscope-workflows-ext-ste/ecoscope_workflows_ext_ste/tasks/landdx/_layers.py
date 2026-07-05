@@ -8,11 +8,11 @@ from ecoscope_workflows_ext_custom.tasks.results._map import (
     TextLayerStyle,
     LayerDefinition,
 )
-from spatial_operations._spatial_features import (
+from ..spatial_operations._spatial_features import (
     LocalSpatialLayer,
     SpatialFeatureLayer,
 )
-from results._spatial_layers import (
+from ..results._spatial_layers import (
     _layers_for_gdf,
     create_categorical_styled_layer,
 )
@@ -43,8 +43,8 @@ def _build_ldx_layers(file_path: str) -> List[LayerDefinition]:
         color_by="type",
         color_mapping=_LDX_COLOR_MAPPING,
         unmapped="drop",
-        fill_opacity=0.175,
-        line_opacity=0.175,
+        fill_opacity=0.35,
+        line_opacity=0.35,
         line_width=2.25,
         legend_title="Land Use",
     )

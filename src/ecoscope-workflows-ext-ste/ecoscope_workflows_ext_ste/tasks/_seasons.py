@@ -99,7 +99,9 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
         season_bins = pd.IntervalIndex(data=seasonal_wins.apply(lambda x: pd.Interval(x["start"], x["end"]), axis=1))
         labels = seasonal_wins["season"].values
 
-        trajectories["season"] = pd.cut(trajectories["segment_start"], bins=season_bins, include_lowest=True).map(
+        # Normalize trajectory timestamps to UTC to match the IntervalIndex timezone
+        segment_start_utc = trajectories["segment_start"].dt.tz_convert("UTC")
+        trajectories["season"] = pd.cut(segment_start_utc, bins=season_bins, include_lowest=True).map(
             dict(zip(season_bins, labels))
         )
 

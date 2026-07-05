@@ -3,7 +3,7 @@ import geopandas as gpd
 from pydantic import Field
 from wt_registry import register
 from typing import Annotated, Literal, cast
-from ecoscope_workflows_core.annotations import AnyGeoDataFrame
+from ecoscope.platform.annotations import AnyGeoDataFrame
 
 
 @register()

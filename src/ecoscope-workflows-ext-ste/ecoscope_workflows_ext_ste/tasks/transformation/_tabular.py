@@ -2,11 +2,11 @@ import warnings
 from pydantic import Field
 from wt_registry import register
 from collections.abc import Mapping
-from typing import List, Optional, cast, Any, Annotated
 from ecoscope.base.utils import hex_to_rgba  # type: ignore[import-untyped]
 from ecoscope.platform.annotations import (  # type: ignore[import-untyped]
     AnyDataFrame,
 )
+from typing import List, Optional, cast, Any, Annotated, Union
 
 
 @register()
@@ -196,3 +196,41 @@ def column_first_unique_value(
         raise ValueError(f"No values found in column '{column_name}'")
 
     return str(unique_values[0])
+
+
+@register()
+def convert_columns_to_string(
+    df: AnyDataFrame,
+    columns: Union[str, List[str]],
+) -> AnyDataFrame:
+    if isinstance(columns, str):
+        columns = [columns]
+
+    for column in columns:
+        if column not in df.columns:
+            print(f"Warning: Column '{column}' not found in DataFrame. Skipping.")
+            continue
+
+        try:
+            df[column] = df[column].astype(str)
+        except Exception as e:
+            print(f"Error converting column '{column}' to int: {e}")
+
+    return df
+
+
+@register()
+def safe_string(
+    value: Annotated[str, Field(description="String to make safe for use as a filename")],
+) -> str:
+    """Sanitize a string for filenames: replace spaces with underscores, remove special characters, lowercase."""
+    import re
+
+    safe = re.sub(r"[^\w\s-]", "", value)
+    safe = re.sub(r"\s+", "_", safe)
+    return safe.lower().strip("_")
+
+
+@register()
+def round_off_values(value: float, dp: int) -> float:
+    return round(value, dp)

@@ -1,7 +1,8 @@
 import pandas as pd
-from typing import Literal
+from datetime import datetime
+from typing import Annotated, Literal
 from wt_registry import register
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pandas.tseries.offsets import DateOffset
 from dateutil.relativedelta import relativedelta
 from ecoscope.platform.tasks.filter._filter import TimeRange
@@ -86,7 +87,7 @@ def shift_period(
     desc = _offset_description(
         offset.n, offset.years, offset.months, offset.weeks, offset.days, offset.hours, offset.minutes, offset.seconds
     )
-    print(f"[shift_period] Shifting {timerange.since} → {timerange.until} back by {desc}")
+    print(f"[shift_period] Shifting {timerange.since} -> {timerange.until} back by {desc}")
     off = offset.to_offset()
     since = (pd.Timestamp(timerange.since) - off).to_pydatetime()
     until = (pd.Timestamp(timerange.until) - off).to_pydatetime()
@@ -96,7 +97,7 @@ def shift_period(
         timezone=timerange.timezone,
         time_format=timerange.time_format,
     )
-    print(f"[shift_period] Shifted period: {result.since} → {result.until}")
+    print(f"[shift_period] Shifted period: {result.since} -> {result.until}")
     return result
 
 
@@ -117,7 +118,7 @@ def previous_period(
         timezone=timerange.timezone,
         time_format=timerange.time_format,
     )
-    print(f"[previous_period] Previous period: {result.since} → {result.until}")
+    print(f"[previous_period] Previous period: {result.since} -> {result.until}")
     return result
 
 
@@ -148,3 +149,96 @@ def get_duration(
         return result
 
     raise ValueError(f"`get_duration`: invalid time_unit {time_unit!r}")
+
+
+_PRESET_OFFSETS: dict[str, relativedelta] = {
+    "1 month back": relativedelta(months=1),
+    "3 months back": relativedelta(months=3),
+    "6 months back": relativedelta(months=6),
+    "1 year back": relativedelta(years=1),
+}
+
+PresetName = Literal[
+    "Same as current period",
+    "1 month back",
+    "3 months back",
+    "6 months back",
+    "1 year back",
+]
+
+
+class CustomPreviousPeriod(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"title": "Custom"})
+    offset_type: Annotated[Literal["custom"], Field(exclude=True)] = "custom"
+    years: int = 0
+    months: int = 0
+    weeks: int = 0
+    days: int = 0
+    hours: int = 0
+    minutes: int = 0
+    seconds: int = 0
+
+
+class PresetPreviousPeriod(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"title": "Preset"})
+    offset_type: Annotated[Literal["preset"], Field(exclude=True)] = "preset"
+    preset: Annotated[
+        PresetName,
+        Field(default="1 month back", description="Choose a predefined time offset."),
+    ] = "1 month back"
+
+
+class CalendarPreviousPeriod(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"title": "Calendar"})
+    offset_type: Annotated[Literal["calendar"], Field(exclude=True)] = "calendar"
+    since: Annotated[
+        datetime,
+        Field(description="Select the start date for the comparison period."),
+    ]
+
+
+@register()
+def flexible_previous_period(
+    timerange: TimeRange,
+    offset: Annotated[
+        CustomPreviousPeriod | PresetPreviousPeriod | CalendarPreviousPeriod,
+        Field(description="How to compute the start of the comparison period."),
+    ],
+) -> TimeRange:
+    """
+    Compute a comparison period ending at timerange.since (i.e. immediately
+    preceding, and not overlapping with, the current period), with the start
+    determined by one of three modes:
+      - Custom: manually specify years/months/weeks/days/hours/minutes/seconds
+      - Preset: pick a named offset (same period, 1/3/6 months, 1 year back)
+      - Calendar: pick an exact since date from a date picker
+    """
+    until = timerange.since
+
+    if isinstance(offset, CustomPreviousPeriod):
+        rd = relativedelta(
+            years=offset.years,
+            months=offset.months,
+            weeks=offset.weeks,
+            days=offset.days,
+            hours=offset.hours,
+            minutes=offset.minutes,
+            seconds=offset.seconds,
+        )
+        since = until - rd
+
+    elif isinstance(offset, PresetPreviousPeriod):
+        if offset.preset == "Same as current period":
+            since = until - relativedelta(timerange.until, timerange.since)
+        else:
+            since = until - _PRESET_OFFSETS[offset.preset]
+
+    else:
+        since = offset.since
+
+    return TimeRange(
+        since=since,
+        until=until,
+        timezone=timerange.timezone,
+        time_format=timerange.time_format,
+    )
