@@ -87,6 +87,9 @@ def merge_docx_documents(
 
     if not pages:
         print("No valid context pages to merge; saving cover page only")
+    else:
+        for page_path in pages:
+            composer.append(Document(page_path))
     composer.save(str(output_path))
     print(f"Merged {len(pages)} pages into {output_path}")
     return str(output_path)

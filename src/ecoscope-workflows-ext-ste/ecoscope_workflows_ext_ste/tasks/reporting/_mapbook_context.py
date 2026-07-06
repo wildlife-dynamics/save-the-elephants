@@ -104,7 +104,7 @@ def create_mapbook_context(
 
     print(f"grouper_value={grouper_value!r}, safe_name={safe_name!r}")
 
-    root = Path(root_path)
+    root = Path(remove_file_scheme(root_path))
     mapbook_png_paths = {}
     for ctx_key, suffix in MAP_SUFFIXES.items():
         path = _find_map_file(root, safe_name, suffix) if safe_name else None
@@ -113,8 +113,8 @@ def create_mapbook_context(
             print(f"No file found for {ctx_key} ({safe_name}{suffix})")
 
     ctx = {
-        "current_period": _format_period(current_period),
-        "previous_period": _format_period(previous_period),
+        "time_period": _format_period(current_period),
+        "previous_time_range": _format_period(previous_period),
         "period": f"{period:.2f}" if isinstance(period, float) else "N/A",
         "grid_area": _format_area(grid_area),
         "mcp_area": _format_area(mcp_area),
@@ -186,7 +186,7 @@ def _default_filename(context: dict[str, Any]) -> str:
     """Name the page after the grouper value; UUID only as a last resort."""
     grouper_value = str(context.get("grouper_value", "")).strip()
     if grouper_value and grouper_value.upper() != "N/A":
-        safe = re.sub(r"[^\w\-]+", "_", grouper_value).strip("_")
+        safe = re.sub(r"[^\w\-]+", "_", grouper_value.lower()).strip("_")
         if safe:
             return f"{safe}.docx"
     return f"{uuid.uuid4().hex[:8]}.docx"
@@ -197,7 +197,7 @@ def render_mapbook_page(
     template_path: str,
     output_dir: str,
     context: dict[str, Any],
-    filename: str,
+    filename: Optional[str] = None,
     strict_images: bool = False,
     box_h_cm: float = 6.5,
     box_w_cm: float = 11.11,

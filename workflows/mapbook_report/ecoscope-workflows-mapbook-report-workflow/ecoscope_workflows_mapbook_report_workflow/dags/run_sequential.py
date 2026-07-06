@@ -86,6 +86,9 @@ from ecoscope_workflows_ext_custom.tasks.spatial_ops import (
     reproject_gdf as reproject_gdf,
 )
 from ecoscope_workflows_ext_custom.tasks.transformation import (
+    format_text_column as format_text_column,
+)
+from ecoscope_workflows_ext_custom.tasks.transformation import (
     to_quantity as to_quantity,
 )
 from ecoscope_workflows_ext_ste.tasks.filter import (
@@ -142,7 +145,13 @@ from ecoscope_workflows_ext_ste.tasks.spatial_operations import (
     envelope_gdf as envelope_gdf,
 )
 from ecoscope_workflows_ext_ste.tasks.transformation import (
+    add_mapped_column_value as add_mapped_column_value,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import (
     add_new_column as add_new_column,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    add_rgba_from_hex as add_rgba_from_hex,
 )
 from ecoscope_workflows_ext_ste.tasks.transformation import (
     add_status_color_columns as add_status_color_columns,
@@ -3066,10 +3075,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .mapvalues(argnames=["df"], argvalues=reproject_seasonal_home_range)
     )
 
-    assign_season_df = (
-        task(apply_color_map)
+    assign_season_colors = (
+        task(add_mapped_column_value)
         .validate()
-        .set_task_instance_id("assign_season_df")
+        .set_task_instance_id("assign_season_colors")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -3080,12 +3089,35 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            colormap=["#f57c00", "#255084"],
-            input_column_name="season",
-            output_column_name="season_colors",
-            **(params.get("assign_season_df") or {}),
+            column="season",
+            new_column="season_hex",
+            default=None,
+            keep_unmapped=False,
+            mapping={"Dry": "#f57c00", "Wet": "#255084"},
+            **(params.get("assign_season_colors") or {}),
         )
         .mapvalues(argnames=["df"], argvalues=sort_seasons)
+    )
+
+    seasonal_hex_rgba = (
+        task(add_rgba_from_hex)
+        .validate()
+        .set_task_instance_id("seasonal_hex_rgba")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            column="season_hex",
+            new_column="season_colors",
+            **(params.get("seasonal_hex_rgba") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=assign_season_colors)
     )
 
     filter_season_cols = (
@@ -3107,7 +3139,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             strict=False,
             **(params.get("filter_season_cols") or {}),
         )
-        .mapvalues(argnames=["df"], argvalues=assign_season_df)
+        .mapvalues(argnames=["df"], argvalues=seasonal_hex_rgba)
     )
 
     generate_season_layers = (
@@ -3448,6 +3480,27 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    capitalize_subject = (
+        task(format_text_column)
+        .validate()
+        .set_task_instance_id("capitalize_subject")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            column="subject_sex",
+            method="capitalize",
+            **(params.get("capitalize_subject") or {}),
+        )
+        .mapvalues(argnames=["df"], argvalues=split_traj_by_group)
+    )
+
     subject_gender = (
         task(column_first_unique_value)
         .validate()
@@ -3462,7 +3515,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(column_name="subject_sex", **(params.get("subject_gender") or {}))
-        .mapvalues(argnames=["df"], argvalues=split_traj_by_group)
+        .mapvalues(argnames=["df"], argvalues=capitalize_subject)
     )
 
     gender_widgets = (
@@ -3721,7 +3774,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
@@ -3747,7 +3799,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
@@ -3773,7 +3824,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
@@ -3799,7 +3849,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
@@ -3825,7 +3874,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
@@ -3851,7 +3899,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
@@ -3955,9 +4002,30 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             org_logo_path=skip_logo_path,
             report_period=time_range,
             prepared_by="Ecoscope",
-            extra_fields={"count": unique_subjects},
+            extra_fields={"subject_count": unique_subjects},
             time_generated_format="%Y-%m-%d %H:%M:%S",
             **(params.get("cover_page_context") or {}),
+        )
+        .call()
+    )
+
+    gate_cover_page_filename = (
+        task(skip_file)
+        .validate()
+        .set_task_instance_id("gate_cover_page_filename")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            filename="cover_page.docx",
+            enabled=include_maps_toggle,
+            **(params.get("gate_cover_page_filename") or {}),
         )
         .call()
     )
@@ -3970,7 +4038,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
                 any_dependency_skipped,
             ],
             unpack_depth=1,
@@ -3979,7 +4046,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             template_path=download_mapbook_cover_page,
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             context=cover_page_context,
-            filename="cover_page.docx",
+            filename=gate_cover_page_filename,
             **(params.get("persist_cover_page") or {}),
         )
         .call()
@@ -4034,10 +4101,10 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         )
     )
 
-    persist_mapbook_page = (
-        task(render_mapbook_page)
+    gate_mapbook_page_filename = (
+        task(skip_file)
         .validate()
-        .set_task_instance_id("persist_mapbook_page")
+        .set_task_instance_id("gate_mapbook_page_filename")
         .handle_errors()
         .with_tracing()
         .skipif(
@@ -4048,9 +4115,29 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
+            filename="",
+            enabled=include_maps_toggle,
+            **(params.get("gate_mapbook_page_filename") or {}),
+        )
+        .call()
+    )
+
+    persist_mapbook_page = (
+        task(render_mapbook_page)
+        .validate()
+        .set_task_instance_id("persist_mapbook_page")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
             template_path=download_sect_templates,
             output_dir=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filename=None,
+            filename=gate_mapbook_page_filename,
             strict_images=True,
             box_h_cm=6.5,
             box_w_cm=11.11,
@@ -4067,7 +4154,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_is_empty_df,
                 any_dependency_skipped,
             ],
             unpack_depth=1,

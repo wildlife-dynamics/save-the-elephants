@@ -92,7 +92,7 @@ def add_rgba_from_hex(
     Raises:
         ValueError: If `column` is not a column in `df`.
     """
-    print(f"[add_rgba_from_hex] Converting hex colors in '{column}' → RGBA tuples in '{new_column}'")
+    print(f"[add_rgba_from_hex] Converting hex colors in '{column}' -> RGBA tuples in '{new_column}'")
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found. Available: {list(df.columns)}")
 

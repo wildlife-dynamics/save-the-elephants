@@ -1727,18 +1727,44 @@ workflow:
       argnames: df
       argvalues: ${{ workflow.reproject_seasonal_home_range.return }}
 
-  - name: Assign season colors to dataframe 
-    id: assign_season_df
-    task: apply_color_map 
-    partial:
-      colormap: 
-        - "#f57c00"  # Dry 
-        - "#255084"  # Wet
-      input_column_name: season
-      output_column_name: season_colors
-    mapvalues:
-      argnames: df
-      argvalues: ${{ workflow.sort_seasons.return }} 
+  - name: Map column values to assign colors to seasons 
+    id: assign_season_colors 
+    task: add_mapped_column_value 
+    partial: 
+      column: season 
+      new_column: season_hex 
+      default: null 
+      keep_unmapped: false 
+      mapping: {
+        "Dry" : "#f57c00",
+        "Wet" : "#255084" 
+      }
+    mapvalues: 
+      argnames: df 
+      argvalues: ${{ workflow.sort_seasons.return }}
+  
+  - name: Apply seasonal hex to rgba 
+    id: seasonal_hex_rgba
+    task: add_rgba_from_hex 
+    partial: 
+      column: season_hex 
+      new_column: season_colors 
+    mapvalues: 
+      argnames: df 
+      argvalues: ${{ workflow.assign_season_colors.return }}
+
+  # - name: Assign season colors to dataframe 
+  #   id: assign_season_df
+  #   task: apply_color_map 
+  #   partial:
+  #     colormap: 
+  #       - "#f57c00"  # Dry 
+  #       - "#255084"  # Wet
+  #     input_column_name: season
+  #     output_column_name: season_colors
+  #   mapvalues:
+  #     argnames: df
+  #     argvalues: ${{ workflow.sort_seasons.return }} 
 
   - name: Exclude unnecessary columns from mean speed raster gdf
     id: filter_season_cols 
@@ -1752,7 +1778,7 @@ workflow:
       strict: false
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.assign_season_df.return }}
+      argvalues: ${{ workflow.seasonal_hex_rgba.return }}
 
   - name: Create seasonal home range layers
     id: generate_season_layers 
@@ -1947,6 +1973,16 @@ workflow:
     partial:
       widgets: ${{ workflow.total_grid_sv_widgets.return }}
 
+  - name: Capitalize subject gender 
+    id: capitalize_subject
+    task: format_text_column 
+    partial: 
+      column: subject_sex 
+      method: capitalize
+    mapvalues:
+      argnames: df 
+      argvalues: ${{ workflow.split_traj_by_group.return }}
+
   - name: Determine subject gender 
     id: subject_gender
     task: column_first_unique_value
@@ -1954,7 +1990,7 @@ workflow:
       column_name: subject_sex
     mapvalues:
       argnames: df
-      argvalues: ${{ workflow.split_traj_by_group.return }}
+      argvalues: ${{ workflow.capitalize_subject.return }}
 
   - name: Create Single Value Widgets for subject gender per group
     id: gender_widgets
@@ -2070,9 +2106,13 @@ workflow:
       argvalues: ${{ workflow.persist_seasonal_home_range_html.return }}
 
   - name: Generate movement tracks html to png
-    id: movement_png 
-    task: html_to_png 
-    partial: 
+    id: movement_png
+    skipif:
+      conditions:
+        - any_dependency_skipped
+      unpack_depth: 1
+    task: html_to_png
+    partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
         full_page: false
@@ -2083,10 +2123,14 @@ workflow:
       argnames: html_path 
       argvalues: ${{ workflow.skip_movement_tracks_html.return }}
 
-  - name: Generate speedmap html to png 
-    id: speedmap_png 
-    task: html_to_png 
-    partial: 
+  - name: Generate speedmap html to png
+    id: speedmap_png
+    skipif:
+      conditions:
+        - any_dependency_skipped
+      unpack_depth: 1
+    task: html_to_png
+    partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
         full_page: false
@@ -2097,10 +2141,14 @@ workflow:
       argnames: html_path 
       argvalues: ${{ workflow.skip_speedmap_html.return }}
 
-  - name: Generate day/night html to png 
-    id: day_night_png 
-    task: html_to_png 
-    partial: 
+  - name: Generate day/night html to png
+    id: day_night_png
+    skipif:
+      conditions:
+        - any_dependency_skipped
+      unpack_depth: 1
+    task: html_to_png
+    partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
         full_page: false
@@ -2111,10 +2159,14 @@ workflow:
       argnames: html_path 
       argvalues: ${{ workflow.skip_day_night_html.return }}
 
-  - name: Generate homerange html to png 
-    id: homerange_png 
-    task: html_to_png 
-    partial: 
+  - name: Generate homerange html to png
+    id: homerange_png
+    skipif:
+      conditions:
+        - any_dependency_skipped
+      unpack_depth: 1
+    task: html_to_png
+    partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
         full_page: false
@@ -2125,10 +2177,14 @@ workflow:
       argnames: html_path 
       argvalues: ${{ workflow.skip_homerange_html.return }}
 
-  - name: Generate mean speed raster html to png 
-    id: mean_speed_raster_png 
-    task: html_to_png 
-    partial: 
+  - name: Generate mean speed raster html to png
+    id: mean_speed_raster_png
+    skipif:
+      conditions:
+        - any_dependency_skipped
+      unpack_depth: 1
+    task: html_to_png
+    partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
         full_page: false
@@ -2139,10 +2195,14 @@ workflow:
       argnames: html_path 
       argvalues: ${{ workflow.skip_mean_speed_raster_html.return }}
 
-  - name: Generate  seasonal home range html to png 
-    id: seasonal_hr_png 
-    task: html_to_png 
-    partial: 
+  - name: Generate  seasonal home range html to png
+    id: seasonal_hr_png
+    skipif:
+      conditions:
+        - any_dependency_skipped
+      unpack_depth: 1
+    task: html_to_png
+    partial:
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       config: 
         full_page: false
@@ -2189,17 +2249,28 @@ workflow:
       report_period: ${{ workflow.time_range.return }}
       prepared_by: "Ecoscope"
       extra_fields:
-        count: ${{ workflow.unique_subjects.return }}
+        subject_count: ${{ workflow.unique_subjects.return }}
       time_generated_format: "%Y-%m-%d %H:%M:%S"
 
-  - name: Persist cover page 
+  - name: Gate cover page filename on word doc toggle
+    id: gate_cover_page_filename
+    task: skip_file
+    partial:
+      filename: cover_page.docx
+      enabled: ${{ workflow.include_maps_toggle.return }}
+
+  - name: Persist cover page
     id: persist_cover_page
-    task: create_context_page 
-    partial: 
+    skipif:
+      conditions:
+        - any_dependency_skipped
+      unpack_depth: 1
+    task: create_context_page
+    partial:
       template_path: ${{ workflow.download_mapbook_cover_page.return }}
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
       context: ${{ workflow.cover_page_context.return }}
-      filename: cover_page.docx 
+      filename: ${{ workflow.gate_cover_page_filename.return }}
 
   - name: Group mapbook context values 
     id: group_mapbook_ctx 
@@ -2230,28 +2301,43 @@ workflow:
         - mcp_area 
       argvalues: ${{ workflow.group_mapbook_ctx.return }}
 
-  - name: Persist individual mapbook page 
-    id: persist_mapbook_page 
-    task: render_mapbook_page 
+  - name: Gate mapbook page filename on word doc toggle
+    id: gate_mapbook_page_filename
+    task: skip_file
+    partial:
+      filename: ""
+      enabled: ${{ workflow.include_maps_toggle.return }}
+
+  - name: Persist individual mapbook page
+    id: persist_mapbook_page
+    skipif:
+      conditions:
+        - any_dependency_skipped
+      unpack_depth: 1
+    task: render_mapbook_page
     partial:
       template_path: ${{ workflow.download_sect_templates.return }}
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      filename: null 
+      filename: ${{ workflow.gate_mapbook_page_filename.return }}
       strict_images: true
-      box_h_cm: 6.5 
-      box_w_cm: 11.11 
-    mapvalues: 
-      argnames: context 
+      box_h_cm: 6.5
+      box_w_cm: 11.11
+    mapvalues:
+      argnames: context
       argvalues: ${{ workflow.build_mapbook_context.return }}
-  
-  - name: Merge cover page and individual mapbook documents 
-    id: merge_mapbook_docs 
-    task: merge_docx_documents 
-    partial: 
+
+  - name: Merge cover page and individual mapbook documents
+    id: merge_mapbook_docs
+    skipif:
+      conditions:
+        - any_dependency_skipped
+      unpack_depth: 1
+    task: merge_docx_documents
+    partial:
       cover_page_path: ${{ workflow.persist_cover_page.return }}
       output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      order_by: name 
-      filename: overall_report.docx 
+      order_by: name
+      filename: overall_report.docx
       context_page_items: ${{ workflow.persist_mapbook_page.return }}
       # mapvalues:
       #   argnames: context_page_items 

@@ -2,6 +2,7 @@ from ._image_matching import match_images_to_events, get_unmatched_images
 from ._color import add_status_color_columns
 from ._concat import concatenate_dataframes
 from ._segment_filter import trajectory_segment_filter
+from ._label import label_by_percentile_threshold
 from ._tabular import (
     subset_columns,
     add_mapped_column_value,
@@ -27,4 +28,5 @@ __all__ = [
     "convert_columns_to_string",
     "safe_string",
     "round_off_values",
+    "label_by_percentile_threshold",
 ]
