@@ -1,3 +1,3 @@
-from ._protection import plot_fix_protection_status
+from ._plot import draw_stacked_percentage_bar_chart
 
-__all__ = ["plot_fix_protection_status"]
+__all__ = ["draw_stacked_percentage_bar_chart"]

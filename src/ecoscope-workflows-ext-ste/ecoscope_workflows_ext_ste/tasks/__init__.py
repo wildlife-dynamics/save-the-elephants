@@ -146,3 +146,4 @@ from . import results as results
 from . import landdx as landdx
 from . import skip as skip
 from . import plot as plot
+from . import config as config
