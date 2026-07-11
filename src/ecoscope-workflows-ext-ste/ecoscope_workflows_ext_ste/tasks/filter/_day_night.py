@@ -5,7 +5,7 @@ from ecoscope.platform.annotations import AnyGeoDataFrame
 
 
 @register()
-def aggregate_day_night_fixes(gdf: AnyGeoDataFrame):
+def aggregate_day_night_fixes(gdf: AnyGeoDataFrame) -> AnyGeoDataFrame:
     """
     Count night/day records per geometry and flag which one dominates.
     Returns a GeoDataFrame with columns: geometry, day_count, night_count, dominant.

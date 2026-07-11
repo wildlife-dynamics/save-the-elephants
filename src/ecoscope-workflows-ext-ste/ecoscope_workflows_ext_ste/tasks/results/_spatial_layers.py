@@ -6,7 +6,7 @@ import matplotlib as mpl
 from wt_registry import register
 from typing_extensions import Self
 import matplotlib.colors as mcolors
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 from pydantic.json_schema import SkipJsonSchema
 from ecoscope.platform.annotations import AnyGeoDataFrame
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -177,6 +177,33 @@ def _layers_for_gdf(gdf: gpd.GeoDataFrame) -> list[LayerDefinition]:
         layers.append(_IconLayer(icon_gdf, legend if other_gdf.empty else None)())
 
     return layers
+
+
+@register()
+def geodataframe_from_layers(
+    layers: Annotated[
+        list[LayerDefinition],
+        Field(
+            description="Map overlay layers (e.g. from select_map_overlay) whose "
+            "underlying GeoDataFrames should be combined into one.",
+            exclude=True,
+        ),
+    ],
+) -> Annotated[AnyGeoDataFrame, Field()]:
+    """Combine the GeoDataFrames backing one or more layers into a single GeoDataFrame.
+
+    TextLayer entries (map labels, e.g. the LandDx name labels) are skipped since
+    their geometry is a centroid rather than the underlying feature, and layers
+    rendered from a `data_url` (no in-memory geodataframe) are skipped since there's
+    no local data to extract. Useful for feeding a map overlay (e.g. from
+    `select_map_overlay`) into `spatial_join` as `right_df`.
+    """
+    gdfs = [
+        layer.geodataframe for layer in layers if layer.geodataframe is not None and layer.layer_type != "TextLayer"
+    ]
+    if not gdfs:
+        return cast(AnyGeoDataFrame, gpd.GeoDataFrame())
+    return cast(AnyGeoDataFrame, pd.concat(gdfs, ignore_index=True))
 
 
 @register()

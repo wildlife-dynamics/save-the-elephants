@@ -41,8 +41,8 @@ rjsf-overrides:
     Trajectory Segment Filter.properties.custom_trajs_filter.properties.max_speed_kmhr.title: "Maximum Speed (km/h)"
     Trajectory Segment Filter.properties.custom_trajs_filter.properties.max_speed_kmhr.description: "Discard segments where average speed exceeds this value. For elephants, 9 km/h is a sensible ceiling."
 
-    # Report Logo
-    Report Logo.properties.logo_path.properties.input_method.description: "Provide the organization logo to display on the report cover page (PNG or JPG recommended)."
+    # Report Logo (now part of the Generate Word Doc Report task-group)
+    Generate Word Doc Report.properties.logo_path.properties.input_method.description: "Provide the organization logo to display on the report cover page (PNG or JPG recommended). Required when 'Generate Word Doc Report' is enabled; leave blank otherwise."
 
     # Previous Period — clarify that the comparison period ends where the current time range begins
     Previous Period.properties.set_previous_period.properties.offset.description: "Choose how to calculate the comparison period's Start Date. In every mode, the comparison period ends on your selected time range's Start Date (so it never overlaps with the current period) — only the Start Date changes."
@@ -161,21 +161,11 @@ workflow:
       Weeks / Days offset (defaults to 1 month back), Preset for a common lookback (e.g. 1, 3 or 6
       months, or 1 year back), or Calendar to pick an exact Start Date.
     tasks: 
-      # - name: Create date offset 
-      #   id: previous_date_offset 
-      #   task: create_date_offset 
-      #   partial: 
-      #     n: 1 
-      #     hours: 0
-      #     minutes: 0 
-      #     seconds: 0
-
       - name: null
         id: set_previous_period
         task: ecoscope_workflows_ext_ste.tasks.filter.flexible_previous_period
         partial: 
           timerange: ${{ workflow.time_range.return }}
-          #offset: ${{ workflow.previous_date_offset.return }}
 
   - title: Map Overlay
     type: task-group
@@ -705,8 +695,8 @@ workflow:
     id: zip_tracks_with_viewstate
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -734,8 +724,8 @@ workflow:
     id: movement_tracks_text
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -861,8 +851,8 @@ workflow:
     id: zip_speedmap_with_viewstate
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -890,8 +880,8 @@ workflow:
     id: speedmap_file_text 
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1013,8 +1003,8 @@ workflow:
     id: zip_day_night_with_viewstate
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1042,8 +1032,8 @@ workflow:
     id: day_night_text 
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1120,8 +1110,8 @@ workflow:
     id: etd_df
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1159,8 +1149,8 @@ workflow:
     id: zip_etd_with_traj 
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1199,8 +1189,8 @@ workflow:
     id: mcp_gdf 
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1324,8 +1314,8 @@ workflow:
     id: zip_home_range_with_mcp_layer
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1346,8 +1336,8 @@ workflow:
     id: zip_hr_with_viewstate
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1375,8 +1365,8 @@ workflow:
     id: hr_text_file
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1421,8 +1411,8 @@ workflow:
     id: zip_raster_filename_gdf
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1586,8 +1576,8 @@ workflow:
     id: zip_speed_raster_viewstate
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1615,8 +1605,8 @@ workflow:
     id: mean_speed_text 
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1686,8 +1676,8 @@ workflow:
     id: seasonal_etd_gdf
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1824,8 +1814,8 @@ workflow:
     id: zip_seasonal_hr_with_viewstate
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -1853,8 +1843,8 @@ workflow:
     id: seasonal_hr_text 
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial:
@@ -2033,23 +2023,21 @@ workflow:
       df: ${{ workflow.rename_traj_cols.return }}
       column_name: subject_name
 
-  - title: Report Logo
-    type: task-group
-    description: Download or fetch the logo to be used in the report cover page.
-    tasks:
-      - name: null
-        id: logo_path
-        task: get_file_path 
-        partial: 
-          output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-
   - title: Generate Word Doc Report
     type: task-group
-    description: Turn this off to skip generating the word doc report.
+    description: Configure word report settings
     tasks:
       - name: null
         id: include_maps_toggle
         task: skip_toggle
+        partial: 
+          enabled: True 
+
+      - name: null
+        id: logo_path
+        task: get_file_path
+        partial:
+          output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
 
   - name: Skip movement tracks html
     id: skip_movement_tracks_html
@@ -2195,7 +2183,7 @@ workflow:
       argnames: html_path 
       argvalues: ${{ workflow.skip_mean_speed_raster_html.return }}
 
-  - name: Generate  seasonal home range html to png
+  - name: Generate seasonal home range html to png
     id: seasonal_hr_png
     skipif:
       conditions:
@@ -2276,8 +2264,8 @@ workflow:
     id: group_mapbook_ctx 
     skipif:
       conditions:
-        - any_keyed_iterables_are_skips
         - any_dependency_skipped
+        - any_keyed_iterables_are_skips
       unpack_depth: 1
     task: groupbykey
     partial: 
@@ -2339,28 +2327,6 @@ workflow:
       order_by: name
       filename: overall_report.docx
       context_page_items: ${{ workflow.persist_mapbook_page.return }}
-      # mapvalues:
-      #   argnames: context_page_items 
-      #   argvalues: ${{ workflow.persist_mapbook_page.return }}
-
-  # - name: Gather all document inputs
-  #   id: gather_doc_inputs
-  #   skipif:
-  #     conditions:
-  #       - any_keyed_iterables_are_skips
-  #       - any_dependency_skipped
-  #     unpack_depth: 1
-  #   task: groupbykey
-  #   partial:
-  #     iterables:
-  #       - ${{ workflow.skip_movement_tracks_html.return }}
-  #       - ${{ workflow.skip_speedmap_html.return }}
-  #       - ${{ workflow.skip_day_night_html.return }}
-  #       - ${{ workflow.skip_homerange_html.return }}
-  #       - ${{ workflow.skip_mean_speed_raster_html.return }}
-  #       - ${{ workflow.skip_seasonal_home_range_html.return }}
-  #       - ${{ workflow.unique_subjects.return }}
-
 
   - name: Mapbook dashboard 
     id: mapbook_dashboard 

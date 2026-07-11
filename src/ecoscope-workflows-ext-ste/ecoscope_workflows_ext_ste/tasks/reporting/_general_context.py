@@ -1,11 +1,10 @@
-# read outputs on output dir, pass output dir, df to get name and pass list of seasonal homerange images
 import os
 import re
 from pathlib import Path
 from typing import Optional
 from docx.shared import Inches
+from wt_registry import register
 from docxtpl import DocxTemplate, InlineImage
-from ecoscope_workflows_core.decorators import task
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
 
 
@@ -94,11 +93,10 @@ def build_panel_rows(images, cols=2):
             row.append({"name": "", "image": ""})
 
         rows.append(row)
-
     return rows
 
 
-@task
+@register()
 def general_template_context(
     output_dir: str, template_path: str, filename: Optional[str] = None, width: float = 5.34, height: float = 3.12
 ) -> str:

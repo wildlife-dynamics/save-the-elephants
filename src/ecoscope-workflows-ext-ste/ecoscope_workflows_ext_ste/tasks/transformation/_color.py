@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Optional
+from typing import Optional, cast
 from wt_registry import register
 from ecoscope.base.utils import hex_to_rgba
 from ecoscope.platform.annotations import AnyDataFrame
@@ -48,3 +48,33 @@ def add_status_color_columns(
     rgba_lookup = {h: hex_to_rgba(h) for h in out[hex_col_name].unique()}
     out[rgba_col_name] = out[hex_col_name].map(rgba_lookup)
     return out
+
+
+@register()
+def add_rgba_from_hex(
+    df: AnyDataFrame,
+    column: str,
+    new_column: str,
+) -> AnyDataFrame:
+    """
+    Add a column of RGBA tuples derived from a column of hex color strings.
+
+    Args:
+        df: Input DataFrame containing the source hex color column.
+        column: Name of the column containing hex color strings (e.g. "#fcb5ac").
+        new_column: Name of the new column to store RGBA tuples.
+
+    Returns:
+        A new DataFrame with the added RGBA column.
+
+    Raises:
+        ValueError: If `column` is not a column in `df`.
+    """
+    print(f"[add_rgba_from_hex] Converting hex colors in '{column}' -> RGBA tuples in '{new_column}'")
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found. Available: {list(df.columns)}")
+
+    df = df.copy()
+    df[new_column] = df[column].apply(hex_to_rgba)
+    print(f"[add_rgba_from_hex] Converted {df[column].nunique()} unique hex color(s) across {len(df)} rows")
+    return cast(AnyDataFrame, df)

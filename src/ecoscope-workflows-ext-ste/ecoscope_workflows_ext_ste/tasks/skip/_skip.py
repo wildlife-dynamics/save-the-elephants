@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from wt_registry import register
 from wt_task.skip import SkipSentinel, SKIP_SENTINEL
 from ecoscope.platform.annotations import AdvancedField
@@ -21,7 +21,7 @@ def skip_toggle(
 @register()
 def skip_file(
     filename: Annotated[
-        str,
+        Optional[str],
         AdvancedField(default="animated.html", description="Animated html file."),
     ] = "animated.html",
     enabled: Annotated[
@@ -32,7 +32,7 @@ def skip_file(
             "When off, the video creation step is skipped entirely.",
         ),
     ] = False,
-) -> str | SkipSentinel:
+) -> Optional[str] | SkipSentinel:
     """Return the output filename, or a skip sentinel when video export is disabled."""
     if not enabled:
         return SKIP_SENTINEL

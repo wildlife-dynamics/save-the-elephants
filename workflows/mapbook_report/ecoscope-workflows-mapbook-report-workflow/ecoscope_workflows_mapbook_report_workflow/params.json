@@ -253,24 +253,9 @@
               "$ref": "#/$defs/LocalFile"
             }
           ],
-          "title": "Input Method"
-        }
-      },
-      "required": [
-        "input_method"
-      ],
-      "type": "object",
-      "title": ""
-    },
-    "include_maps_toggle": {
-      "additionalProperties": false,
-      "properties": {
-        "enabled": {
-          "default": true,
-          "title": "Enabled",
-          "type": "boolean",
-          "description": "Shared toggle. When off, all items gated by this toggle are skipped.",
-          "ecoscope:advanced": true
+          "default": null,
+          "title": "Input Method",
+          "description": "How to obtain the file: download from a URL or use a local file path"
         }
       },
       "type": "object",
@@ -795,8 +780,7 @@
       "custom_trajs_filter",
       "zoom_to_envelope",
       "generate_mean_speed_raster",
-      "logo_path",
-      "include_maps_toggle"
+      "logo_path"
     ]
   },
   "additionalProperties": false

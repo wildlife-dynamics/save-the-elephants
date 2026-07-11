@@ -9,6 +9,7 @@ from ._mapbook_context import (
     render_mapbook_page,
 )
 from ._merge_documents import merge_docx_documents
+from ._general_context import general_template_context
 
 __all__ = [
     "build_matched_table",
@@ -19,4 +20,5 @@ __all__ = [
     "create_mapbook_context",
     "render_mapbook_page",
     "merge_docx_documents",
+    "general_template_context",
 ]

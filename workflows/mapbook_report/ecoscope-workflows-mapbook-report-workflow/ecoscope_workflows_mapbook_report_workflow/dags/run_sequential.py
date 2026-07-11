@@ -1406,8 +1406,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -1452,8 +1452,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -1664,8 +1664,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -1710,8 +1710,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -1913,8 +1913,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -1960,8 +1960,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -2082,8 +2082,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -2147,8 +2147,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -2218,8 +2218,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -2407,8 +2407,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -2447,8 +2447,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -2493,8 +2493,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -2570,8 +2570,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -2834,8 +2834,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -2880,8 +2880,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -3000,8 +3000,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -3213,8 +3213,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -3260,8 +3260,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )
@@ -3612,6 +3612,23 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .call()
     )
 
+    include_maps_toggle = (
+        task(skip_toggle)
+        .validate()
+        .set_task_instance_id("include_maps_toggle")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(enabled=True, **(params.get("include_maps_toggle") or {}))
+        .call()
+    )
+
     logo_path = (
         task(get_file_path)
         .validate()
@@ -3629,23 +3646,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             output_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
             **(params.get("logo_path") or {}),
         )
-        .call()
-    )
-
-    include_maps_toggle = (
-        task(skip_toggle)
-        .validate()
-        .set_task_instance_id("include_maps_toggle")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(**(params.get("include_maps_toggle") or {}))
         .call()
     )
 
@@ -4060,8 +4060,8 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
         .with_tracing()
         .skipif(
             conditions=[
-                any_keyed_iterables_are_skips,
                 any_dependency_skipped,
+                any_keyed_iterables_are_skips,
             ],
             unpack_depth=1,
         )

@@ -41,7 +41,7 @@ def concatenate_dataframes(
     """
     valid_dfs = [df for df in list_df if not isinstance(df, SkipSentinel)]
     if not valid_dfs:
-        raise ValueError("list_df has no valid DataFrames (all entries are skipped)")
+        return pd.DataFrame()
     list_df = valid_dfs
 
     kwargs = dict(

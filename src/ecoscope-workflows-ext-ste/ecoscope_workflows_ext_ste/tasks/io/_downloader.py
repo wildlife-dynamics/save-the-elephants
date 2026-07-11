@@ -9,6 +9,8 @@ from urllib.parse import urlparse
 from ecoscope.io import download_file
 from typing_extensions import TypeAlias
 from pydantic import BaseModel, ConfigDict
+from pydantic.json_schema import SkipJsonSchema
+from wt_task.skip import SkipSentinel
 from ._path_utils import get_local_file_path
 from typing import Annotated, Union, Optional
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
@@ -48,11 +50,12 @@ def fetch_and_persist_file(
     retries: Annotated[int, Field(description="Number of retries on failure", ge=0)] = 3,
     overwrite_existing: Annotated[bool, Field(description="Whether to overwrite existing files")] = False,
     unzip: Annotated[bool, Field(description="Whether to unzip the file if it's a zip archive")] = False,
-) -> str:
+) -> str | SkipSentinel:
     """
     Downloads a file from the provided URL and persists it locally.
     If output_path is not specified, saves to the current working directory.
     Returns the full path to the downloaded file, or if unzipped, the path to the extracted directory.
+    Returns a skip sentinel instead of downloading when `enabled` is False.
     """
     print(f"Downloading file from URL: {url}")
     if output_path is None or str(output_path).strip() == "":
@@ -151,14 +154,20 @@ def fetch_and_persist_file(
 
 @register()
 def get_file_path(
-    input_method: SelectPath,
-    output_path: str,
-) -> str:
+    input_method: Annotated[
+        Union[DownloadFile, LocalFile, SkipJsonSchema[None]],
+        Field(description="How to obtain the file: download from a URL or use a local file path"),
+    ] = None,
+    output_path: str = "",
+) -> Optional[str]:
     """
     Get file path based on selected input method.
-    Returns the path to the (possibly extracted) file/directory ready for use.
+    Returns the path to the (possibly extracted) file/directory ready for use,
+    or None if no input method was provided.
     """
-    if isinstance(input_method, DownloadFile):
+    if input_method is None:
+        return None
+    elif isinstance(input_method, DownloadFile):
         return fetch_and_persist_file(
             url=input_method.url,
             output_path=output_path,

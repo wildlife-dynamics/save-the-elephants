@@ -3,6 +3,7 @@ from ._map_utils import envelope_gdf, combine_deckgl_map_layers, compute_view_st
 from ._homerange import calculate_elliptical_time_density_grouped
 from ._mcp import compute_minimum_convex_polygon
 from ._spatial_tag import spatial_tag
+from ._spatial_join import spatial_join
 from ._spatial_features import (
     get_featureset,
     get_spatial_features,
@@ -21,4 +22,5 @@ __all__ = [
     "get_featureset",
     "get_spatial_features",
     "load_local_spatial_file",
+    "spatial_join",
 ]

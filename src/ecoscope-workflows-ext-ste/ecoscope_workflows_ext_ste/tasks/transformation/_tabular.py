@@ -2,7 +2,6 @@ import warnings
 from pydantic import Field
 from wt_registry import register
 from collections.abc import Mapping
-from ecoscope.base.utils import hex_to_rgba  # type: ignore[import-untyped]
 from ecoscope.platform.annotations import (  # type: ignore[import-untyped]
     AnyDataFrame,
 )
@@ -70,36 +69,6 @@ def subset_columns(
 
     print(f"[subset_columns] No filter applied — returning all {len(df.columns)} columns as-is")
     return df.copy()
-
-
-@register()
-def add_rgba_from_hex(
-    df: AnyDataFrame,
-    column: str,
-    new_column: str,
-) -> AnyDataFrame:
-    """
-    Add a column of RGBA tuples derived from a column of hex color strings.
-
-    Args:
-        df: Input DataFrame containing the source hex color column.
-        column: Name of the column containing hex color strings (e.g. "#fcb5ac").
-        new_column: Name of the new column to store RGBA tuples.
-
-    Returns:
-        A new DataFrame with the added RGBA column.
-
-    Raises:
-        ValueError: If `column` is not a column in `df`.
-    """
-    print(f"[add_rgba_from_hex] Converting hex colors in '{column}' -> RGBA tuples in '{new_column}'")
-    if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found. Available: {list(df.columns)}")
-
-    df = df.copy()
-    df[new_column] = df[column].apply(hex_to_rgba)
-    print(f"[add_rgba_from_hex] Converted {df[column].nunique()} unique hex color(s) across {len(df)} rows")
-    return cast(AnyDataFrame, df)
 
 
 @register()

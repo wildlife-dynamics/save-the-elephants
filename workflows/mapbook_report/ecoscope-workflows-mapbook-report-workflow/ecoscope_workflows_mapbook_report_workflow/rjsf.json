@@ -287,9 +287,9 @@
         }
       }
     },
-    "Report Logo": {
+    "Generate Word Doc Report": {
       "type": "object",
-      "description": "Download or fetch the logo to be used in the report cover page.",
+      "description": "Turn this off to skip generating the word doc report.",
       "ecoscope:task_group": true,
       "properties": {
         "logo_path": {
@@ -304,32 +304,9 @@
                   "$ref": "#/$defs/LocalFile"
                 }
               ],
+              "default": null,
               "title": "Input Method",
-              "description": "Provide the organization logo to display on the report cover page (PNG or JPG recommended)."
-            }
-          },
-          "required": [
-            "input_method"
-          ],
-          "type": "object",
-          "title": ""
-        }
-      }
-    },
-    "Generate Word Doc Report": {
-      "type": "object",
-      "description": "Turn this off to skip generating the word doc report.",
-      "ecoscope:task_group": true,
-      "properties": {
-        "include_maps_toggle": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "title": "Enabled",
-              "type": "boolean",
-              "description": "Shared toggle. When off, all items gated by this toggle are skipped.",
-              "ecoscope:advanced": true
+              "description": "Provide the organization logo to display on the report cover page (PNG or JPG recommended). Required when 'Generate Word Doc Report' is enabled; leave blank otherwise."
             }
           },
           "type": "object",
@@ -868,7 +845,6 @@
       "Trajectory Segment Filter",
       "Map Zoom & Extent",
       "Mean Speed Raster",
-      "Report Logo",
       "Generate Word Doc Report"
     ]
   },

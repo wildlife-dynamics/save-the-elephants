@@ -16,7 +16,7 @@ def label_by_percentile_threshold(
         float,
         AdvancedField(default=65, description="Percentile at which to split the two classes."),
     ] = 65,
-):
+) -> AnyDataFrame:
     """
     Split geometries into two classes at the given percentile of value_col.
     pct=65 -> bottom 65% labeled '0-0.65', top 35% labeled '0.65-1'.
