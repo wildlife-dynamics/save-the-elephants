@@ -523,9 +523,15 @@ class TestRenderMapbookPage:
         assert os.path.exists(result)
 
     def test_raises_value_error_on_unloadable_template(self, tmp_path):
+        # Whether a corrupt docx fails at `DocxTemplate(template_path)` (caught
+        # by the "Failed to load template" branch) or later at `.render()`/
+        # `.save()` (caught by the "Failed to render or save" branch) depends
+        # on the installed docxtpl/python-docx version, which can differ across
+        # platforms/solve groups -- so only assert on the invariant part: the
+        # underlying package error surfaces as a ValueError.
         garbage = tmp_path / "garbage.docx"
         garbage.write_bytes(b"not actually a docx")
-        with pytest.raises(ValueError, match="Failed to load template"):
+        with pytest.raises(ValueError, match="Package not found"):
             render_mapbook_page(
                 template_path=str(garbage),
                 output_dir=str(tmp_path / "out"),
