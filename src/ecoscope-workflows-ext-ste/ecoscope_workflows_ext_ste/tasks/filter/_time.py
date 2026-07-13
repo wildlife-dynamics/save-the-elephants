@@ -201,7 +201,7 @@ class CalendarPreviousPeriod(BaseModel):
 def flexible_previous_period(
     timerange: TimeRange,
     offset: Annotated[
-        CustomPreviousPeriod | PresetPreviousPeriod | CalendarPreviousPeriod,
+        PresetPreviousPeriod | CustomPreviousPeriod | CalendarPreviousPeriod,
         Field(description="How to compute the start of the comparison period."),
     ],
 ) -> TimeRange:
