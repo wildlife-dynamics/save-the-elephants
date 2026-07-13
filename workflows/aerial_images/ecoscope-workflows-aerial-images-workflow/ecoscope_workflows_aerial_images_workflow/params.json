@@ -114,6 +114,13 @@
           "type": "boolean",
           "description": "Whether or not to include related events",
           "ecoscope:advanced": true
+        },
+        "force_point_geometry": {
+          "default": true,
+          "title": "Force Point Geometry",
+          "type": "boolean",
+          "description": "If True, polygon/multipolygon event geometries are reduced to their centroid. Set False to preserve native geometry types.",
+          "ecoscope:advanced": true
         }
       },
       "required": [
@@ -200,7 +207,8 @@
       "ui:order": [
         "event_types",
         "include_updates",
-        "include_related_events"
+        "include_related_events",
+        "force_point_geometry"
       ]
     },
     "ui:order": [

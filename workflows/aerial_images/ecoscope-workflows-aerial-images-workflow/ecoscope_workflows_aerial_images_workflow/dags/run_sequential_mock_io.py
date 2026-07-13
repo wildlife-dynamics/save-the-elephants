@@ -7,65 +7,69 @@ Lines specific to the testing context are marked with a test tube emoji (🧪) t
 that they would not be included (or would be different) in the production version of this file.
 """
 
-import json
 import os
 import warnings  # 🧪
+from typing import Any
 
-from ecoscope_workflows_core.tasks.config import (
-    set_workflow_details as set_workflow_details,
-)
-from ecoscope_workflows_core.tasks.filter import (
+from ecoscope.platform.tasks.config import set_workflow_details as set_workflow_details
+from ecoscope.platform.tasks.filter import (
     get_timezone_from_time_range as get_timezone_from_time_range,
 )
-from ecoscope_workflows_core.tasks.filter import set_time_range as set_time_range
-from ecoscope_workflows_core.tasks.io import set_er_connection as set_er_connection
-from ecoscope_workflows_core.tasks.skip import (
+from ecoscope.platform.tasks.filter import set_time_range as set_time_range
+from ecoscope.platform.tasks.io import set_er_connection as set_er_connection
+from ecoscope.platform.tasks.skip import (
     any_dependency_skipped as any_dependency_skipped,
 )
-from ecoscope_workflows_core.tasks.skip import any_is_empty_df as any_is_empty_df
-from ecoscope_workflows_core.testing import create_task_magicmock  # 🧪
-from ecoscope_workflows_ext_ste.tasks import (
+from ecoscope.platform.tasks.skip import any_is_empty_df as any_is_empty_df
+from ecoscope_workflows_ext_ste.tasks.io import (
     process_aerial_images as process_aerial_images,
 )
+from wt_contracts import validate as _validate
+from wt_task import task
+from wt_task.testing import create_func_magicmock  # 🧪
 
-get_events = create_task_magicmock(  # 🧪
-    anchor="ecoscope_workflows_ext_ecoscope.tasks.io",  # 🧪
+from .. import metadata as _metadata
+
+get_events = create_func_magicmock(  # 🧪
+    anchor="ecoscope.platform.tasks.io",  # 🧪
     func_name="get_events",  # 🧪
 )  # 🧪
-from ecoscope_workflows_core.tasks.io import persist_text as persist_text
-from ecoscope_workflows_core.tasks.results import (
+from ecoscope.platform.tasks.io import persist_df as persist_df
+from ecoscope.platform.tasks.io import persist_text as persist_text
+from ecoscope.platform.tasks.results import (
     create_plot_widget_single_view as create_plot_widget_single_view,
 )
-from ecoscope_workflows_core.tasks.results import gather_dashboard as gather_dashboard
-from ecoscope_workflows_core.tasks.skip import never as never
-from ecoscope_workflows_core.tasks.transformation import (
+from ecoscope.platform.tasks.results import gather_dashboard as gather_dashboard
+from ecoscope.platform.tasks.skip import never as never
+from ecoscope.platform.tasks.transformation import (
     convert_values_to_timezone as convert_values_to_timezone,
 )
-from ecoscope_workflows_ext_ecoscope.tasks.io import persist_df as persist_df
-from ecoscope_workflows_ext_ste.tasks import build_matched_table as build_matched_table
-from ecoscope_workflows_ext_ste.tasks import (
-    build_unmatched_table as build_unmatched_table,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    get_unmatched_images as get_unmatched_images,
-)
-from ecoscope_workflows_ext_ste.tasks import (
-    match_images_to_events as match_images_to_events,
-)
-from ecoscope_workflows_ext_ste.tasks import (
+from ecoscope_workflows_ext_ste.tasks.io import (
     upload_images_to_er_events as upload_images_to_er_events,
 )
+from ecoscope_workflows_ext_ste.tasks.reporting import (
+    build_matched_table as build_matched_table,
+)
+from ecoscope_workflows_ext_ste.tasks.reporting import (
+    build_unmatched_table as build_unmatched_table,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    get_unmatched_images as get_unmatched_images,
+)
+from ecoscope_workflows_ext_ste.tasks.transformation import (
+    match_images_to_events as match_images_to_events,
+)
 
-from ..params import Params
 
-
-def main(params: Params):
+def main(params: dict[str, Any], validate_params_schema: bool = True):
     warnings.warn("This test script should not be used in production!")  # 🧪
 
-    params_dict = json.loads(params.model_dump_json(exclude_unset=True))
+    if validate_params_schema:
+        _validate(params, _metadata.load_params_schema())
 
     workflow_details = (
-        set_workflow_details.validate()
+        task(set_workflow_details)
+        .validate()
         .set_task_instance_id("workflow_details")
         .handle_errors()
         .with_tracing()
@@ -76,12 +80,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("workflow_details") or {}))
+        .partial(**(params.get("workflow_details") or {}))
         .call()
     )
 
     time_range = (
-        set_time_range.validate()
+        task(set_time_range)
+        .validate()
         .set_task_instance_id("time_range")
         .handle_errors()
         .with_tracing()
@@ -92,12 +97,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("time_range") or {}))
+        .partial(**(params.get("time_range") or {}))
         .call()
     )
 
     er_client_name = (
-        set_er_connection.validate()
+        task(set_er_connection)
+        .validate()
         .set_task_instance_id("er_client_name")
         .handle_errors()
         .with_tracing()
@@ -108,12 +114,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(**(params_dict.get("er_client_name") or {}))
+        .partial(**(params.get("er_client_name") or {}))
         .call()
     )
 
     get_timezone = (
-        get_timezone_from_time_range.validate()
+        task(get_timezone_from_time_range)
+        .validate()
         .set_task_instance_id("get_timezone")
         .handle_errors()
         .with_tracing()
@@ -124,12 +131,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(time_range=time_range, **(params_dict.get("get_timezone") or {}))
+        .partial(time_range=time_range, **(params.get("get_timezone") or {}))
         .call()
     )
 
     images_data = (
-        process_aerial_images.validate()
+        task(process_aerial_images)
+        .validate()
         .set_task_instance_id("images_data")
         .handle_errors()
         .with_tracing()
@@ -139,12 +147,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(timezone=get_timezone, **(params_dict.get("images_data") or {}))
+        .partial(timezone=get_timezone, **(params.get("images_data") or {}))
         .call()
     )
 
     events_data = (
-        get_events.validate()
+        task(get_events)
+        # 🧪 validation omitted for mocked IO task (returns pre-loaded example data)
         .set_task_instance_id("events_data")
         .handle_errors()
         .with_tracing()
@@ -171,13 +180,14 @@ def main(params: Params):
             include_null_geometry=True,
             include_display_values=True,
             raise_on_empty=False,
-            **(params_dict.get("events_data") or {}),
+            **(params.get("events_data") or {}),
         )
         .call()
     )
 
     convert_events_to_user_tz = (
-        convert_values_to_timezone.validate()
+        task(convert_values_to_timezone)
+        .validate()
         .set_task_instance_id("convert_events_to_user_tz")
         .handle_errors()
         .with_tracing()
@@ -192,13 +202,14 @@ def main(params: Params):
             df=events_data,
             timezone=get_timezone,
             columns=["time"],
-            **(params_dict.get("convert_events_to_user_tz") or {}),
+            **(params.get("convert_events_to_user_tz") or {}),
         )
         .call()
     )
 
     matched_data = (
-        match_images_to_events.validate()
+        task(match_images_to_events)
+        .validate()
         .set_task_instance_id("matched_data")
         .handle_errors()
         .with_tracing()
@@ -212,13 +223,14 @@ def main(params: Params):
         .partial(
             images_df=images_data,
             events_df=convert_events_to_user_tz,
-            **(params_dict.get("matched_data") or {}),
+            **(params.get("matched_data") or {}),
         )
         .call()
     )
 
     unmatched_data = (
-        get_unmatched_images.validate()
+        task(get_unmatched_images)
+        .validate()
         .set_task_instance_id("unmatched_data")
         .handle_errors()
         .with_tracing()
@@ -232,13 +244,14 @@ def main(params: Params):
         .partial(
             images_df=images_data,
             matched_df=matched_data,
-            **(params_dict.get("unmatched_data") or {}),
+            **(params.get("unmatched_data") or {}),
         )
         .call()
     )
 
     persist_matched_csv = (
-        persist_df.validate()
+        task(persist_df)
+        .validate()
         .set_task_instance_id("persist_matched_csv")
         .handle_errors()
         .with_tracing()
@@ -254,13 +267,14 @@ def main(params: Params):
             filetype="csv",
             filename="matched_images",
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            **(params_dict.get("persist_matched_csv") or {}),
+            **(params.get("persist_matched_csv") or {}),
         )
         .call()
     )
 
     persist_unmatched_csv = (
-        persist_df.validate()
+        task(persist_df)
+        .validate()
         .set_task_instance_id("persist_unmatched_csv")
         .handle_errors()
         .with_tracing()
@@ -276,13 +290,14 @@ def main(params: Params):
             filetype="csv",
             filename="unmatched_images",
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            **(params_dict.get("persist_unmatched_csv") or {}),
+            **(params.get("persist_unmatched_csv") or {}),
         )
         .call()
     )
 
     matched_html = (
-        build_matched_table.validate()
+        task(build_matched_table)
+        .validate()
         .set_task_instance_id("matched_html")
         .handle_errors()
         .with_tracing()
@@ -293,12 +308,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(matched_df=matched_data, **(params_dict.get("matched_html") or {}))
+        .partial(matched_df=matched_data, **(params.get("matched_html") or {}))
         .call()
     )
 
     persist_matched_html = (
-        persist_text.validate()
+        task(persist_text)
+        .validate()
         .set_task_instance_id("persist_matched_html")
         .handle_errors()
         .with_tracing()
@@ -313,13 +329,14 @@ def main(params: Params):
             text=matched_html,
             filename="matched_images_preview.html",
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            **(params_dict.get("persist_matched_html") or {}),
+            **(params.get("persist_matched_html") or {}),
         )
         .call()
     )
 
     matched_widget = (
-        create_plot_widget_single_view.validate()
+        task(create_plot_widget_single_view)
+        .validate()
         .set_task_instance_id("matched_widget")
         .handle_errors()
         .with_tracing()
@@ -332,13 +349,14 @@ def main(params: Params):
         .partial(
             title="Matched Images",
             data=persist_matched_html,
-            **(params_dict.get("matched_widget") or {}),
+            **(params.get("matched_widget") or {}),
         )
         .call()
     )
 
     unmatched_html = (
-        build_unmatched_table.validate()
+        task(build_unmatched_table)
+        .validate()
         .set_task_instance_id("unmatched_html")
         .handle_errors()
         .with_tracing()
@@ -349,14 +367,13 @@ def main(params: Params):
             ],
             unpack_depth=1,
         )
-        .partial(
-            unmatched_df=unmatched_data, **(params_dict.get("unmatched_html") or {})
-        )
+        .partial(unmatched_df=unmatched_data, **(params.get("unmatched_html") or {}))
         .call()
     )
 
     persist_unmatched_html = (
-        persist_text.validate()
+        task(persist_text)
+        .validate()
         .set_task_instance_id("persist_unmatched_html")
         .handle_errors()
         .with_tracing()
@@ -371,13 +388,14 @@ def main(params: Params):
             text=unmatched_html,
             filename="unmatched_images_preview.html",
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            **(params_dict.get("persist_unmatched_html") or {}),
+            **(params.get("persist_unmatched_html") or {}),
         )
         .call()
     )
 
     unmatched_widget = (
-        create_plot_widget_single_view.validate()
+        task(create_plot_widget_single_view)
+        .validate()
         .set_task_instance_id("unmatched_widget")
         .handle_errors()
         .with_tracing()
@@ -390,13 +408,14 @@ def main(params: Params):
         .partial(
             title="Unmatched Images",
             data=persist_unmatched_html,
-            **(params_dict.get("unmatched_widget") or {}),
+            **(params.get("unmatched_widget") or {}),
         )
         .call()
     )
 
     upload_results = (
-        upload_images_to_er_events.validate()
+        task(upload_images_to_er_events)
+        .validate()
         .set_task_instance_id("upload_results")
         .handle_errors()
         .with_tracing()
@@ -410,13 +429,14 @@ def main(params: Params):
         .partial(
             client=er_client_name,
             matched_df=matched_data,
-            **(params_dict.get("upload_results") or {}),
+            **(params.get("upload_results") or {}),
         )
         .call()
     )
 
     persist_upload_results = (
-        persist_df.validate()
+        task(persist_df)
+        .validate()
         .set_task_instance_id("persist_upload_results")
         .handle_errors()
         .with_tracing()
@@ -432,13 +452,14 @@ def main(params: Params):
             filetype="csv",
             filename="aerial_image_upload_results",
             root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            **(params_dict.get("persist_upload_results") or {}),
+            **(params.get("persist_upload_results") or {}),
         )
         .call()
     )
 
     dashboard = (
-        gather_dashboard.validate()
+        task(gather_dashboard)
+        .validate()
         .set_task_instance_id("dashboard")
         .handle_errors()
         .with_tracing()
@@ -453,7 +474,7 @@ def main(params: Params):
             details=workflow_details,
             widgets=[matched_widget, unmatched_widget],
             time_range=time_range,
-            **(params_dict.get("dashboard") or {}),
+            **(params.get("dashboard") or {}),
         )
         .call()
     )

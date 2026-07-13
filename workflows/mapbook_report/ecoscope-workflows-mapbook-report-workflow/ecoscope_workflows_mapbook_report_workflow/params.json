@@ -18,7 +18,7 @@
       ],
       "type": "object",
       "description": "Add information that will help to differentiate this workflow from another.",
-      "title": "Set workflow details"
+      "title": "Workflow Details"
     },
     "time_range": {
       "additionalProperties": false,
@@ -58,28 +58,7 @@
       ],
       "type": "object",
       "description": "Choose the period of time to analyze.",
-      "title": "Define analysis time range"
-    },
-    "set_previous_period": {
-      "additionalProperties": false,
-      "properties": {
-        "option": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PreviousCustomTimeRangeOption"
-            },
-            {
-              "$ref": "#/$defs/PreviousTimeRangeOption"
-            }
-          ],
-          "title": "Option"
-        }
-      },
-      "required": [
-        "option"
-      ],
-      "type": "object",
-      "title": ""
+      "title": "Time Range"
     },
     "er_client_name": {
       "additionalProperties": false,
@@ -94,7 +73,7 @@
         "data_source"
       ],
       "type": "object",
-      "title": "Connect to earth ranger"
+      "title": "Connect to Earth Ranger"
     },
     "gee_project_name": {
       "additionalProperties": false,
@@ -109,7 +88,7 @@
         "data_source"
       ],
       "type": "object",
-      "title": "Connect to earth engine"
+      "title": "Connect to Earth Engine"
     },
     "subject_group_var": {
       "additionalProperties": false,
@@ -125,6 +104,31 @@
       "type": "object",
       "title": ""
     },
+    "set_previous_period": {
+      "additionalProperties": false,
+      "properties": {
+        "offset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CustomPreviousPeriod"
+            },
+            {
+              "$ref": "#/$defs/PresetPreviousPeriod"
+            },
+            {
+              "$ref": "#/$defs/CalendarPreviousPeriod"
+            }
+          ],
+          "title": "Offset",
+          "description": "How to compute the start of the comparison period."
+        }
+      },
+      "required": [
+        "offset"
+      ],
+      "type": "object",
+      "title": ""
+    },
     "map_overlay": {
       "additionalProperties": false,
       "properties": {
@@ -135,10 +139,13 @@
             },
             {
               "$ref": "#/$defs/ERSpatialFeatureOverlayOption"
+            },
+            {
+              "$ref": "#/$defs/LocalFileOverlayOption"
             }
           ],
           "title": "Option",
-          "description": "Select the overlay source to display on all maps."
+          "description": "Select the overlay source to display on maps."
         }
       },
       "required": [
@@ -153,36 +160,85 @@
         "min_length_meters": {
           "default": 0.001,
           "title": "Min Length Meters",
-          "type": "number"
+          "type": "number",
+          "description": "Minimum segment length in meters.",
+          "ecoscope:advanced": true
         },
         "max_length_meters": {
           "default": 5000,
           "title": "Max Length Meters",
-          "type": "number"
+          "type": "number",
+          "description": "Maximum segment length in meters.",
+          "ecoscope:advanced": true
         },
         "min_time_secs": {
           "default": 1,
           "title": "Min Time Secs",
-          "type": "number"
+          "type": "number",
+          "description": "Minimum segment duration in seconds.",
+          "ecoscope:advanced": true
         },
         "max_time_secs": {
           "default": 21600,
           "title": "Max Time Secs",
-          "type": "number"
+          "type": "number",
+          "description": "Maximum segment duration in seconds.",
+          "ecoscope:advanced": true
         },
         "min_speed_kmhr": {
           "default": 0.01,
           "title": "Min Speed Kmhr",
-          "type": "number"
+          "type": "number",
+          "description": "Minimum segment speed in km/h.",
+          "ecoscope:advanced": true
         },
         "max_speed_kmhr": {
           "default": 9.0,
           "title": "Max Speed Kmhr",
-          "type": "number"
+          "type": "number",
+          "description": "Maximum segment speed in km/h.",
+          "ecoscope:advanced": true
         }
       },
       "type": "object",
       "required": [],
+      "title": ""
+    },
+    "zoom_to_envelope": {
+      "additionalProperties": false,
+      "properties": {
+        "expansion_factor": {
+          "default": 1.5,
+          "title": "Expansion Factor",
+          "type": "number",
+          "description": "Factor to expand the bounding box (e.g., 1.2 = 20% larger)",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
+      "title": ""
+    },
+    "generate_mean_speed_raster": {
+      "additionalProperties": false,
+      "properties": {
+        "step_length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 2000,
+          "title": "Step Length",
+          "description": "Mean step length, used as the resolution if `resolution` is None.",
+          "ecoscope:advanced": true
+        }
+      },
+      "required": [],
+      "type": "object",
       "title": ""
     },
     "logo_path": {
@@ -197,13 +253,13 @@
               "$ref": "#/$defs/LocalFile"
             }
           ],
-          "title": "Input Method"
+          "default": null,
+          "title": "Input Method",
+          "description": "How to obtain the file: download from a URL or use a local file path"
         }
       },
-      "required": [
-        "input_method"
-      ],
       "type": "object",
+      "required": [],
       "title": ""
     }
   },
@@ -236,85 +292,6 @@
       "title": "TimezoneInfo",
       "type": "object"
     },
-    "PreviousCustomTimeRangeOption": {
-      "description": "User selects a predefined previous period via the enum.",
-      "properties": {
-        "custom": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/PreviousPeriodType"
-            }
-          ],
-          "description": "Select the previous period type"
-        }
-      },
-      "required": [
-        "custom"
-      ],
-      "title": "Choose which period you'd like to select your date from",
-      "type": "object"
-    },
-    "PreviousPeriodType": {
-      "description": "Enum for previous period selection options.",
-      "enum": [
-        "Same as current period",
-        "Previous month",
-        "Previous 3 months",
-        "Previous 6 months",
-        "Previous year"
-      ],
-      "title": "PreviousPeriodType",
-      "type": "string"
-    },
-    "PreviousTimeRange": {
-      "description": "Manual previous period selection.\n\nOnly `since` is provided by the user. `until` is always derived\nfrom the current period's start when converting to a TimeRange,\nenforcing the invariant that the previous period ends exactly\nwhere the current one begins.",
-      "properties": {
-        "since": {
-          "description": "The start time of the previous period",
-          "format": "date-time",
-          "title": "Since",
-          "type": "string"
-        },
-        "timezone": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/TimezoneInfo"
-            }
-          ],
-          "default": {
-            "label": "UTC",
-            "tzCode": "UTC",
-            "name": "UTC",
-            "utc": "+00:00"
-          },
-          "description": "Timezone (defaults to UTC)"
-        },
-        "time_format": {
-          "default": "%d %b %Y %H:%M:%S",
-          "description": "The time format",
-          "title": "Time Format",
-          "type": "string"
-        }
-      },
-      "required": [
-        "since"
-      ],
-      "title": "PreviousTimeRange",
-      "type": "object"
-    },
-    "PreviousTimeRangeOption": {
-      "description": "User manually specifies a start date for the previous period.",
-      "properties": {
-        "time_range": {
-          "$ref": "#/$defs/PreviousTimeRange"
-        }
-      },
-      "required": [
-        "time_range"
-      ],
-      "title": "Enter the start date you'd like the previous period to begin from",
-      "type": "object"
-    },
     "EarthRangerConnection": {
       "properties": {
         "name": {
@@ -341,63 +318,97 @@
       "title": "GoogleEarthEngineConnection",
       "type": "object"
     },
-    "ERSpatialFeatureOverlayOption": {
+    "CalendarPreviousPeriod": {
       "properties": {
-        "source": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/EarthRangerSource"
-            }
-          ],
-          "default": null,
-          "description": "Configure the EarthRanger spatial feature query.",
-          "title": "Source"
-        },
-        "legend_title": {
-          "default": "Legend",
-          "description": "Label shown in the map legend.",
-          "title": "Legend Title",
+        "since": {
+          "description": "Select the start date for the comparison period.",
+          "format": "date-time",
+          "title": "Since",
           "type": "string"
-        },
-        "fill_opacity": {
-          "default": 0.35,
-          "description": "Fill opacity for polygon interiors. Set to 0 to show outlines only.",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Fill Opacity",
-          "type": "number"
-        },
-        "line_opacity": {
-          "default": 0.75,
-          "description": "Opacity of polygon borders from 0 (transparent) to 1 (fully opaque).",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "title": "Line Opacity",
-          "type": "number"
         }
       },
-      "title": "EarthRanger Spatial Feature",
+      "required": [
+        "since"
+      ],
+      "title": "Calendar",
       "type": "object"
     },
-    "EarthRangerSource": {
+    "CustomPreviousPeriod": {
       "properties": {
-        "query": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/FeatureSetQuery"
-            },
-            {
-              "$ref": "#/$defs/FeatureTypeQuery"
-            },
-            {
-              "$ref": "#/$defs/FeatureIdQuery"
-            }
-          ],
-          "default": null,
-          "title": "Query"
+        "years": {
+          "default": 0,
+          "title": "Years",
+          "type": "integer"
+        },
+        "months": {
+          "default": 0,
+          "title": "Months",
+          "type": "integer"
+        },
+        "weeks": {
+          "default": 0,
+          "title": "Weeks",
+          "type": "integer"
+        },
+        "days": {
+          "default": 0,
+          "title": "Days",
+          "type": "integer"
+        },
+        "hours": {
+          "default": 0,
+          "title": "Hours",
+          "type": "integer"
+        },
+        "minutes": {
+          "default": 0,
+          "title": "Minutes",
+          "type": "integer"
+        },
+        "seconds": {
+          "default": 0,
+          "title": "Seconds",
+          "type": "integer"
         }
       },
-      "title": "EarthRanger",
+      "title": "Custom",
+      "type": "object"
+    },
+    "PresetPreviousPeriod": {
+      "properties": {
+        "preset": {
+          "default": "1 month back",
+          "description": "Choose a predefined time offset.",
+          "enum": [
+            "Same as current period",
+            "1 month back",
+            "3 months back",
+            "6 months back",
+            "1 year back"
+          ],
+          "title": "Preset",
+          "type": "string"
+        }
+      },
+      "title": "Preset",
+      "type": "object"
+    },
+    "ERSpatialFeatureOverlayOption": {
+      "description": "Overlay one or more EarthRanger spatial feature layers.",
+      "properties": {
+        "layers": {
+          "description": "One or more EarthRanger feature layers. Each entry specifies what to load (featureset / type / id) and optional style overrides.",
+          "items": {
+            "$ref": "#/$defs/SpatialFeatureLayer"
+          },
+          "title": "Layers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "layers"
+      ],
+      "title": "EarthRanger Spatial Feature",
       "type": "object"
     },
     "FeatureIdQuery": {
@@ -407,16 +418,6 @@
           "description": "UUID of a specific spatial feature available on EarthRanger.",
           "title": "Feature Id",
           "type": "string"
-        },
-        "style": {
-          "default": [],
-          "description": "Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
-          "items": {
-            "$ref": "#/$defs/LayerStyle"
-          },
-          "maxItems": 1,
-          "title": "Style",
-          "type": "array"
         }
       },
       "required": [
@@ -449,16 +450,6 @@
           "minLength": 1,
           "title": "Feature Type",
           "type": "string"
-        },
-        "style": {
-          "default": [],
-          "description": "Optional: Override how EarthRanger spatial features are rendered on the map. If not specified, features will use their native EarthRanger colours and styling.",
-          "items": {
-            "$ref": "#/$defs/LayerStyle"
-          },
-          "maxItems": 1,
-          "title": "Style",
-          "type": "array"
         }
       },
       "required": [
@@ -468,6 +459,7 @@
       "type": "object"
     },
     "LandDxOverlayOption": {
+      "description": "Use the default LandDx protected-areas layer.",
       "properties": {},
       "title": "LandDx (Default Protected Areas)",
       "type": "object"
@@ -520,10 +512,10 @@
           "type": "array"
         },
         "opacity": {
-          "default": 1.0,
-          "description": "Line opacity 0\u20131.",
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "default": null,
+          "description": "Line opacity 0\u20131. Works with or without color: leave color empty to keep native EarthRanger colours and only adjust their opacity. Leave empty to keep the native opacity.",
+          "ge": 0.0,
+          "le": 1.0,
           "title": "Opacity",
           "type": "number"
         },
@@ -535,6 +527,77 @@
         }
       },
       "title": "",
+      "type": "object"
+    },
+    "LocalFileOverlayOption": {
+      "description": "Overlay features loaded from one or more local geospatial files.",
+      "properties": {
+        "files": {
+          "description": "One or more local GeoJSON / GeoPackage / GeoParquet files. Each file (or split group within a file) becomes its own styled layer.",
+          "items": {
+            "$ref": "#/$defs/LocalSpatialLayer"
+          },
+          "title": "Files",
+          "type": "array"
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "title": "Custom Local File",
+      "type": "object"
+    },
+    "LocalSpatialLayer": {
+      "description": "A single local-file map layer: what to read and how to render it.",
+      "properties": {
+        "file_path": {
+          "default": "",
+          "description": "Path to the geospatial file.",
+          "ecoscope:advanced": true,
+          "title": "File Path",
+          "type": "string"
+        },
+        "layer": {
+          "default": null,
+          "description": "Layer name within a GeoPackage file. Only required when the file contains multiple layers.",
+          "ecoscope:advanced": true,
+          "title": "Layer",
+          "type": "string"
+        },
+        "split_by": {
+          "default": null,
+          "description": "Optional: split a single file into one map layer per distinct value of this column.",
+          "ecoscope:advanced": true,
+          "title": "Split By",
+          "type": "string"
+        },
+        "group_by": {
+          "default": "",
+          "description": "Column used to group features in the legend e.g. 'name', 'category'.",
+          "ecoscope:advanced": true,
+          "title": "Group By",
+          "type": "string"
+        },
+        "legend_title": {
+          "default": "",
+          "description": "Label shown in the map legend e.g. 'Park Boundary'.",
+          "ecoscope:advanced": true,
+          "title": "Legend Title",
+          "type": "string"
+        },
+        "style": {
+          "default": null,
+          "description": "Optional: Customise how features are rendered on the map.",
+          "ecoscope:advanced": true,
+          "items": {
+            "$ref": "#/$defs/LayerStyle"
+          },
+          "maxLength": 1,
+          "title": "Style",
+          "type": "array"
+        }
+      },
+      "title": "Local Spatial File",
       "type": "object"
     },
     "PointStyle": {
@@ -576,10 +639,10 @@
           "type": "string"
         },
         "fill_opacity": {
-          "default": 1.0,
-          "description": "Fill opacity 0\u20131.",
-          "maximum": 1.0,
-          "minimum": 0.0,
+          "default": null,
+          "description": "Fill opacity 0\u20131. Works with or without fill_color: leave fill_color empty to keep native EarthRanger colours and only adjust their opacity. Leave empty to keep the native opacity.",
+          "ge": 0.0,
+          "le": 1.0,
           "title": "Fill Opacity",
           "type": "number"
         },
@@ -591,6 +654,65 @@
         }
       },
       "title": "",
+      "type": "object"
+    },
+    "SpatialFeatureLayer": {
+      "description": "A single EarthRanger map layer: what to load and how to render it.",
+      "properties": {
+        "query": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeatureSetQuery"
+            },
+            {
+              "$ref": "#/$defs/FeatureTypeQuery"
+            },
+            {
+              "$ref": "#/$defs/FeatureIdQuery"
+            }
+          ],
+          "description": "What to load from EarthRanger for this layer.",
+          "title": "Query"
+        },
+        "style": {
+          "default": [],
+          "description": "Optional: Override how EarthRanger spatial features are rendered on the map.",
+          "items": {
+            "$ref": "#/$defs/LayerStyle"
+          },
+          "maxItems": 1,
+          "title": "Style",
+          "type": "array"
+        },
+        "group_by": {
+          "default": "type_name",
+          "description": "Column used to group features in this layer's legend.",
+          "ecoscope:advanced": true,
+          "oneOf": [
+            {
+              "const": "type_name",
+              "title": "Feature Type"
+            },
+            {
+              "const": "title",
+              "title": "Feature Name"
+            }
+          ],
+          "title": "Group By",
+          "type": "string"
+        },
+        "legend_title": {
+          "default": "",
+          "description": "Label shown in this layer's legend e.g. 'Park Boundary'.",
+          "ecoscope:advanced": true,
+          "title": "Legend Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "Spatial Feature Layer",
       "type": "object"
     },
     "DownloadFile": {
@@ -650,12 +772,14 @@
     "ui:order": [
       "workflow_details",
       "time_range",
-      "set_previous_period",
       "er_client_name",
       "gee_project_name",
       "subject_group_var",
+      "set_previous_period",
       "map_overlay",
       "custom_trajs_filter",
+      "zoom_to_envelope",
+      "generate_mean_speed_raster",
       "logo_path"
     ]
   },
