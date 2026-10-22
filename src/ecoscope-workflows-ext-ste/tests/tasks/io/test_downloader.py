@@ -382,3 +382,57 @@ class TestGetFilePath:
 
         with pytest.raises(ValueError, match="Unsupported input method"):
             get_file_path(input_method=UnsupportedMethod(), output_path=str(tmp_path))
+
+
+# ============================================================================
+# GCS output_path (ecoscope-web)
+# ============================================================================
+
+
+@pytest.fixture
+def fake_gcs(tmp_path, monkeypatch):
+    """Back gs:// paths with a local directory instead of real GCS."""
+    from cloudpathlib.local import LocalGSClient, LocalGSPath
+    from ecoscope_workflows_ext_custom.tasks.io import _storage
+
+    client = LocalGSClient(local_storage_dir=tmp_path / "gcs")
+    monkeypatch.setattr(_storage, "_gs_path", lambda uri: LocalGSPath(uri, client=client))
+
+
+class TestFetchAndPersistFileGCS:
+    @pytest.mark.parametrize("root", ["gs://bucket/user/run", "gs://bucket/user/run/"])
+    def test_uploads_to_gcs_folder(self, fake_gcs, root):
+        from ecoscope_workflows_ext_custom.storage import read_bytes
+
+        with patch(
+            "ecoscope_workflows_ext_ste.tasks.io._downloader.download_file",
+            side_effect=_make_download_file(b"template-bytes"),
+        ):
+            result = fetch_and_persist_file(url=URL, output_path=root)
+
+        assert result == "https://storage.googleapis.com/bucket/user/run/urlname.docx"
+        assert read_bytes(result) == b"template-bytes"
+
+    def test_uploads_to_gcs_file_target(self, fake_gcs):
+        from ecoscope_workflows_ext_custom.storage import read_bytes
+
+        with patch(
+            "ecoscope_workflows_ext_ste.tasks.io._downloader.download_file",
+            side_effect=_make_download_file(b"layer-bytes"),
+        ):
+            result = fetch_and_persist_file(url=URL, output_path="gs://bucket/run/layers.gpkg")
+
+        assert result == "https://storage.googleapis.com/bucket/run/layers.gpkg"
+        assert read_bytes(result) == b"layer-bytes"
+
+    def test_unzip_to_gcs_returns_local_extracted_path(self, fake_gcs):
+        with patch(
+            "ecoscope_workflows_ext_ste.tasks.io._downloader.download_file",
+            side_effect=_make_zip_download_file(["inner/a.txt", "inner/b.txt"]),
+        ):
+            result = fetch_and_persist_file(
+                url="https://example.com/archive.zip", output_path="gs://bucket/run", unzip=True
+            )
+
+        assert os.path.isdir(result)
+        assert sorted(os.listdir(result)) == ["a.txt", "b.txt"]

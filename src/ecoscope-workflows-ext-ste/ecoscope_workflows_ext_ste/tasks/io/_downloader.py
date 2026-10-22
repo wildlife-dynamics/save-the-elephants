@@ -1,6 +1,7 @@
 import os
 import email
 import zipfile
+import tempfile
 import requests
 from pathlib import Path
 from pydantic import Field
@@ -13,6 +14,7 @@ from pydantic.json_schema import SkipJsonSchema
 from wt_task.skip import SkipSentinel
 from ._path_utils import get_local_file_path
 from typing import Annotated, Union, Optional
+from ecoscope_workflows_ext_custom.storage import is_gcs, normalize_uri, write_file
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
 
 
@@ -52,11 +54,50 @@ def fetch_and_persist_file(
     unzip: Annotated[bool, Field(description="Whether to unzip the file if it's a zip archive")] = False,
 ) -> str | SkipSentinel:
     """
-    Downloads a file from the provided URL and persists it locally.
+    Downloads a file from the provided URL and persists it.
     If output_path is not specified, saves to the current working directory.
+    If output_path is on GCS (``gs://...``, as on ecoscope-web), the file is
+    uploaded there and its GCS read path is returned.
     Returns the full path to the downloaded file, or if unzipped, the path to the extracted directory.
     Returns a skip sentinel instead of downloading when `enabled` is False.
     """
+    output = None if output_path is None else str(output_path).strip()
+    if output and is_gcs(output):
+        return _fetch_to_gcs(url, output, retries, unzip)
+    return _fetch_and_persist_local(url, output_path, retries, overwrite_existing, unzip)
+
+
+def _fetch_to_gcs(url: str, gcs_path: str, retries: int, unzip: bool) -> str:
+    """Download to a local temp folder, then upload the file to GCS.
+
+    On ecoscope-web, ``output_path`` is the run's GCS results folder (``gs://...``).
+    The file is uploaded there and its GCS read path is returned. An unzipped
+    archive is a folder, which can't be uploaded as one object, so its local
+    extraction path is returned instead.
+    """
+    gcs_path = normalize_uri(gcs_path)
+    # A path with an extension names the target file; anything else is a folder.
+    is_file_target = not gcs_path.endswith("/") and bool(Path(gcs_path).suffix)
+    root, filename = gcs_path.rsplit("/", 1) if is_file_target else (gcs_path.rstrip("/"), None)
+
+    staging = tempfile.mkdtemp(prefix="fetch_and_persist_file_")
+    local = _fetch_and_persist_local(url, staging + os.sep, retries, True, unzip)
+    if os.path.isdir(local):
+        return local
+
+    # Each web run writes to a fresh results folder, so the upload always overwrites.
+    persisted = write_file(local, root, filename or os.path.basename(local))
+    print(f"File uploaded and persisted at: {persisted}")
+    return persisted
+
+
+def _fetch_and_persist_local(
+    url: str,
+    output_path: Optional[str],
+    retries: int,
+    overwrite_existing: bool,
+    unzip: bool,
+) -> str:
     print(f"Downloading file from URL: {url}")
     if output_path is None or str(output_path).strip() == "":
         output_path = os.getcwd()
