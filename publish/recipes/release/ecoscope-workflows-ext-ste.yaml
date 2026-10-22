@@ -27,9 +27,9 @@ requirements:
     - pip
     - wt-registry >=0.2.0,<0.3.0
     - wt-task >=0.1.0,<0.2.0
-    - ecoscope-platform >=2.15.0,<3.0.0
+    - ecoscope-platform >=2.25.1,<3.0.0
     - ecoscope
-    - ecoscope-workflows-ext-custom
+    - ecoscope-workflows-ext-custom >=0.1.4
     - geopandas
     - shapely
     - python-igraph

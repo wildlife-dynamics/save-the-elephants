@@ -4,10 +4,12 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import Point
 
-from ecoscope_workflows_ext_custom.tasks.results._map import (
+from ecoscope.platform.tasks.results._pydeck import (
     GeoJSONLayerStyle,
-    LayerDefinition,
     TextLayerStyle,
+)
+from ecoscope.platform.tasks.results._pydeck import (
+    PydeckLayerDefinition as LayerDefinition,
 )
 
 from ecoscope_workflows_ext_ste.tasks.results._spatial_layers import (

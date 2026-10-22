@@ -14,13 +14,15 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import Point, Polygon
 
-from ecoscope_workflows_ext_custom.tasks.results._map import (
+from ecoscope.platform.tasks.results._pydeck import (
     LegendSegment,
     LegendValue,
     ScatterplotLayerStyle,
     TextLayerStyle,
     ViewState,
-    LayerDefinition,
+)
+from ecoscope.platform.tasks.results._pydeck import (
+    PydeckLayerDefinition as LayerDefinition,
 )
 from ecoscope_workflows_ext_ste.tasks.spatial_operations._map_utils import (
     combine_deckgl_map_layers,

@@ -5,10 +5,12 @@ from dataclasses import replace
 from shapely.geometry import box
 from wt_registry import register
 from typing import Union, Optional, Annotated, List
-from ecoscope_workflows_ext_custom.tasks.results._map import (
+from ecoscope.platform.tasks.results._pydeck import (
     TextLayerStyle,
-    LayerDefinition,
     ViewState,
+)
+from ecoscope.platform.tasks.results._pydeck import (
+    PydeckLayerDefinition as LayerDefinition,
 )
 from ecoscope.platform.annotations import AdvancedField, AnyGeoDataFrame
 

@@ -10,13 +10,15 @@ from typing import Annotated, Any, Literal, cast
 from pydantic.json_schema import SkipJsonSchema
 from ecoscope.platform.annotations import AnyGeoDataFrame
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from ecoscope_workflows_ext_custom.tasks.results._map import (
+from ecoscope.platform.tasks.results._pydeck import (
     GeoJSONLayerStyle,
     IconLayerStyle,
-    LayerDefinition,
     LegendSegment,
     LegendValue,
     _color_tuple_to_css,
+)
+from ecoscope.platform.tasks.results._pydeck import (
+    PydeckLayerDefinition as LayerDefinition,
 )
 
 from ..spatial_operations._spatial_features import (

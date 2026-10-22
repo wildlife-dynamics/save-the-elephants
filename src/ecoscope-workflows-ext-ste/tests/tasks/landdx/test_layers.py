@@ -19,7 +19,12 @@ import pandas as pd
 import pytest
 from shapely.geometry import Polygon
 
-from ecoscope_workflows_ext_custom.tasks.results._map import LayerDefinition, TextLayerStyle
+from ecoscope.platform.tasks.results._pydeck import (
+    TextLayerStyle,
+)
+from ecoscope.platform.tasks.results._pydeck import (
+    PydeckLayerDefinition as LayerDefinition,
+)
 from ecoscope_workflows_ext_ste.tasks.landdx import _layers as landdx_layers
 from ecoscope_workflows_ext_ste.tasks.landdx._layers import (
     _LDX_COLOR_MAPPING,

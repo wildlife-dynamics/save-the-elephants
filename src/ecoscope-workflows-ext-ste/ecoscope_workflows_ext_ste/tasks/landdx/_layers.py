@@ -4,9 +4,11 @@ from typing import Annotated, List, Union
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.json_schema import SkipJsonSchema
 from ecoscope.platform.connections import EarthRangerClient
-from ecoscope_workflows_ext_custom.tasks.results._map import (
+from ecoscope.platform.tasks.results._pydeck import (
     TextLayerStyle,
-    LayerDefinition,
+)
+from ecoscope.platform.tasks.results._pydeck import (
+    PydeckLayerDefinition as LayerDefinition,
 )
 from ..spatial_operations._spatial_features import (
     LocalSpatialLayer,
