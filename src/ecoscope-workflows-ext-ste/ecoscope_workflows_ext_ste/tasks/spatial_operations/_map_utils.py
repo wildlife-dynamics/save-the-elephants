@@ -94,13 +94,19 @@ def envelope_gdf(
             - 0.8 = 20% smaller
 
     Returns:
-        GeoDataFrame with a single polygon representing the expanded envelope
+        GeoDataFrame with a single polygon representing the expanded envelope, or an
+        empty GeoDataFrame when no feature has a geometry (so downstream steps skip).
     """
     print(f"[envelope_gdf] Creating {expansion_factor}x expanded bounding box for {len(gdf)} features")
     if expansion_factor <= 0:
         raise ValueError("expansion_factor must be greater than 0")
 
-    envelope = gdf.union_all().envelope
+    union = gdf.union_all()
+    if union is None or union.is_empty:
+        print("[envelope_gdf] No geometries to bound; returning an empty GeoDataFrame")
+        return gpd.GeoDataFrame({"geometry": []}, geometry="geometry", crs=gdf.crs)
+
+    envelope = union.envelope
     minx, miny, maxx, maxy = envelope.bounds
 
     center_x = (minx + maxx) / 2

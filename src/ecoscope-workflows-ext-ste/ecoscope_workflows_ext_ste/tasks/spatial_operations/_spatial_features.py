@@ -419,7 +419,9 @@ class SpatialFeatureLayer(BaseModel):
         return _apply_geo_style(gdf, style, self.group_by, self.legend_title, server_url)
 
 
-@register()
+# Tagged as IO (it calls EarthRanger), so mock-IO test runs use
+# get-spatial-features.example-return.json instead.
+@register(tags=["io"])
 def get_spatial_features(
     client: EarthRangerClient,
     layers: Annotated[

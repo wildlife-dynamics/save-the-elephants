@@ -272,3 +272,11 @@ class TestComputeViewStateFromGdf:
         assert no_crs.crs is None
         with pytest.raises(ValueError, match="Cannot transform naive geometries"):
             compute_view_state_from_gdf(no_crs)
+
+
+@pytest.mark.parametrize("geometries", [[], [None, None]])
+def test_envelope_gdf_without_geometries_returns_empty(geometries):
+    """No geometry to bound: return an empty frame (downstream steps skip) instead of crashing."""
+    result = envelope_gdf(gpd.GeoDataFrame(geometry=geometries, crs="EPSG:4326"))
+    assert result.empty
+    assert result.crs == "EPSG:4326"
