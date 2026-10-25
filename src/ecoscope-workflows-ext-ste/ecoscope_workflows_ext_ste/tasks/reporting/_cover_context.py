@@ -1,4 +1,3 @@
-import os
 from PIL import Image
 from pathlib import Path
 from pydantic import Field
@@ -8,6 +7,7 @@ from wt_registry import register
 from docxtpl import DocxTemplate, InlineImage
 from ecoscope.platform.tasks.filter._filter import TimeRange
 from typing import Any, Dict, Mapping, Optional, Union, Annotated
+from ecoscope_workflows_ext_custom.storage import as_readable, exists, save_document
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
 
 
@@ -21,7 +21,7 @@ def get_image_dimensions_from_pixels(
     scaled so the largest dimension fits within max_dimension_inches.
     Preserves aspect ratio for both wide and square images.
     """
-    with Image.open(image_path) as img:
+    with Image.open(as_readable(image_path)) as img:
         width_pixels, height_pixels = img.size
 
         # Get DPI from image metadata
@@ -87,18 +87,16 @@ def create_context_page(
 
     Returns:
         str: Full path to the generated .docx file.
-    """
-    # Normalize paths
-    template_path = remove_file_scheme(template_path)
-    output_dir = remove_file_scheme(output_dir)
-    os.makedirs(output_dir, exist_ok=True)
 
+    Paths may be local, ``file://`` or GCS paths, so this works on desktop and on
+    ecoscope-web.
+    """
     if not filename:
         filename = "cover_page.docx"
-    output_path = Path(output_dir) / filename
 
-    doc = DocxTemplate(template_path)
-    if "org_logo_path" in context and os.path.exists(context["org_logo_path"]):
+    doc = DocxTemplate(as_readable(template_path))
+    logo = context.get("org_logo_path")
+    if logo and exists(logo):
         width, height = get_image_dimensions_from_pixels(
             context["org_logo_path"],
             dpi=125,
@@ -106,14 +104,15 @@ def create_context_page(
         )
         context["org_logo"] = InlineImage(
             doc,
-            context["org_logo_path"],
+            as_readable(logo),
             width=Inches(width),
             height=Inches(height),
         )
-    doc.render(context)
-    doc.save(output_path)
+    # Escape the values, so text from event data can't alter the document's XML.
+    doc.render(context, autoescape=True)
+    output_path = save_document(doc, output_dir, filename)
     print(f"create_context_page: saved to {output_path}")
-    return str(output_path)
+    return output_path
 
 
 @register()
