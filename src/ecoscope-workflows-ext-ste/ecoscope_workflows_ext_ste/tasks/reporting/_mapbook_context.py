@@ -12,6 +12,7 @@ from ecoscope.platform.annotations import AnyDataFrame
 from ecoscope.platform.tasks.filter._filter import TimeRange
 from ecoscope.platform.tasks.transformation._unit import Quantity
 from ..transformation import safe_string
+from ecoscope_workflows_ext_custom.storage import as_readable, exists, normalize_uri
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
 
 TIME_FMT = "%d %b %Y %H:%M:%S"
@@ -128,7 +129,7 @@ def create_mapbook_context(
 
 def _fit_within_box(image_path: str, box_w_cm: float, box_h_cm: float) -> tuple[float, float]:
     """Scale native image dims to fit inside the box, preserving aspect ratio."""
-    with Image.open(image_path) as im:
+    with Image.open(as_readable(image_path)) as im:
         px_w, px_h = im.size
     scale = min(box_w_cm / px_w, box_h_cm / px_h)
     return px_w * scale, px_h * scale
@@ -137,7 +138,7 @@ def _fit_within_box(image_path: str, box_w_cm: float, box_h_cm: float) -> tuple[
 def _make_inline_image(template: DocxTemplate, path: str, box_w_cm: float, box_h_cm: float) -> Optional[InlineImage]:
     try:
         w_cm, h_cm = _fit_within_box(path, box_w_cm, box_h_cm)
-        return InlineImage(template, path, width=Cm(w_cm), height=Cm(h_cm))
+        return InlineImage(template, as_readable(path), width=Cm(w_cm), height=Cm(h_cm))
     except Exception as exc:  # corrupt/unreadable image shouldn't kill the render
         print(f"Could not embed image {path}: {exc}")
         return None
@@ -163,9 +164,9 @@ def build_docx_context(
             result[key] = ""
 
         elif isinstance(value, str):
-            normalized = remove_file_scheme(value)
-            if os.path.exists(normalized) and Path(normalized).suffix.lower() in DEFAULT_IMAGE_EXTENSIONS:
-                image = _make_inline_image(template, normalized, box_w_cm, box_h_cm)
+            # Image paths may be local, file:// or GCS paths (ecoscope-web).
+            if Path(normalize_uri(value)).suffix.lower() in DEFAULT_IMAGE_EXTENSIONS and exists(value):
+                image = _make_inline_image(template, value, box_w_cm, box_h_cm)
                 result[key] = image if image is not None else ""
             else:
                 result[key] = value
