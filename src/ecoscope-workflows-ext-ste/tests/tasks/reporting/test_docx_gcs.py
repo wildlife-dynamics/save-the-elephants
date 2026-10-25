@@ -73,3 +73,21 @@ def test_build_docx_context_embeds_gcs_image(fake_gcs):
     assert isinstance(ctx["map"], InlineImage)
     assert ctx["missing"] == f"{ROOT}/missing.png"  # not an existing image: passed through as text
     assert ctx["name"] == "Lion"
+
+
+def test_create_context_page_on_gcs(fake_gcs):
+    from ecoscope_workflows_ext_ste.tasks.reporting._cover_context import create_context_page
+
+    template = write_bytes(_docx_bytes("{{ org_logo }} Prepared by {{ prepared_by }}"), ROOT, "cover.docx")
+    logo = write_bytes(_png_bytes(), ROOT, "logo.png")
+
+    out = create_context_page(
+        template_path=template,
+        output_dir=ROOT,
+        context={"org_logo_path": logo, "prepared_by": "Lion <Guardians> & Co"},
+        filename="cover_page.docx",
+    )
+
+    doc = Document(io.BytesIO(read_bytes(out)))
+    assert len(doc.element.body.xpath(".//pic:pic")) == 1
+    assert "Prepared by Lion <Guardians> & Co" in _text(out)[0]
