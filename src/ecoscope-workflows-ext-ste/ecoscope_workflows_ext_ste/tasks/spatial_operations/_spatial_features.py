@@ -1,4 +1,6 @@
 import ast
+from urllib.parse import urljoin, urlparse
+
 import pandas as pd
 import geopandas as gpd
 from wt_registry import register
@@ -144,6 +146,23 @@ class LayerStyle(BaseModel):
     ] = []
 
 
+def _server_icon_url(server_url: str, image: object) -> str | None:
+    """The URL of an EarthRanger feature icon, or None if it isn't on the EarthRanger server.
+
+    ``image`` is normally a path on the server (``/static/...svg``). A full URL to any
+    other host, or a non-https server, gives None, so maps and legends only ever load
+    icons from the user's own EarthRanger site.
+    """
+    if not server_url or not isinstance(image, str) or not image:
+        return None
+    base = server_url.rstrip("/") + "/"
+    url = urljoin(base, image)
+    server, icon = urlparse(base), urlparse(url)
+    if icon.scheme != "https" or icon.netloc != server.netloc:
+        return None
+    return url
+
+
 def _apply_geo_style(
     gdf: AnyGeoDataFrame,
     style: LayerStyle,
@@ -167,7 +186,7 @@ def _apply_geo_style(
 
     def _set_icon_url() -> None:
         gdf["icon_url"] = None
-        gdf.loc[is_icon, "icon_url"] = (server_url + gdf.loc[is_icon, "image"]).values
+        gdf.loc[is_icon, "icon_url"] = [_server_icon_url(server_url, image) for image in gdf.loc[is_icon, "image"]]
 
     ps = style.polygon[0] if style.polygon else None
     ls = style.line[0] if style.line else None
