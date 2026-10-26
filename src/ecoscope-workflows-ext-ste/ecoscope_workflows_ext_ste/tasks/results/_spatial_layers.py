@@ -83,8 +83,12 @@ class _UnifiedLegend:
 
     @staticmethod
     def _fetch_svg(url: str) -> str | None:
+        # icon_url only holds https URLs on the EarthRanger server (_server_icon_url);
+        # TLS certificates are verified.
+        if not url.startswith("https://"):
+            return None
         try:
-            resp = requests.get(url, timeout=5, verify=False)
+            resp = requests.get(url, timeout=5)
             if match := re.search(r'fill="(#[0-9a-fA-F]{3,8})"', resp.text):
                 from ecoscope.base.utils import (  # type: ignore[import-untyped]
                     hex_to_rgba,
