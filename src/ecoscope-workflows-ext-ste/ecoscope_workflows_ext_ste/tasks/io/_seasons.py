@@ -20,7 +20,9 @@ from ecoscope.platform.connections import EarthEngineClient
 MODIS_START = datetime(2000, 2, 24)
 
 
-@register()
+# Tagged as IO (it calls Earth Engine), so mock-IO test runs use
+# compute-seasons-from-ndvi.example-return.parquet instead.
+@register(tags=["io"])
 def compute_seasons_from_ndvi(
     client: EarthEngineClient,
     roi: Annotated[AnyGeoDataFrame, Field(description="Region of interest.")],

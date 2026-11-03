@@ -206,7 +206,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/joblib-1.6.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/json-c-0.18-hebe6cf0_2.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/json5-0.17.3-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/jsonpointer-3.7-pyh5ded981_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/jsonpointer-3.8-pyh5ded981_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jsonschema-4.26.0-pyhcf101f3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jsonschema-specifications-2025.9.1-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jsonschema-with-format-nongpl-4.26.0-hcf101f3_1.conda
@@ -762,7 +762,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/joblib-1.6.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/json-c-0.18-h74c22ad_2.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/json5-0.17.3-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/jsonpointer-3.7-pyh5ded981_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/jsonpointer-3.8-pyh5ded981_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jsonschema-4.26.0-pyhcf101f3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jsonschema-specifications-2025.9.1-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jsonschema-with-format-nongpl-4.26.0-hcf101f3_1.conda
@@ -1268,7 +1268,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/jinja2-3.1.6-pyhcf101f3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/joblib-1.6.0-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/json5-0.17.3-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/jsonpointer-3.7-pyh5ded981_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/jsonpointer-3.8-pyh5ded981_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jsonschema-4.26.0-pyhcf101f3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jsonschema-specifications-2025.9.1-pyhcf101f3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/jsonschema-with-format-nongpl-4.26.0-hcf101f3_1.conda
@@ -7117,16 +7117,15 @@ packages:
   license_family: APACHE
   size: 41061
   timestamp: 1791598476126
-- conda: https://conda.anaconda.org/conda-forge/noarch/jsonpointer-3.7-pyh5ded981_0.conda
-  sha256: f03ae0b1e50c45d7c1673f5779da2d35c790f75112567059f2b9925407b9bb0b
-  md5: a0087e0e528d5b8967ed915d57738925
+- conda: https://conda.anaconda.org/conda-forge/noarch/jsonpointer-3.8-pyh5ded981_0.conda
+  sha256: c3992699984792280ef0f73cca2296292c07eb24d754ddf22b404d7d9b2209f9
+  md5: 58167d254e16534f23b284c51a0f3f47
   depends:
   - python >=3.11
   - python
   license: BSD-3-Clause
-  license_family: BSD
-  size: 15606
-  timestamp: 1793599960268
+  size: 16176
+  timestamp: 1793687837164
 - conda: https://conda.anaconda.org/conda-forge/noarch/jsonschema-4.26.0-pyhcf101f3_1.conda
   sha256: 328756a4555941d57af4a5f553e5d8598e9f3b37db028f557e30f9f0b3086db6
   md5: 204b5ca91eba7738790ecc333facbbbe
