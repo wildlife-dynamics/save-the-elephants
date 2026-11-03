@@ -10,6 +10,7 @@ from ecoscope.platform.tasks.results._pydeck import (
 from ecoscope.platform.tasks.results._pydeck import (
     PydeckLayerDefinition as LayerDefinition,
 )
+from ecoscope_workflows_ext_custom.tasks.io import load_df
 from ..spatial_operations._spatial_features import (
     LocalSpatialLayer,
     SpatialFeatureLayer,
@@ -18,7 +19,7 @@ from ..results._spatial_layers import (
     _layers_for_gdf,
     create_categorical_styled_layer,
 )
-from ..io import fetch_and_persist_file
+from ..io import load_mapbook_file
 
 
 _LDX_COLOR_MAPPING = {
@@ -27,15 +28,11 @@ _LDX_COLOR_MAPPING = {
     "National Park": "#115631",
 }
 
-_LDX_URL = (
-    "https://www.dropbox.com/scl/fi/uitptfgxk4wnfcnv9k96a/mapbook_ldx_layers.gpkg"
-    "?rlkey=xi2azbfzqix9udytv3smsf6eh&st=249w3d2x&dl=0"
-)
+_LDX_FILE = "mapbook_ldx_layers.gpkg"
 
 
-def _build_ldx_layers(file_path: str) -> List[LayerDefinition]:
-    """Load and style the LandDx GeoPackage into LayerDefinitions."""
-    gdf = gpd.read_file(file_path)
+def _build_ldx_layers(gdf: gpd.GeoDataFrame) -> List[LayerDefinition]:
+    """Style the LandDx layers into LayerDefinitions."""
     gdf = gdf[gdf["type"].isin(_LDX_COLOR_MAPPING)][["type", "name", "geometry"]].copy()
     if gdf.empty:
         return []
@@ -133,39 +130,28 @@ def select_map_overlay(
             exclude=True,
         ),
     ] = None,
-    output_dir: Annotated[
-        str,
+    ldx_path: Annotated[
+        str | SkipJsonSchema[None],
         Field(
-            default="/tmp",
-            description="Directory used to cache downloaded files (LandDx option).",
-        ),
-    ] = "/tmp",
-    ldx_url: Annotated[
-        str,
-        Field(
-            description="URL to download the LandDx GeoPackage file.",
+            default=None,
+            description="Path to the LandDx GeoPackage (local, file:// or gs://). "
+            "Defaults to the copy shipped with ext-ste.",
             exclude=True,
         ),
-    ] = _LDX_URL,
+    ] = None,
 ) -> Annotated[List[LayerDefinition], Field()]:
     """Return map overlay layers from the selected source.
 
-    - **LandDx** – downloads the standard LandDx GeoPackage and styles it by
-      land-use type using ``create_categorical_styled_layer``.
+    - **LandDx** – loads the LandDx GeoPackage shipped with ext-ste (or ``ldx_path``)
+      and styles it by land-use type using ``create_categorical_styled_layer``.
     - **EarthRanger Spatial Feature** – fetches one or more EarthRanger feature
       layers using the SpatialFeatureLayer query model (featureset / type / id).
     - **Custom Local File** – loads one or more local GeoJSON / GeoPackage /
       GeoParquet files with optional per-layer styling.
     """
     if isinstance(option, LandDxOverlayOption):
-        file_path = fetch_and_persist_file(
-            url=ldx_url,
-            output_path=output_dir,
-            overwrite_existing=False,
-            unzip=False,
-            retries=2,
-        )
-        return _build_ldx_layers(file_path)
+        gdf = load_df(file_path=ldx_path or load_mapbook_file(_LDX_FILE))
+        return _build_ldx_layers(gdf)
 
     if isinstance(option, ERSpatialFeatureOverlayOption):
         if client is None:

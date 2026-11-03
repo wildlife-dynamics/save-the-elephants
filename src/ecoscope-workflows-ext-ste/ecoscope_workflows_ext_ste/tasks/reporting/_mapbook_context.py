@@ -1,8 +1,6 @@
-import os
 import re
 import uuid
 from PIL import Image
-from pathlib import Path
 from docx.shared import Cm
 from wt_registry import register
 from docxtpl import DocxTemplate, InlineImage
@@ -12,11 +10,12 @@ from ecoscope.platform.annotations import AnyDataFrame
 from ecoscope.platform.tasks.filter._filter import TimeRange
 from ecoscope.platform.tasks.transformation._unit import Quantity
 from ..transformation import safe_string
-from ecoscope_workflows_ext_custom.storage import as_readable, exists, normalize_uri
-from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
+from ._report_inputs import file_stem, file_suffix, paths_only, scan_local_dir
+from ecoscope_workflows_ext_custom.storage import as_readable, exists, save_document
 
 TIME_FMT = "%d %b %Y %H:%M:%S"
-DEFAULT_IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg"})
+# Ordered: png is preferred over jpg when both exist.
+DEFAULT_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
 MAP_SUFFIXES = {
     "movement_tracks_map": "_movement_tracks",
     "home_range_map": "_homerange",
@@ -51,23 +50,21 @@ def _format_period(tr) -> str:
     return f"{tr.since.strftime(TIME_FMT)} to {tr.until.strftime(TIME_FMT)}"
 
 
-def _find_map_file(root: Path, safe_name: str, suffix: str) -> Optional[str]:
-    """Find `{safe_name}{suffix}.{ext}` under root, preferring png over html."""
+def _find_map_file(paths: list[str], safe_name: str, suffix: str) -> Optional[str]:
+    """Find `{safe_name}{suffix}.{ext}` among paths (local, file:// or GCS), preferring png."""
+    name = f"{safe_name}{suffix}"
     for ext in DEFAULT_IMAGE_EXTENSIONS:
-        # exact match first (this is what persist_text/persist_df wrote)
-        exact = root / f"{safe_name}{suffix}{ext}"
-        if exact.exists():
-            return str(exact)
-        # fall back to glob in case a suffix was appended (e.g. dedup counters)
-        matches = sorted(root.glob(f"{safe_name}{suffix}*{ext}"))
+        candidates = [p for p in paths if file_suffix(p) == ext]
+        # exact match first (this is what html_to_png wrote)
+        for p in candidates:
+            if file_stem(p) == name:
+                return p
+        # fall back to a prefix match in case a suffix was appended (e.g. dedup counters)
+        matches = sorted(p for p in candidates if file_stem(p).startswith(name))
         if matches:
             if len(matches) > 1:
-                print(
-                    f"Multiple candidates for {safe_name}{suffix}{ext}: {matches}; "
-                    f"using the most recently modified."
-                )
-                matches.sort(key=lambda p: p.stat().st_mtime)
-            return str(matches[-1])
+                print(f"Multiple candidates for {name}{ext}: {matches}; using {matches[-1]}.")
+            return matches[-1]
     return None
 
 
@@ -80,6 +77,7 @@ def create_mapbook_context(
     grid_area: Quantity | SkipSentinel | None,
     mcp_area: Quantity | SkipSentinel | None,
     root_path: str,  # pass ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+    map_files: Optional[list[Any]] = None,  # the html_to_png step returns; required when root_path is on GCS
 ) -> Dict[str, Optional[str]]:
     df = _unwrap_skip(df)
     current_period = _unwrap_skip(current_period)
@@ -105,10 +103,13 @@ def create_mapbook_context(
 
     print(f"grouper_value={grouper_value!r}, safe_name={safe_name!r}")
 
-    root = Path(remove_file_scheme(root_path))
+    if map_files is not None:
+        paths = paths_only(map_files)
+    else:
+        paths = scan_local_dir(root_path, "create_mapbook_context")
     mapbook_png_paths = {}
     for ctx_key, suffix in MAP_SUFFIXES.items():
-        path = _find_map_file(root, safe_name, suffix) if safe_name else None
+        path = _find_map_file(paths, safe_name, suffix) if safe_name else None
         mapbook_png_paths[ctx_key] = path if path else "N/A"
         if path is None:
             print(f"No file found for {ctx_key} ({safe_name}{suffix})")
@@ -165,7 +166,7 @@ def build_docx_context(
 
         elif isinstance(value, str):
             # Image paths may be local, file:// or GCS paths (ecoscope-web).
-            if Path(normalize_uri(value)).suffix.lower() in DEFAULT_IMAGE_EXTENSIONS and exists(value):
+            if file_suffix(value) in DEFAULT_IMAGE_EXTENSIONS and exists(value):
                 image = _make_inline_image(template, value, box_w_cm, box_h_cm)
                 result[key] = image if image is not None else ""
             else:
@@ -208,36 +209,28 @@ def render_mapbook_page(
     strict_images=False (default): missing/unreadable images are logged and
     rendered as blank slots. strict_images=True: they raise instead.
     """
-    template_path = remove_file_scheme(template_path)
-    output_dir = remove_file_scheme(output_dir)
-
     if not template_path.strip():
-        raise ValueError("template_path is empty after normalization")
+        raise ValueError("template_path is empty")
     if not output_dir.strip():
-        raise ValueError("output_dir is empty after normalization")
-    if not os.path.exists(template_path):
+        raise ValueError("output_dir is empty")
+    if not exists(template_path):
         raise FileNotFoundError(f"Template file not found: {template_path}")
-
-    os.makedirs(output_dir, exist_ok=True)
 
     if not filename:
         filename = _default_filename(context)
-    output_path = Path(output_dir) / filename
 
     # --- image validation: warn by default, raise only in strict mode ---
     for field_name, value in context.items():
         if not isinstance(value, str) or not value:
             continue
-        normalized = remove_file_scheme(value)
-        if Path(normalized).suffix.lower() in DEFAULT_IMAGE_EXTENSIONS:
-            if not os.path.exists(normalized):
-                msg = f"{field_name}: image not found: {normalized}"
-                if strict_images:
-                    raise FileNotFoundError(msg)
-                print(msg)
+        if file_suffix(value) in DEFAULT_IMAGE_EXTENSIONS and not exists(value):
+            msg = f"{field_name}: image not found: {value}"
+            if strict_images:
+                raise FileNotFoundError(msg)
+            print(msg)
 
     try:
-        tpl = DocxTemplate(template_path)
+        tpl = DocxTemplate(as_readable(template_path))
     except Exception as e:
         raise ValueError(f"Failed to load template {template_path}: {e}") from e
 
@@ -250,10 +243,11 @@ def render_mapbook_page(
 
     try:
         tpl.render(rendered_context)
-        tpl.save(output_path)
+        output_path = save_document(tpl, output_dir, filename)
     except Exception as e:
         raise ValueError(
-            f"Failed to render or save {output_path} " f"(grouper={context.get('grouper_value', '?')}): {e}"
+            f"Failed to render or save {filename} in {output_dir} "
+            f"(grouper={context.get('grouper_value', '?')}): {e}"
         ) from e
 
     print(f"Rendered mapbook page: {output_path}")

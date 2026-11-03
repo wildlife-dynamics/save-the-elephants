@@ -4,11 +4,9 @@
 decorator at call time, so it is exercised as a plain Python function
 throughout this module.
 
-The LandDx branch of `select_map_overlay` downloads a real GeoPackage over
-HTTP via `fetch_and_persist_file` (backed by `ecoscope.io.download_file`).
-That call is mocked out everywhere below -- in favor of pointing straight at
-a local GeoPackage fixture -- so nothing in this module makes a network
-request.
+The LandDx branch of `select_map_overlay` reads the GeoPackage shipped in
+`ecoscope_workflows_ext_ste/data` (or an explicit `ldx_path`), so nothing in
+this module makes a network request.
 """
 
 from types import SimpleNamespace
@@ -28,7 +26,6 @@ from ecoscope.platform.tasks.results._pydeck import (
 from ecoscope_workflows_ext_ste.tasks.landdx import _layers as landdx_layers
 from ecoscope_workflows_ext_ste.tasks.landdx._layers import (
     _LDX_COLOR_MAPPING,
-    _LDX_URL,
     _build_ldx_layers,
     ERSpatialFeatureOverlayOption,
     LandDxOverlayOption,
@@ -100,21 +97,15 @@ def synthetic_ldx_gdf() -> gpd.GeoDataFrame:
 
 
 class TestBuildLdxLayers:
-    def test_drops_rows_with_unmapped_type(self, synthetic_ldx_gdf, tmp_path):
-        path = tmp_path / "ldx.gpkg"
-        synthetic_ldx_gdf.to_file(path, driver="GPKG")
-
-        layers = _build_ldx_layers(str(path))
+    def test_drops_rows_with_unmapped_type(self, synthetic_ldx_gdf):
+        layers = _build_ldx_layers(synthetic_ldx_gdf)
 
         for layer in layers:
             if layer.geodataframe is not None and "name" in layer.geodataframe.columns:
                 assert "Some Ranch" not in layer.geodataframe["name"].tolist()
 
-    def test_returns_categorical_layer_plus_trailing_text_layer(self, synthetic_ldx_gdf, tmp_path):
-        path = tmp_path / "ldx.gpkg"
-        synthetic_ldx_gdf.to_file(path, driver="GPKG")
-
-        layers = _build_ldx_layers(str(path))
+    def test_returns_categorical_layer_plus_trailing_text_layer(self, synthetic_ldx_gdf):
+        layers = _build_ldx_layers(synthetic_ldx_gdf)
 
         assert len(layers) >= 2
         assert all(isinstance(layer, LayerDefinition) for layer in layers)
@@ -126,11 +117,8 @@ class TestBuildLdxLayers:
         non_text_layers = layers[:-1]
         assert all(layer.layer_type != "TextLayer" for layer in non_text_layers)
 
-    def test_text_layer_excludes_empty_and_invalid_geometries(self, synthetic_ldx_gdf, tmp_path):
-        path = tmp_path / "ldx.gpkg"
-        synthetic_ldx_gdf.to_file(path, driver="GPKG")
-
-        layers = _build_ldx_layers(str(path))
+    def test_text_layer_excludes_empty_and_invalid_geometries(self, synthetic_ldx_gdf):
+        layers = _build_ldx_layers(synthetic_ldx_gdf)
         text_layer = layers[-1]
 
         names = set(text_layer.geodataframe["name"].tolist())
@@ -138,36 +126,28 @@ class TestBuildLdxLayers:
         assert "Empty Geom" not in names
         assert "Invalid Geom" not in names
 
-    def test_text_layer_geometry_is_centroid_points_in_4326(self, synthetic_ldx_gdf, tmp_path):
-        path = tmp_path / "ldx.gpkg"
-        synthetic_ldx_gdf.to_file(path, driver="GPKG")
-
-        layers = _build_ldx_layers(str(path))
+    def test_text_layer_geometry_is_centroid_points_in_4326(self, synthetic_ldx_gdf):
+        layers = _build_ldx_layers(synthetic_ldx_gdf)
         text_gdf = layers[-1].geodataframe
 
         assert str(text_gdf.crs).upper() in ("EPSG:4326", "EPSG:4326 ")
         assert (text_gdf.geometry.geom_type == "Point").all()
 
-    def test_categorical_layer_uses_land_use_legend_title(self, synthetic_ldx_gdf, tmp_path):
-        path = tmp_path / "ldx.gpkg"
-        synthetic_ldx_gdf.to_file(path, driver="GPKG")
-
-        layers = _build_ldx_layers(str(path))
+    def test_categorical_layer_uses_land_use_legend_title(self, synthetic_ldx_gdf):
+        layers = _build_ldx_layers(synthetic_ldx_gdf)
         # At least one non-text layer should carry the "Land Use" legend.
         legend_titles = {layer.legend.title for layer in layers[:-1] if layer.legend is not None}
         assert "Land Use" in legend_titles
 
-    def test_all_unmapped_types_returns_empty_list(self, tmp_path):
+    def test_all_unmapped_types_returns_empty_list(self):
         gdf = gpd.GeoDataFrame(
             {"type": ["Ranch", "Farm"], "name": ["A", "B"], "geometry": [_square(0, 0), _square(1, 1)]},
             crs="EPSG:4326",
         )
-        path = tmp_path / "ldx.gpkg"
-        gdf.to_file(path, driver="GPKG")
 
-        assert _build_ldx_layers(str(path)) == []
+        assert _build_ldx_layers(gdf) == []
 
-    def test_empty_input_file_returns_empty_list(self, tmp_path):
+    def test_empty_input_file_returns_empty_list(self):
         gdf = gpd.GeoDataFrame(
             {
                 "type": pd.Series([], dtype="object"),
@@ -176,23 +156,19 @@ class TestBuildLdxLayers:
             },
             crs="EPSG:4326",
         )
-        path = tmp_path / "ldx.gpkg"
-        gdf.to_file(path, driver="GPKG")
 
-        assert _build_ldx_layers(str(path)) == []
+        assert _build_ldx_layers(gdf) == []
 
-    def test_missing_type_column_raises(self, tmp_path):
+    def test_missing_type_column_raises(self):
         # SUSPECTED BUG (documented, not fixed): `_build_ldx_layers` accesses
         # `gdf["type"]` unconditionally. A GeoPackage that doesn't have a
         # `type` column (e.g. a malformed/unexpected upstream LandDx export)
         # blows up with a bare pandas KeyError rather than a clear,
         # intentional validation error.
         gdf = gpd.GeoDataFrame({"name": ["A"], "geometry": [_square(0, 0)]}, crs="EPSG:4326")
-        path = tmp_path / "ldx.gpkg"
-        gdf.to_file(path, driver="GPKG")
 
         with pytest.raises(KeyError):
-            _build_ldx_layers(str(path))
+            _build_ldx_layers(gdf)
 
     def test_real_kenya_pa_fixture_end_to_end(self, kenya_pa_path):
         """`kenya_pa.gpkg` already has the type/name/geometry shape LandDx
@@ -200,7 +176,7 @@ class TestBuildLdxLayers:
         `_LDX_COLOR_MAPPING` -- exercise the real geometry-processing logic
         against realistic data (117 rows), not just tiny synthetic ones.
         """
-        layers = _build_ldx_layers(str(kenya_pa_path))
+        layers = _build_ldx_layers(gpd.read_file(kenya_pa_path))
 
         assert len(layers) >= 2
         text_layer = layers[-1]
@@ -219,52 +195,39 @@ class TestLdxColorMapping:
 
 
 # --------------------------------------------------------------------------- #
-# select_map_overlay -- LandDx branch (mocked download)                       #
+# select_map_overlay -- LandDx branch                                         #
 # --------------------------------------------------------------------------- #
 
 
 class TestSelectMapOverlayLandDx:
-    def test_downloads_are_mocked_and_layers_match_direct_build(self, monkeypatch, kenya_pa_path):
-        mock_fetch = MagicMock(return_value=str(kenya_pa_path))
-        monkeypatch.setattr(landdx_layers, "fetch_and_persist_file", mock_fetch)
-
-        result = select_map_overlay(option=LandDxOverlayOption(), output_dir="/tmp/ldx-cache")
-
-        mock_fetch.assert_called_once_with(
-            url=_LDX_URL,
-            output_path="/tmp/ldx-cache",
-            overwrite_existing=False,
-            unzip=False,
-            retries=2,
-        )
-        expected = _build_ldx_layers(str(kenya_pa_path))
-        assert len(result) == len(expected)
-        assert result[-1].layer_type == "TextLayer"
-
-    def test_custom_ldx_url_is_passed_through_to_downloader(self, monkeypatch, kenya_pa_path):
-        mock_fetch = MagicMock(return_value=str(kenya_pa_path))
-        monkeypatch.setattr(landdx_layers, "fetch_and_persist_file", mock_fetch)
-
-        select_map_overlay(option=LandDxOverlayOption(), ldx_url="https://example.com/custom.gpkg")
-
-        assert mock_fetch.call_args.kwargs["url"] == "https://example.com/custom.gpkg"
-
-    def test_no_network_call_is_made(self, monkeypatch, kenya_pa_path):
-        """Guard against accidentally hitting the real Dropbox URL: patch
-        `requests.Session` (used internally by `fetch_and_persist_file`) to
-        blow up if anything tries a real HTTP call, and confirm the LandDx
-        path still works end-to-end because `fetch_and_persist_file` itself
-        is mocked out."""
+    def test_defaults_to_packaged_geopackage(self, monkeypatch):
+        """The LandDx file ships with ext-ste, so no network is needed."""
 
         def _boom(*args, **kwargs):
             raise AssertionError("no network calls should be made in this test")
 
         monkeypatch.setattr("requests.Session.head", _boom)
         monkeypatch.setattr("requests.get", _boom)
-        monkeypatch.setattr(landdx_layers, "fetch_and_persist_file", MagicMock(return_value=str(kenya_pa_path)))
 
         result = select_map_overlay(option=LandDxOverlayOption())
+
         assert len(result) >= 2
+        assert result[-1].layer_type == "TextLayer"
+
+    def test_custom_ldx_path_is_used(self, kenya_pa_path):
+        result = select_map_overlay(option=LandDxOverlayOption(), ldx_path=f"file://{kenya_pa_path}")
+
+        expected = _build_ldx_layers(gpd.read_file(kenya_pa_path))
+        assert len(result) == len(expected)
+        assert len(result[-1].geodataframe) == 117
+
+    def test_packaged_file_is_loaded_when_no_path_given(self, monkeypatch, kenya_pa_path):
+        mock_load = MagicMock(return_value=str(kenya_pa_path))
+        monkeypatch.setattr(landdx_layers, "load_mapbook_file", mock_load)
+
+        select_map_overlay(option=LandDxOverlayOption())
+
+        mock_load.assert_called_once_with("mapbook_ldx_layers.gpkg")
 
 
 # --------------------------------------------------------------------------- #

@@ -3,6 +3,7 @@ from ._path_utils import get_local_file_path
 from ._aerial_images import process_aerial_images, upload_images_to_er_events
 from ._raster import raster_to_gdf
 from ._seasons import compute_seasons_from_ndvi
+from ._package_files import load_mapbook_file, MAPBOOK_FILES
 
 __all__ = [
     "fetch_and_persist_file",
@@ -12,4 +13,6 @@ __all__ = [
     "upload_images_to_er_events",
     "raster_to_gdf",
     "compute_seasons_from_ndvi",
+    "MAPBOOK_FILES",
+    "load_mapbook_file",
 ]
