@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -114,35 +113,34 @@ class TestFormatPeriod:
 # _find_map_file
 # --------------------------------------------------------------------------
 class TestFindMapFile:
-    def test_exact_match_found(self, tmp_path):
-        (tmp_path / "elephant_movement_tracks.png").write_bytes(b"x")
-        result = _find_map_file(tmp_path, "elephant", "_movement_tracks")
-        assert result == str(tmp_path / "elephant_movement_tracks.png")
+    def test_exact_match_found(self):
+        paths = ["/r/other_movement_tracks.png", "/r/elephant_movement_tracks.png"]
+        assert _find_map_file(paths, "elephant", "_movement_tracks") == "/r/elephant_movement_tracks.png"
 
-    def test_jpg_extension_also_found(self, tmp_path):
-        (tmp_path / "elephant_speedmap.jpg").write_bytes(b"x")
-        result = _find_map_file(tmp_path, "elephant", "_speedmap")
-        assert result == str(tmp_path / "elephant_speedmap.jpg")
+    def test_jpg_extension_also_found(self):
+        paths = ["/r/elephant_speedmap.jpg"]
+        assert _find_map_file(paths, "elephant", "_speedmap") == "/r/elephant_speedmap.jpg"
 
-    def test_glob_fallback_when_no_exact_match(self, tmp_path):
-        (tmp_path / "elephant_homerange_v2.png").write_bytes(b"x")
-        result = _find_map_file(tmp_path, "elephant", "_homerange")
-        assert result == str(tmp_path / "elephant_homerange_v2.png")
+    def test_png_preferred_over_jpg(self):
+        paths = ["/r/elephant_speedmap.jpg", "/r/elephant_speedmap.png"]
+        assert _find_map_file(paths, "elephant", "_speedmap") == "/r/elephant_speedmap.png"
 
-    def test_multiple_glob_candidates_returns_most_recently_modified(self, tmp_path):
-        older = tmp_path / "elephant_homerange_a.png"
-        newer = tmp_path / "elephant_homerange_b.png"
-        older.write_bytes(b"x")
-        newer.write_bytes(b"x")
-        now = datetime.now().timestamp()
-        os.utime(older, (now - 100, now - 100))
-        os.utime(newer, (now, now))
+    def test_prefix_fallback_when_no_exact_match(self):
+        paths = ["/r/elephant_homerange_v2.png"]
+        assert _find_map_file(paths, "elephant", "_homerange") == "/r/elephant_homerange_v2.png"
 
-        result = _find_map_file(tmp_path, "elephant", "_homerange")
-        assert result == str(newer)
+    def test_multiple_prefix_candidates_returns_last_sorted(self):
+        paths = ["/r/elephant_homerange_b.png", "/r/elephant_homerange_a.png"]
+        assert _find_map_file(paths, "elephant", "_homerange") == "/r/elephant_homerange_b.png"
 
-    def test_no_match_returns_none(self, tmp_path):
-        assert _find_map_file(tmp_path, "elephant", "_homerange") is None
+    def test_gcs_and_encoded_paths_match(self):
+        gs = "gs://bucket/run/elephant_homerange.png"
+        https = "https://storage.googleapis.com/bucket/run/big%20elly_speedmap.png"
+        assert _find_map_file([gs, https], "elephant", "_homerange") == gs
+        assert _find_map_file([gs, https], "big elly", "_speedmap") == https
+
+    def test_no_match_returns_none(self):
+        assert _find_map_file([], "elephant", "_homerange") is None
 
 
 # --------------------------------------------------------------------------
@@ -198,6 +196,36 @@ class TestCreateMapbookContext:
         assert ctx["movement_tracks_map"] == str(tmp_path / "elephant_one_movement_tracks.png")
         # other suffixes weren't created on disk
         assert ctx["home_range_map"] == "N/A"
+
+    def test_map_files_used_instead_of_scanning_root(self):
+        df = pd.DataFrame({"subject_name": ["Elephant One"]})
+        gs = "gs://bucket/run/elephant_one_homerange.png"
+        ctx = create_mapbook_context(
+            df=df,
+            current_period=None,
+            previous_period=None,
+            period=None,
+            grid_area=None,
+            mcp_area=None,
+            root_path="gs://bucket/run",  # would raise if scanned
+            # grouped html_to_png returns: (group_key, path) pairs, skips dropped
+            map_files=[[(("Elephant One",), gs)], SKIP_SENTINEL],
+        )
+        assert ctx["home_range_map"] == gs
+        assert ctx["movement_tracks_map"] == "N/A"
+
+    def test_gcs_root_without_map_files_raises(self):
+        df = pd.DataFrame({"subject_name": ["Elephant One"]})
+        with pytest.raises(ValueError, match="pass the input files explicitly"):
+            create_mapbook_context(
+                df=df,
+                current_period=None,
+                previous_period=None,
+                period=None,
+                grid_area=None,
+                mcp_area=None,
+                root_path="gs://bucket/run",
+            )
 
     def test_multiple_subject_names_falls_back_to_all(self, tmp_path):
         df = pd.DataFrame({"subject_name": ["A", "B"]})

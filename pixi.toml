@@ -25,7 +25,7 @@ graphviz = "*"
 # Include this if you add new tasks and the package has been built
 
 ecoscope-workflows-ext-ste = "*"
-ecoscope-workflows-ext-custom = "0.1.0rc14.*"
+ecoscope-workflows-ext-custom = "0.1.5.*"
 graphviz = "*"
 wt-compiler = "==0.8.0"
 

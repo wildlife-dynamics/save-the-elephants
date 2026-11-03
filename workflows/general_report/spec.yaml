@@ -193,8 +193,6 @@ workflow:
             - never
         partial:
           client: ${{ workflow.er_client_name.return }}
-          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-          ldx_url: "https://www.dropbox.com/scl/fi/uitptfgxk4wnfcnv9k96a/mapbook_ldx_layers.gpkg?rlkey=xi2azbfzqix9udytv3smsf6eh&st=249w3d2x&dl=0"
 
   - name: Retrieve subject group observations
     id: subject_observations

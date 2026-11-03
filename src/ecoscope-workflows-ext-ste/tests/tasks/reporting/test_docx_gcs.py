@@ -91,3 +91,34 @@ def test_create_context_page_on_gcs(fake_gcs):
     doc = Document(io.BytesIO(read_bytes(out)))
     assert len(doc.element.body.xpath(".//pic:pic")) == 1
     assert "Prepared by Lion <Guardians> & Co" in _text(out)[0]
+
+
+def test_mapbook_context_and_page_on_gcs(fake_gcs):
+    import pandas as pd
+
+    from ecoscope_workflows_ext_ste.tasks.reporting._mapbook_context import (
+        create_mapbook_context,
+        render_mapbook_page,
+    )
+
+    template = write_bytes(_docx_bytes("{{ grouper_value }} {{ home_range_map }}"), ROOT, "page.docx")
+    home_range = write_bytes(_png_bytes(), ROOT, "elly_homerange.png")
+
+    ctx = create_mapbook_context(
+        df=pd.DataFrame({"subject_name": ["Elly"]}),
+        current_period=None,
+        previous_period=None,
+        period=None,
+        grid_area=None,
+        mcp_area=None,
+        root_path=ROOT,
+        map_files=[[(("Elly",), home_range)]],
+    )
+    assert ctx["home_range_map"] == home_range
+
+    out = render_mapbook_page(template_path=template, output_dir=ROOT, context=ctx, strict_images=True)
+
+    assert out.endswith("elly.docx")
+    doc = Document(io.BytesIO(read_bytes(out)))
+    assert len(doc.element.body.xpath(".//pic:pic")) == 1
+    assert _text(out)[0].startswith("Elly")

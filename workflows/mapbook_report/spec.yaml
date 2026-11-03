@@ -179,8 +179,6 @@ workflow:
             - never
         partial:
           client: ${{ workflow.er_client_name.return }}
-          output_dir: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-          ldx_url: "https://www.dropbox.com/scl/fi/uitptfgxk4wnfcnv9k96a/mapbook_ldx_layers.gpkg?rlkey=xi2azbfzqix9udytv3smsf6eh&st=249w3d2x&dl=0"
 
   - name: Choose subject group to analyze 
     id: subject_observations 
@@ -2201,26 +2199,18 @@ workflow:
       argnames: html_path 
       argvalues: ${{ workflow.skip_seasonal_home_range_html.return }}
 
-  - name: Download mapbook cover page templates
+  - name: Load mapbook cover page template
     id: download_mapbook_cover_page
-    task: ecoscope_workflows_ext_ste.tasks.io.fetch_and_persist_file
+    task: ecoscope_workflows_ext_ste.tasks.io.load_mapbook_file
     partial:
-      url: https://www.dropbox.com/scl/fi/v2rbwywas1ag645qjptsk/mapbook_cover_page.docx?rlkey=pmpmkgjpjoc4i8ngt7qfipstz&st=xqplosdg&dl=0
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      overwrite_existing: false
-      unzip: false
-      retries: 2
+      filename: mapbook_cover_page.docx
 
-  # Download section templates
-  - name: Download mapbook section templates
+  # Section template, shipped with ext-ste
+  - name: Load mapbook section template
     id: download_sect_templates
-    task: ecoscope_workflows_ext_ste.tasks.io.fetch_and_persist_file
+    task: ecoscope_workflows_ext_ste.tasks.io.load_mapbook_file
     partial:
-      url: https://www.dropbox.com/scl/fi/2h1gakoqgtsxbw2axibmk/mapbook_grouper_template.docx?rlkey=3jz96yxacnotzrbx32v06jvj1&st=5kc9g34a&dl=0
-      output_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
-      overwrite_existing: false
-      unzip: false
-      retries: 2
+      filename: mapbook_grouper_template.docx
 
   - name: Skip logo path for cover page generation
     id: skip_logo_path
@@ -2282,8 +2272,15 @@ workflow:
       previous_period: ${{ workflow.set_previous_period.return }}
       period: ${{ workflow.round_report_duration.return }}
       root_path: ${{ env.ECOSCOPE_WORKFLOWS_RESULTS }}
+      map_files:
+        - ${{ workflow.movement_png.return }}
+        - ${{ workflow.speedmap_png.return }}
+        - ${{ workflow.day_night_png.return }}
+        - ${{ workflow.homerange_png.return }}
+        - ${{ workflow.mean_speed_raster_png.return }}
+        - ${{ workflow.seasonal_hr_png.return }}
     mapvalues:
-      argnames: 
+      argnames:
         - df
         - grid_area 
         - mcp_area 
