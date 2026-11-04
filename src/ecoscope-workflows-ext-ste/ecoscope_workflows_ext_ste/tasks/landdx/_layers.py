@@ -12,7 +12,6 @@ from ecoscope.platform.tasks.results._pydeck import (
 )
 from ecoscope_workflows_ext_custom.tasks.io import load_df
 from ..spatial_operations._spatial_features import (
-    LocalSpatialLayer,
     SpatialFeatureLayer,
 )
 from ..results._spatial_layers import (
@@ -99,21 +98,7 @@ class ERSpatialFeatureOverlayOption(BaseModel):
     ]
 
 
-class LocalFileOverlayOption(BaseModel):
-    """Overlay features loaded from one or more local geospatial files."""
-
-    model_config = ConfigDict(title="Custom Local File")
-
-    files: Annotated[
-        list[LocalSpatialLayer],
-        Field(
-            description="One or more local GeoJSON / GeoPackage / GeoParquet files. "
-            "Each file (or split group within a file) becomes its own styled layer.",
-        ),
-    ]
-
-
-MapOverlayOption = Union[LandDxOverlayOption, ERSpatialFeatureOverlayOption, LocalFileOverlayOption]
+MapOverlayOption = Union[LandDxOverlayOption, ERSpatialFeatureOverlayOption]
 
 
 @register()
@@ -165,13 +150,4 @@ def select_map_overlay(
                 continue
             layers.extend(_layers_for_gdf(gdf))  # type: ignore[arg-type]
         return layers
-
-    if isinstance(option, LocalFileOverlayOption):
-        layers = []
-        for spec in option.files:
-            spec = LocalSpatialLayer.model_validate(spec)
-            for gdf in spec.load():
-                layers.extend(_layers_for_gdf(gdf))  # type: ignore[arg-type]
-        return layers
-
     return []
