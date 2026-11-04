@@ -81,6 +81,8 @@ def generate_ecograph_raster(
         Optional[int],
         AdvancedField(
             default=2000,
+            gt=500,
+            lt=100000,
             description="Mean step length, used as the resolution if `resolution` is None.",
         ),
     ] = 2000,
