@@ -29,12 +29,10 @@ from ecoscope_workflows_ext_ste.tasks.landdx._layers import (
     _build_ldx_layers,
     ERSpatialFeatureOverlayOption,
     LandDxOverlayOption,
-    LocalFileOverlayOption,
     select_map_overlay,
 )
 from ecoscope_workflows_ext_ste.tasks.spatial_operations._spatial_features import (
     FeatureTypeQuery,
-    LocalSpatialLayer,
     SpatialFeatureLayer,
 )
 
@@ -312,40 +310,6 @@ class TestSelectMapOverlayEarthRanger:
 
 
 # --------------------------------------------------------------------------- #
-# select_map_overlay -- Local File branch                                     #
-# --------------------------------------------------------------------------- #
-
-
-class TestSelectMapOverlayLocalFile:
-    def test_loads_real_local_geopackage(self, kenya_pa_path):
-        option = LocalFileOverlayOption(files=[LocalSpatialLayer(file_path=str(kenya_pa_path))])
-
-        result = select_map_overlay(option=option)
-
-        assert len(result) >= 1
-        assert all(isinstance(layer, LayerDefinition) for layer in result)
-        total_rows = sum(len(layer.geodataframe) for layer in result if layer.geodataframe is not None)
-        assert total_rows == 117
-
-    def test_empty_files_list_returns_empty(self):
-        option = LocalFileOverlayOption(files=[])
-        assert select_map_overlay(option=option) == []
-
-    def test_multiple_files_are_all_loaded(self, kenya_pa_path, data_dir):
-        option = LocalFileOverlayOption(
-            files=[
-                LocalSpatialLayer(file_path=str(kenya_pa_path)),
-                LocalSpatialLayer(file_path=str(data_dir / "AOIs.gpkg"), layer="AOIs"),
-            ]
-        )
-
-        result = select_map_overlay(option=option)
-        total_rows = sum(len(layer.geodataframe) for layer in result if layer.geodataframe is not None)
-        # 117 (kenya_pa) + 7 (AOIs), potentially split across GeoJson/Icon layers.
-        assert total_rows == 117 + 7
-
-
-# --------------------------------------------------------------------------- #
 # select_map_overlay -- unrecognized option                                   #
 # --------------------------------------------------------------------------- #
 
@@ -353,10 +317,10 @@ class TestSelectMapOverlayLocalFile:
 class TestSelectMapOverlayFallback:
     def test_unrecognized_option_type_silently_returns_empty_list(self):
         # SUSPECTED BUG (documented, not fixed): `select_map_overlay` falls
-        # through to `return []` for any `option` that isn't one of the three
+        # through to `return []` for any `option` that isn't one of the two
         # known model types, rather than raising. This is unreachable through
         # the normal pydantic-validated entry point (the `MapOverlayOption`
-        # Union only allows those three), but since the function is called
+        # Union only allows those two), but since the function is called
         # directly in these tests (and potentially from other Python code
         # bypassing schema validation), passing a bad/unexpected object
         # degrades silently to an empty layer list instead of erroring loudly.

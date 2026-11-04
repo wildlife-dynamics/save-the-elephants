@@ -131,8 +131,6 @@ def select_map_overlay(
       and styles it by land-use type using ``create_categorical_styled_layer``.
     - **EarthRanger Spatial Feature** – fetches one or more EarthRanger feature
       layers using the SpatialFeatureLayer query model (featureset / type / id).
-    - **Custom Local File** – loads one or more local GeoJSON / GeoPackage /
-      GeoParquet files with optional per-layer styling.
     """
     if isinstance(option, LandDxOverlayOption):
         gdf = load_df(file_path=ldx_path or load_mapbook_file(_LDX_FILE))
