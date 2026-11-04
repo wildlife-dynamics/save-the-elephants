@@ -1,9 +1,8 @@
 from wt_registry import register
 import geopandas as gpd
-from typing import Annotated, List, Union
+from typing import Annotated, List
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.json_schema import SkipJsonSchema
-from ecoscope.platform.connections import EarthRangerClient
 from ecoscope.platform.tasks.results._pydeck import (
     TextLayerStyle,
 )
@@ -11,11 +10,7 @@ from ecoscope.platform.tasks.results._pydeck import (
     PydeckLayerDefinition as LayerDefinition,
 )
 from ecoscope_workflows_ext_custom.tasks.io import load_df
-from ..spatial_operations._spatial_features import (
-    SpatialFeatureLayer,
-)
 from ..results._spatial_layers import (
-    _layers_for_gdf,
     create_categorical_styled_layer,
 )
 from ..io import load_mapbook_file
@@ -84,21 +79,7 @@ class LandDxOverlayOption(BaseModel):
     model_config = ConfigDict(title="LandDx (Default Protected Areas)")
 
 
-class ERSpatialFeatureOverlayOption(BaseModel):
-    """Overlay one or more EarthRanger spatial feature layers."""
-
-    model_config = ConfigDict(title="EarthRanger Spatial Feature")
-
-    layers: Annotated[
-        list[SpatialFeatureLayer],
-        Field(
-            description="One or more EarthRanger feature layers. Each entry specifies "
-            "what to load (featureset / type / id) and optional style overrides.",
-        ),
-    ]
-
-
-MapOverlayOption = Union[LandDxOverlayOption, ERSpatialFeatureOverlayOption]
+MapOverlayOption = LandDxOverlayOption
 
 
 @register()
@@ -107,14 +88,6 @@ def select_map_overlay(
         MapOverlayOption,
         Field(description="Select the overlay source to display on maps."),
     ],
-    client: Annotated[
-        EarthRangerClient | SkipJsonSchema[None],
-        Field(
-            default=None,
-            description="EarthRanger client — required only for the EarthRanger option.",
-            exclude=True,
-        ),
-    ] = None,
     ldx_path: Annotated[
         str | SkipJsonSchema[None],
         Field(
@@ -129,23 +102,8 @@ def select_map_overlay(
 
     - **LandDx** – loads the LandDx GeoPackage shipped with ext-ste (or ``ldx_path``)
       and styles it by land-use type using ``create_categorical_styled_layer``.
-    - **EarthRanger Spatial Feature** – fetches one or more EarthRanger feature
-      layers using the SpatialFeatureLayer query model (featureset / type / id).
     """
     if isinstance(option, LandDxOverlayOption):
         gdf = load_df(file_path=ldx_path or load_mapbook_file(_LDX_FILE))
         return _build_ldx_layers(gdf)
-
-    if isinstance(option, ERSpatialFeatureOverlayOption):
-        if client is None:
-            raise ValueError("An EarthRanger `client` is required for the EarthRanger overlay option.")
-        server_url = getattr(client, "server", "").rstrip("/")
-        layers: List[LayerDefinition] = []
-        for spec in option.layers:
-            spec = SpatialFeatureLayer.model_validate(spec)
-            gdf = spec.load(client, server_url)
-            if gdf.empty:
-                continue
-            layers.extend(_layers_for_gdf(gdf))  # type: ignore[arg-type]
-        return layers
     return []

@@ -169,16 +169,14 @@ workflow:
 
   - title: Map Overlay
     type: task-group
-    description: "Choose the overlay to display on all maps: (a) LandDx — standard protected areas downloaded automatically; (b) EarthRanger Spatial Feature — fetch a named feature set from EarthRanger."
+    description: "Overlay the LandDx protected areas (shipped with the workflow) on all maps."
     tasks:
       - name: null
         id: map_overlay
-        task: ecoscope_workflows_ext_ste.tasks.landdx.select_map_overlay # allow user to include multiple ER spatial features
+        task: ecoscope_workflows_ext_ste.tasks.landdx.select_map_overlay
         skipif:
           conditions:
             - never
-        partial:
-          client: ${{ workflow.er_client_name.return }}
 
   - name: Choose subject group to analyze 
     id: subject_observations 

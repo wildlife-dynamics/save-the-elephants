@@ -9,7 +9,6 @@ The LandDx branch of `select_map_overlay` reads the GeoPackage shipped in
 this module makes a network request.
 """
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import geopandas as gpd
@@ -27,13 +26,8 @@ from ecoscope_workflows_ext_ste.tasks.landdx import _layers as landdx_layers
 from ecoscope_workflows_ext_ste.tasks.landdx._layers import (
     _LDX_COLOR_MAPPING,
     _build_ldx_layers,
-    ERSpatialFeatureOverlayOption,
     LandDxOverlayOption,
     select_map_overlay,
-)
-from ecoscope_workflows_ext_ste.tasks.spatial_operations._spatial_features import (
-    FeatureTypeQuery,
-    SpatialFeatureLayer,
 )
 
 
@@ -229,87 +223,6 @@ class TestSelectMapOverlayLandDx:
 
 
 # --------------------------------------------------------------------------- #
-# select_map_overlay -- EarthRanger Spatial Feature branch                    #
-# --------------------------------------------------------------------------- #
-
-
-class TestSelectMapOverlayEarthRanger:
-    def test_missing_client_raises(self):
-        option = ERSpatialFeatureOverlayOption(
-            layers=[SpatialFeatureLayer(query=FeatureTypeQuery(feature_type="Conservancy"))]
-        )
-        with pytest.raises(ValueError, match="EarthRanger `client` is required"):
-            select_map_overlay(option=option, client=None)
-
-    def test_loads_each_layer_spec_and_strips_trailing_slash_from_server(self, monkeypatch):
-        seen_server_urls = []
-
-        def fake_load(self, client, server_url):
-            seen_server_urls.append(server_url)
-            return gpd.GeoDataFrame({"a": [1]}, geometry=[_square(0, 0)], crs="EPSG:4326")
-
-        monkeypatch.setattr(SpatialFeatureLayer, "load", fake_load)
-        monkeypatch.setattr(landdx_layers, "_layers_for_gdf", lambda gdf: [f"layer-with-{len(gdf)}-rows"])
-
-        client = SimpleNamespace(server="http://testserver.example/api/v1/")
-        option = ERSpatialFeatureOverlayOption(
-            layers=[SpatialFeatureLayer(query=FeatureTypeQuery(feature_type="Conservancy"))]
-        )
-
-        result = select_map_overlay(option=option, client=client)
-
-        assert seen_server_urls == ["http://testserver.example/api/v1"]
-        assert result == ["layer-with-1-rows"]
-
-    def test_empty_layer_results_are_skipped(self, monkeypatch):
-        responses = [
-            gpd.GeoDataFrame(),  # empty -> skipped
-            gpd.GeoDataFrame({"a": [1]}, geometry=[_square(0, 0)], crs="EPSG:4326"),
-        ]
-
-        def fake_load(self, client, server_url):
-            return responses.pop(0)
-
-        monkeypatch.setattr(SpatialFeatureLayer, "load", fake_load)
-        calls = []
-        monkeypatch.setattr(
-            landdx_layers,
-            "_layers_for_gdf",
-            lambda gdf: calls.append(gdf) or [f"layer-{len(calls)}"],
-        )
-
-        client = SimpleNamespace(server="http://testserver.example")
-        option = ERSpatialFeatureOverlayOption(
-            layers=[
-                SpatialFeatureLayer(query=FeatureTypeQuery(feature_type="Conservancy")),
-                SpatialFeatureLayer(query=FeatureTypeQuery(feature_type="Ranch")),
-            ]
-        )
-
-        result = select_map_overlay(option=option, client=client)
-
-        assert len(calls) == 1  # only the non-empty gdf reached _layers_for_gdf
-        assert result == ["layer-1"]
-
-    def test_client_missing_server_attribute_defaults_to_empty_string(self, monkeypatch):
-        seen_server_urls = []
-
-        def fake_load(self, client, server_url):
-            seen_server_urls.append(server_url)
-            return gpd.GeoDataFrame()
-
-        monkeypatch.setattr(SpatialFeatureLayer, "load", fake_load)
-        option = ERSpatialFeatureOverlayOption(
-            layers=[SpatialFeatureLayer(query=FeatureTypeQuery(feature_type="Conservancy"))]
-        )
-
-        # client has no `.server` attribute at all
-        select_map_overlay(option=option, client=object())
-
-        assert seen_server_urls == [""]
-
-
-# --------------------------------------------------------------------------- #
 # select_map_overlay -- unrecognized option                                   #
 # --------------------------------------------------------------------------- #
 
@@ -317,10 +230,10 @@ class TestSelectMapOverlayEarthRanger:
 class TestSelectMapOverlayFallback:
     def test_unrecognized_option_type_silently_returns_empty_list(self):
         # SUSPECTED BUG (documented, not fixed): `select_map_overlay` falls
-        # through to `return []` for any `option` that isn't one of the two
-        # known model types, rather than raising. This is unreachable through
-        # the normal pydantic-validated entry point (the `MapOverlayOption`
-        # Union only allows those two), but since the function is called
+        # through to `return []` for any `option` that isn't a
+        # `LandDxOverlayOption`, rather than raising. This is unreachable through
+        # the normal pydantic-validated entry point (`MapOverlayOption`
+        # only allows that model), but since the function is called
         # directly in these tests (and potentially from other Python code
         # bypassing schema validation), passing a bad/unexpected object
         # degrades silently to an empty layer list instead of erroring loudly.
