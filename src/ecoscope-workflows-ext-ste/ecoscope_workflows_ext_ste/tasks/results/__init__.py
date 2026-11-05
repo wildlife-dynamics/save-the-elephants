@@ -1,4 +1,4 @@
-from ._ecograph import generate_ecograph_raster
+from ._ecograph import generate_ecograph_gdf, generate_ecograph_raster
 from ._spatial_layers import (
     create_spatial_features_layer,
     create_column_styled_layer,
@@ -8,6 +8,7 @@ from ._spatial_layers import (
 )
 
 __all__ = [
+    "generate_ecograph_gdf",
     "generate_ecograph_raster",
     "create_spatial_features_layer",
     "create_column_styled_layer",

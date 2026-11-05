@@ -2,10 +2,15 @@ import os
 from pathlib import Path
 
 import geopandas as gpd
+import pandas as pd
 import pytest
 from shapely.geometry import Point
 
-from ecoscope_workflows_ext_ste.tasks.results._ecograph import generate_ecograph_raster
+from ecoscope_workflows_ext_ste.tasks.io import raster_to_gdf
+from ecoscope_workflows_ext_ste.tasks.results._ecograph import (
+    generate_ecograph_gdf,
+    generate_ecograph_raster,
+)
 
 TEST_DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
@@ -388,3 +393,53 @@ def test_missing_crs_raises_error(sample_trajs_gdf, tmp_path):
             movement_covariate="speed",
             step_length=200,
         )
+
+
+# ========================================================================
+# generate_ecograph_gdf (in-memory raster)
+# ========================================================================
+
+
+def test_gdf_matches_raster_then_raster_to_gdf(sample_trajs_gdf, tmp_path):
+    """The in-memory task returns what the two-step file round trip returns."""
+    raster_path = generate_ecograph_raster(
+        gdf=sample_trajs_gdf,
+        output_dir=str(tmp_path),
+        filename="speed",
+        movement_covariate="speed",
+        step_length=200,
+    )
+    expected = raster_to_gdf(raster_path)
+
+    result = generate_ecograph_gdf(gdf=sample_trajs_gdf, movement_covariate="speed", step_length=200)
+
+    assert list(result.columns) == ["value", "geometry"]
+    assert len(result) == len(expected) > 0
+    assert result.crs == expected.crs
+    pd.testing.assert_series_equal(result["value"], expected["value"])
+    assert result.geometry.geom_equals(expected.geometry).all()
+
+
+def test_gdf_writes_no_files(sample_trajs_gdf, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    generate_ecograph_gdf(gdf=sample_trajs_gdf, movement_covariate="speed", step_length=200)
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_gdf_with_network_metric(sample_trajs_gdf):
+    result = generate_ecograph_gdf(gdf=sample_trajs_gdf, network_metric="weight", step_length=200)
+
+    assert not result.empty
+    assert result["value"].notna().all()
+
+
+def test_gdf_both_covariate_and_metric_raises_error(sample_trajs_gdf):
+    with pytest.raises(ValueError, match="exactly one"):
+        generate_ecograph_gdf(gdf=sample_trajs_gdf, movement_covariate="speed", network_metric="weight")
+
+
+def test_gdf_non_positive_resolution_raises_error(sample_trajs_gdf):
+    with pytest.raises(ValueError, match="Resolution must be > 0"):
+        generate_ecograph_gdf(gdf=sample_trajs_gdf, movement_covariate="speed", resolution=0)
