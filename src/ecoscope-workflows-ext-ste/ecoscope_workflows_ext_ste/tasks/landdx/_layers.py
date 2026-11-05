@@ -147,7 +147,11 @@ def _build_er_group_layers(
     return layers
 
 
-@register()
+# Tagged as IO because the EarthRanger option calls EarthRanger. In mock-IO test
+# runs the connection task returns only the connection name, so running this task
+# for real would try to log in to EarthRanger while validating `client`. Mock-IO
+# runs use select-map-overlay.example-return.json (no overlay layers) instead.
+@register(tags=["io"])
 def select_map_overlay(
     option: Annotated[
         MapOverlayOption,
