@@ -26,7 +26,9 @@ from ecoscope_workflows_ext_ste.tasks.landdx import _layers as landdx_layers
 from ecoscope_workflows_ext_ste.tasks.landdx._layers import (
     _LDX_COLOR_MAPPING,
     _build_ldx_layers,
+    ERSpatialFeatureGroupOverlayOption,
     LandDxOverlayOption,
+    MapOverlayOption,
     select_map_overlay,
 )
 
@@ -220,6 +222,100 @@ class TestSelectMapOverlayLandDx:
         select_map_overlay(option=LandDxOverlayOption())
 
         mock_load.assert_called_once_with("mapbook_ldx_layers.gpkg")
+
+
+# --------------------------------------------------------------------------- #
+# select_map_overlay -- EarthRanger Spatial Feature Groups branch             #
+# --------------------------------------------------------------------------- #
+
+
+def _er_group_gdf(n: int = 2) -> gpd.GeoDataFrame:
+    """Features as EarthRanger returns them: native fill/stroke properties."""
+    return gpd.GeoDataFrame(
+        {
+            "title": [f"Feature {i}" for i in range(n)],
+            "fill": ["#ff0000"] * n,
+            "fill-opacity": [0.5] * n,
+            "stroke": ["#000000"] * n,
+            "stroke-width": [2] * n,
+        },
+        geometry=[_square(i, 0) for i in range(n)],
+        crs="EPSG:4326",
+    )
+
+
+def _client(groups: dict[str, gpd.GeoDataFrame], server: str = "https://ste.pamdas.org/") -> MagicMock:
+    client = MagicMock()
+    client.server = server
+    client.get_spatial_features_group.side_effect = lambda spatial_features_group_name, **_: groups[
+        spatial_features_group_name
+    ]
+    return client
+
+
+class TestSelectMapOverlayEarthRanger:
+    def test_missing_client_raises(self):
+        option = ERSpatialFeatureGroupOverlayOption(spatial_feature_groups=["Conservancies"])
+        with pytest.raises(ValueError, match="EarthRanger `client` is required"):
+            select_map_overlay(option=option, client=None)
+
+    def test_requires_at_least_one_group(self):
+        with pytest.raises(ValueError):
+            ERSpatialFeatureGroupOverlayOption(spatial_feature_groups=[])
+
+    def test_fetches_each_group_by_name(self):
+        client = _client({"Conservancies": _er_group_gdf(), "Ranches": _er_group_gdf(1)})
+        option = ERSpatialFeatureGroupOverlayOption(spatial_feature_groups=["Conservancies", "Ranches"])
+
+        result = select_map_overlay(option=option, client=client)
+
+        names = [c.kwargs["spatial_features_group_name"] for c in client.get_spatial_features_group.call_args_list]
+        assert names == ["Conservancies", "Ranches"]
+        for call in client.get_spatial_features_group.call_args_list:
+            assert call.kwargs["spatial_features_group_id"] is None
+            assert call.kwargs["with_group_data"] is False
+        assert len(result) == 2
+        assert all(layer.layer_type == "GeoJsonLayer" for layer in result)
+
+    def test_group_name_becomes_legend_title(self):
+        client = _client({"Conservancies": _er_group_gdf()})
+        option = ERSpatialFeatureGroupOverlayOption(spatial_feature_groups=["Conservancies"])
+
+        (layer,) = select_map_overlay(option=option, client=client)
+
+        assert set(layer.geodataframe["legend_title"]) == {"Conservancies"}
+        assert list(layer.geodataframe["legend_label"]) == ["Feature 0", "Feature 1"]
+
+    def test_empty_groups_are_skipped(self):
+        client = _client({"Empty": gpd.GeoDataFrame(), "Conservancies": _er_group_gdf()})
+        option = ERSpatialFeatureGroupOverlayOption(spatial_feature_groups=["Empty", "Conservancies"])
+
+        result = select_map_overlay(option=option, client=client)
+
+        assert len(result) == 1
+
+    def test_style_override_replaces_native_colours(self):
+        client = _client({"Conservancies": _er_group_gdf()})
+        option = ERSpatialFeatureGroupOverlayOption.model_validate(
+            {
+                "spatial_feature_groups": ["Conservancies"],
+                "style": [{"polygon": [{"fill_color": ["#00ff00"]}]}],
+            }
+        )
+
+        (layer,) = select_map_overlay(option=option, client=client)
+
+        assert layer.geodataframe["get_fill_color"].iloc[0][:3] == [0, 255, 0]
+
+    def test_union_parses_both_options(self):
+        from pydantic import TypeAdapter
+
+        adapter = TypeAdapter(MapOverlayOption)
+        assert isinstance(adapter.validate_python({}), LandDxOverlayOption)
+        assert isinstance(
+            adapter.validate_python({"spatial_feature_groups": ["Conservancies"]}),
+            ERSpatialFeatureGroupOverlayOption,
+        )
 
 
 # --------------------------------------------------------------------------- #

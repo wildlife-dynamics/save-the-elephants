@@ -57,6 +57,13 @@ rjsf-overrides:
         title: "Auto (use average step distance)"
 
   $defs:
+    # Map Overlay, EarthRanger option: a drop-down of the chosen data source's spatial feature groups
+    ERSpatialFeatureGroupOverlayOption.properties.spatial_feature_groups.ecoscope:transform:
+      - transformer: EarthRangerEnumResolver
+        transformer_kws:
+          type: spatial_feature_group
+          depends_on: properties.er_client_name.properties.data_source.properties.name
+
     # Restrict category options to Subject Name, Subject Sex and Subject Subtype
     ValueGrouper.properties.index_name.oneOf:
       - const: subject_name
@@ -169,11 +176,13 @@ workflow:
 
   - title: Map Overlay
     type: task-group
-    description: "Overlay the LandDx protected areas (shipped with the workflow) on all maps."
+    description: "Choose the overlay to display on all maps: LandDx (standard protected areas shipped with the workflow) or EarthRanger spatial feature groups from the selected data source."
     tasks:
       - name: null
         id: map_overlay
         task: ecoscope_workflows_ext_ste.tasks.landdx.select_map_overlay
+        partial:
+          client: ${{ workflow.er_client_name.return }}
         skipif:
           conditions:
             - never
