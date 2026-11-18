@@ -1,12 +1,15 @@
+import math
+import shapely
+import numpy as np
 import pandas as pd
 import geopandas as gpd
 from pydantic import Field
 from datetime import datetime
 from wt_registry import register
 from typing import Annotated, cast, Optional
+from shapely.geometry.base import BaseGeometry
 from ecoscope.analysis.seasons import (  # type: ignore[import-untyped]
     seasonal_windows,
-    std_ndvi_vals,
     val_cuts,
 )
 from ecoscope.platform.annotations import (
@@ -18,6 +21,62 @@ from ecoscope.platform.tasks.filter._filter import TimeRange
 from ecoscope.platform.connections import EarthEngineClient
 
 MODIS_START = datetime(2000, 2, 24)
+
+# Pixel size the NDVI mean is taken at; MCD43A4 is a 500 m product.
+NDVI_SCALE_METERS = 500
+# Longest period fetched in one Earth Engine request, to keep each request quick.
+MAX_CHUNK_DAYS = 730
+# About 100 m. Trims the vertices of raster-outline ROIs; far below the pixel size.
+ROI_SIMPLIFY_DEGREES = 0.001
+
+
+def _fetch_ndvi(
+    aoi: BaseGeometry,
+    img_coll: str,
+    nir_band: str,
+    red_band: str,
+    start: str,
+    end: str,
+    scale: int = NDVI_SCALE_METERS,
+) -> pd.DataFrame:
+    """Mean NDVI over `aoi` for every image in [start, end), unscaled.
+
+    Used instead of `ecoscope.analysis.seasons.std_ndvi_vals`, which stacks all
+    the images of the period into one many-band image and reduces it in a single
+    call. With daily MODIS that is thousands of bands, and Earth Engine fails with
+    "User memory limit exceeded". Here each image is reduced on its own on the
+    server, so memory use does not grow with the length of the period.
+    """
+    import ee
+
+    geo = ee.Geometry(shapely.geometry.mapping(aoi))
+
+    def mean_ndvi(img):
+        mean = (
+            img.normalizedDifference([nir_band, red_band])
+            .rename("ndvi")
+            .reduceRegion(reducer=ee.Reducer.mean(), geometry=geo, scale=scale, bestEffort=True)
+            .get("ndvi")
+        )
+        return ee.Feature(None, {"t": img.get("system:time_start"), "ndvi": mean})
+
+    rows = (
+        ee.ImageCollection(img_coll)
+        .select([nir_band, red_band])
+        .filterDate(start, end)
+        .map(mean_ndvi)
+        # Images with no valid pixels in the ROI have no mean; drop them.
+        .filter(ee.Filter.notNull(["t", "ndvi"]))
+        .reduceColumns(ee.Reducer.toList(2), ["t", "ndvi"])
+        .get("list")
+        .getInfo()
+    )
+    return pd.DataFrame(
+        {
+            "img_date": pd.to_datetime([r[0] for r in rows], unit="ms", utc=True),
+            "NDVI": np.array([r[1] for r in rows], dtype=np.float64),
+        }
+    )
 
 
 # Tagged as IO (it calls Earth Engine), so mock-IO test runs use
@@ -43,35 +102,42 @@ def compute_seasons_from_ndvi(
         int,
         AdvancedField(
             default=5,
-            description="Number of chunk boundaries (produces N-1 EE queries). "
-            "Increase if Earth Engine times out on long ranges.",
+            description="Minimum number of chunk boundaries (N boundaries produce N-1 Earth Engine "
+            "queries). More queries are used automatically when a chunk would cover more than "
+            "two years.",
         ),
     ] = 5,
 ) -> AnyDataFrame:
     """
     Compute seasonal time windows from MODIS NDVI within an ROI.
 
-    Splits the requested time range into chunks, fetches standardized NDVI
-    values per chunk via Earth Engine, clusters them into two seasons
-    (low/high NDVI), and returns the seasonal windows.
+    Fetches the mean NDVI of every image over the ROI from Earth Engine, in
+    chunks of at most two years, clusters the values into two seasons (low/high
+    NDVI), and returns the seasonal windows.
 
-    If the requested `since` predates MODIS coverage (2000-02-24), it is
-    clamped forward and a warning is logged.
+    The NDVI history always starts at the beginning of MODIS coverage
+    (2000-02-24), whatever `time_range.since` is: the season cut is fitted on
+    the long-term record, and only `time_range.until` is used.
     """
     modis_start = MODIS_START.replace(tzinfo=time_range.since.tzinfo)
     time_range = time_range.model_copy(update={"since": modis_start})
     merged_roi = cast(gpd.GeoDataFrame, roi).to_crs(4326).union_all()
+    simplified_roi = merged_roi.simplify(ROI_SIMPLIFY_DEGREES)
+    if not simplified_roi.is_empty:
+        merged_roi = simplified_roi
 
+    span_days = (time_range.until - time_range.since).total_seconds() / 86400
+    periods = max(chunk_count, math.ceil(span_days / MAX_CHUNK_DAYS) + 1, 2)
     chunk_dates = pd.date_range(
         start=time_range.since,
         end=time_range.until,
-        periods=chunk_count,
+        periods=periods,
         inclusive="both",
     )
     chunk_strings = [d.isoformat() for d in chunk_dates]
 
     ndvi_chunks = [
-        std_ndvi_vals(
+        _fetch_ndvi(
             img_coll=img_collection,
             nir_band=nir_band,
             red_band=red_band,
@@ -81,7 +147,15 @@ def compute_seasons_from_ndvi(
         )
         for start, end in zip(chunk_strings[:-1], chunk_strings[1:])
     ]
-    ndvi_vals = pd.concat(ndvi_chunks)
+    ndvi_vals = pd.concat(ndvi_chunks, ignore_index=True).dropna().sort_values("img_date", ignore_index=True)
+    if ndvi_vals.empty:
+        raise ValueError(
+            f"compute_seasons_from_ndvi: Earth Engine returned no NDVI values for the region of interest "
+            f"from {img_collection!r} between {chunk_strings[0]} and {chunk_strings[-1]}."
+        )
+    # Scale to 0..1 once, over the whole record, so all chunks share one scale.
+    ndvi = ndvi_vals["NDVI"].to_numpy()
+    ndvi_vals["NDVI"] = (ndvi - ndvi.min()) / (ndvi.max() - ndvi.min())
     cuts = val_cuts(ndvi_vals, 2)
     return cast(AnyDataFrame, seasonal_windows(ndvi_vals, cuts, season_labels=["Dry", "Wet"]))
 

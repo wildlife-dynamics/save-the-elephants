@@ -4,10 +4,10 @@ Both `compute_seasons_from_ndvi` and `create_seasonal_labels` are registered
 via `wt_registry.register()`, which is a no-op at call time, so they behave
 as plain Python functions here.
 
-`compute_seasons_from_ndvi` calls Google Earth Engine (via
-`ecoscope.analysis.seasons.std_ndvi_vals`) to fetch NDVI values, which
-requires real network access and EE credentials. These tests patch
-`std_ndvi_vals` (the only EE-touching call in this module) with synthetic
+`compute_seasons_from_ndvi` calls Google Earth Engine (via the module's
+`_fetch_ndvi`) to fetch NDVI values, which requires real network access and
+EE credentials. These tests patch `_fetch_ndvi` (the only EE-touching call
+in this module) with synthetic
 NDVI data and let the rest of the pipeline -- `val_cuts` (sklearn Gaussian
 mixture) and `seasonal_windows` (pure pandas) -- run for real, since neither
 touches the network. The unused `client: EarthEngineClient` parameter is
@@ -15,18 +15,13 @@ never referenced in the function body (establishing the EE connection is a
 side effect of constructing the client upstream), so tests simply pass
 `None` for it.
 
-Two suspected source bugs were found while writing these tests (not fixed
-here):
+`compute_seasons_from_ndvi` always starts the NDVI history at `MODIS_START`
+(2000-02-24), whatever `time_range.since` is. That is deliberate: the season
+cut is fitted on the long-term record.
 
-1. `compute_seasons_from_ndvi` *unconditionally* overwrites
-   `time_range.since` with `MODIS_START` (2000-02-24), regardless of whether
-   the caller's requested `since` is already after MODIS coverage began.
-   The docstring implies conditional clamping ("if the requested `since`
-   predates MODIS coverage... it is clamped forward"), but there is no such
-   conditional in the code -- every call effectively ignores the caller's
-   `since` entirely. See `test_since_is_always_clamped_to_modis_start_even_when_later`.
+A suspected source bug was found while writing these tests (not fixed here):
 
-2. `create_seasonal_labels` silently produces an all-`None` `season` column
+`create_seasonal_labels` silently produces an all-`None` `season` column
    when `trajectories["segment_start"/"segment_end"]` and
    `seasons_df["start"/"end"]` have different `datetime64` *unit* resolution
    (e.g. `datetime64[ms, UTC]`, as commonly produced by GeoPackage reads via
@@ -40,20 +35,26 @@ here):
 """
 
 from datetime import datetime, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
-from shapely.geometry import Point
+from shapely.geometry import Point, box
 
 import ecoscope_workflows_ext_ste.tasks.io._seasons as seasons_mod
 from ecoscope.platform.tasks.filter._filter import UTC_TIMEZONEINFO, TimeRange
-from ecoscope_workflows_ext_ste.tasks.io._seasons import MODIS_START, compute_seasons_from_ndvi, create_seasonal_labels
+from ecoscope_workflows_ext_ste.tasks.io._seasons import (
+    MAX_CHUNK_DAYS,
+    MODIS_START,
+    _fetch_ndvi,
+    compute_seasons_from_ndvi,
+    create_seasonal_labels,
+)
 
 
-def _fake_std_ndvi_vals(rng_seed=0, n=20):
+def _fake_fetch_ndvi(rng_seed=0, n=20):
     rng = np.random.default_rng(rng_seed)
 
     def _fake(img_coll, nir_band, red_band, aoi, start, end):
@@ -80,7 +81,7 @@ def time_range() -> TimeRange:
 
 class TestComputeSeasonsFromNdvi:
     def test_returns_dataframe_with_expected_columns(self, aois_gdf, time_range):
-        with patch.object(seasons_mod, "std_ndvi_vals", side_effect=_fake_std_ndvi_vals()):
+        with patch.object(seasons_mod, "_fetch_ndvi", side_effect=_fake_fetch_ndvi()):
             result = compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=time_range, chunk_count=3)
 
         assert isinstance(result, pd.DataFrame)
@@ -89,19 +90,74 @@ class TestComputeSeasonsFromNdvi:
         assert len(result) > 0
 
     def test_chunk_count_determines_number_of_ndvi_calls(self, aois_gdf, time_range):
-        fake = _fake_std_ndvi_vals()
-        with patch.object(seasons_mod, "std_ndvi_vals", side_effect=fake) as mock_ndvi:
-            compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=time_range, chunk_count=5)
+        fake = _fake_fetch_ndvi()
+        with patch.object(seasons_mod, "_fetch_ndvi", side_effect=fake) as mock_ndvi:
+            compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=time_range, chunk_count=20)
 
         # chunk_count produces chunk_count - 1 EE queries (see docstring).
-        assert mock_ndvi.call_count == 4
+        assert mock_ndvi.call_count == 19
+
+    def test_chunks_never_cover_more_than_max_chunk_days(self, aois_gdf, time_range):
+        """A low chunk_count (the mapbook spec passes 5) must not produce
+        multi-year requests: the MODIS record is split further automatically."""
+        fake = _fake_fetch_ndvi()
+        with patch.object(seasons_mod, "_fetch_ndvi", side_effect=fake) as mock_ndvi:
+            compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=time_range, chunk_count=5)
+
+        assert mock_ndvi.call_count > 4
+        for call in mock_ndvi.call_args_list:
+            span = pd.Timestamp(call.kwargs["end"]) - pd.Timestamp(call.kwargs["start"])
+            assert span <= pd.Timedelta(days=MAX_CHUNK_DAYS)
+        # Chunks are contiguous: each one starts where the previous one ended.
+        starts = [c.kwargs["start"] for c in mock_ndvi.call_args_list]
+        ends = [c.kwargs["end"] for c in mock_ndvi.call_args_list]
+        assert starts[1:] == ends[:-1]
+
+    def test_ndvi_is_scaled_once_over_all_chunks(self, aois_gdf, time_range):
+        """Chunks come back unscaled and are min-max scaled together, so a
+        chunk with a narrow NDVI range is not stretched to 0..1 on its own."""
+        captured = {}
+        real_val_cuts = seasons_mod.val_cuts
+
+        def spy(vals, num_seasons):
+            captured["ndvi"] = vals["NDVI"].to_numpy().copy()
+            return real_val_cuts(vals, num_seasons)
+
+        calls = iter(range(1000))
+
+        def fake(img_coll, nir_band, red_band, aoi, start, end):
+            i = next(calls)
+            dates = pd.date_range(start=start, end=end, periods=11, tz="UTC")[:-1]
+            # First chunk spans 0.2..0.8; all later chunks sit in a narrow 0.4..0.5 band.
+            ndvi = np.linspace(0.2, 0.8, 10) if i == 0 else np.linspace(0.4, 0.5, 10)
+            return pd.DataFrame({"img_date": dates, "NDVI": ndvi})
+
+        with (
+            patch.object(seasons_mod, "_fetch_ndvi", side_effect=fake),
+            patch.object(seasons_mod, "val_cuts", side_effect=spy),
+        ):
+            compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=time_range, chunk_count=2)
+
+        scaled = captured["ndvi"]
+        assert scaled.min() == pytest.approx(0.0)
+        assert scaled.max() == pytest.approx(1.0)
+        # The narrow chunks keep their place on the shared scale: (0.4-0.2)/0.6 .. (0.5-0.2)/0.6
+        assert scaled[10:].min() == pytest.approx(1 / 3)
+        assert scaled[10:].max() == pytest.approx(0.5)
+
+    def test_no_ndvi_values_raises_clear_error(self, aois_gdf, time_range):
+        def empty(img_coll, nir_band, red_band, aoi, start, end):
+            return pd.DataFrame({"img_date": pd.to_datetime([], utc=True), "NDVI": np.array([], dtype=float)})
+
+        with patch.object(seasons_mod, "_fetch_ndvi", side_effect=empty):
+            with pytest.raises(ValueError, match="returned no NDVI values"):
+                compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=time_range)
 
     def test_since_is_always_clamped_to_modis_start_even_when_later(self, aois_gdf, time_range):
-        """Suspected bug: `since` (2015-01-01, well after MODIS coverage
-        began) is unconditionally overwritten with MODIS_START rather than
-        left alone."""
-        fake = _fake_std_ndvi_vals()
-        with patch.object(seasons_mod, "std_ndvi_vals", side_effect=fake) as mock_ndvi:
+        """`since` (2015-01-01, well after MODIS coverage began) is replaced
+        with MODIS_START: the season cut uses the whole MODIS record."""
+        fake = _fake_fetch_ndvi()
+        with patch.object(seasons_mod, "_fetch_ndvi", side_effect=fake) as mock_ndvi:
             compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=time_range, chunk_count=2)
 
         first_call_start = mock_ndvi.call_args_list[0].kwargs["start"]
@@ -113,16 +169,16 @@ class TestComputeSeasonsFromNdvi:
             until=datetime(2001, 1, 1, tzinfo=timezone.utc),
             timezone=UTC_TIMEZONEINFO,
         )
-        fake = _fake_std_ndvi_vals()
-        with patch.object(seasons_mod, "std_ndvi_vals", side_effect=fake) as mock_ndvi:
+        fake = _fake_fetch_ndvi()
+        with patch.object(seasons_mod, "_fetch_ndvi", side_effect=fake) as mock_ndvi:
             compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=tr, chunk_count=2)
 
         first_call_start = mock_ndvi.call_args_list[0].kwargs["start"]
         assert first_call_start == MODIS_START.replace(tzinfo=timezone.utc).isoformat()
 
     def test_passes_band_and_collection_overrides_through(self, aois_gdf, time_range):
-        fake = _fake_std_ndvi_vals()
-        with patch.object(seasons_mod, "std_ndvi_vals", side_effect=fake) as mock_ndvi:
+        fake = _fake_fetch_ndvi()
+        with patch.object(seasons_mod, "_fetch_ndvi", side_effect=fake) as mock_ndvi:
             compute_seasons_from_ndvi(
                 client=None,
                 roi=aois_gdf,
@@ -140,14 +196,66 @@ class TestComputeSeasonsFromNdvi:
 
     def test_merges_multi_polygon_roi_into_single_geometry(self, aois_gdf, time_range):
         assert len(aois_gdf) > 1  # multiple named AOI polygons
-        fake = _fake_std_ndvi_vals()
-        with patch.object(seasons_mod, "std_ndvi_vals", side_effect=fake) as mock_ndvi:
+        fake = _fake_fetch_ndvi()
+        with patch.object(seasons_mod, "_fetch_ndvi", side_effect=fake) as mock_ndvi:
             compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=time_range, chunk_count=2)
 
         aoi_arg = mock_ndvi.call_args_list[0].kwargs["aoi"]
         # union_all() collapses the GeoDataFrame down to one geometry object.
         assert not isinstance(aoi_arg, gpd.GeoDataFrame)
         assert hasattr(aoi_arg, "geom_type")
+
+
+# ============================================================================
+# _fetch_ndvi -- Earth Engine request, with a stand-in `ee` module
+# ============================================================================
+
+
+class TestFetchNdvi:
+    def _fake_ee(self, rows):
+        fake_ee = MagicMock()
+        chain = fake_ee.ImageCollection.return_value.select.return_value.filterDate.return_value
+        mapped = chain.map.return_value.filter.return_value
+        mapped.reduceColumns.return_value.get.return_value.getInfo.return_value = rows
+        return fake_ee, chain
+
+    def test_builds_dataframe_from_time_and_ndvi_pairs(self):
+        rows = [[1577836800000, 0.25], [1577923200000, 0.5]]  # 2020-01-01, 2020-01-02
+        fake_ee, chain = self._fake_ee(rows)
+        with patch.dict("sys.modules", {"ee": fake_ee}):
+            df = _fetch_ndvi(box(37, -3, 38, -2), "COLL", "nir", "red", "2020-01-01", "2020-01-03")
+
+        assert list(df.columns) == ["img_date", "NDVI"]
+        assert list(df["img_date"]) == list(pd.to_datetime(["2020-01-01", "2020-01-02"], utc=True))
+        assert list(df["NDVI"]) == [0.25, 0.5]
+        fake_ee.ImageCollection.assert_called_once_with("COLL")
+        fake_ee.ImageCollection.return_value.select.assert_called_once_with(["nir", "red"])
+        fake_ee.ImageCollection.return_value.select.return_value.filterDate.assert_called_once_with(
+            "2020-01-01", "2020-01-03"
+        )
+        # Images are reduced one by one; they are never stacked into one image.
+        chain.toBands.assert_not_called()
+
+    def test_each_image_is_reduced_on_its_own_at_modis_scale(self):
+        fake_ee, chain = self._fake_ee([])
+        with patch.dict("sys.modules", {"ee": fake_ee}):
+            _fetch_ndvi(box(37, -3, 38, -2), "COLL", "nir", "red", "2020-01-01", "2020-01-03")
+            per_image = chain.map.call_args.args[0]
+            img = MagicMock()
+            per_image(img)
+
+        img.normalizedDifference.assert_called_once_with(["nir", "red"])
+        kwargs = img.normalizedDifference.return_value.rename.return_value.reduceRegion.call_args.kwargs
+        assert kwargs["scale"] == 500
+        assert kwargs["bestEffort"] is True
+
+    def test_no_images_gives_empty_frame(self):
+        fake_ee, _ = self._fake_ee([])
+        with patch.dict("sys.modules", {"ee": fake_ee}):
+            df = _fetch_ndvi(box(37, -3, 38, -2), "COLL", "nir", "red", "2020-01-01", "2020-01-03")
+
+        assert df.empty
+        assert list(df.columns) == ["img_date", "NDVI"]
 
 
 # ============================================================================
