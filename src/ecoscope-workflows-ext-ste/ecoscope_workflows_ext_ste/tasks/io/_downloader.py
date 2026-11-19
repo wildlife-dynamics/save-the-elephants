@@ -16,6 +16,7 @@ from ._path_utils import get_local_file_path
 from typing import Annotated, Union, Optional
 from ecoscope_workflows_ext_custom.storage import is_gcs, normalize_uri, write_file
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
+from .._log import log
 
 
 class DownloadFile(BaseModel):
@@ -48,7 +49,10 @@ SelectPath: TypeAlias = Union[DownloadFile, LocalFile]
 @register()
 def fetch_and_persist_file(
     url: Annotated[str, Field(description="URL to download the file from")],
-    output_path: Annotated[Optional[str], Field(description="Path to save the downloaded file or directory.")] = None,
+    output_path: Annotated[
+        Optional[str],
+        Field(description="Path to save the downloaded file or directory."),
+    ] = None,
     retries: Annotated[int, Field(description="Number of retries on failure", ge=0)] = 3,
     overwrite_existing: Annotated[bool, Field(description="Whether to overwrite existing files")] = False,
     unzip: Annotated[bool, Field(description="Whether to unzip the file if it's a zip archive")] = False,
@@ -87,7 +91,7 @@ def _fetch_to_gcs(url: str, gcs_path: str, retries: int, unzip: bool) -> str:
 
     # Each web run writes to a fresh results folder, so the upload always overwrites.
     persisted = write_file(local, root, filename or os.path.basename(local))
-    print(f"File uploaded and persisted at: {persisted}")
+    log("files", f"download: uploaded to {persisted}")
     return persisted
 
 
@@ -98,7 +102,7 @@ def _fetch_and_persist_local(
     overwrite_existing: bool,
     unzip: bool,
 ) -> str:
-    print(f"Downloading file from URL: {url}")
+    log("files", f"download: fetching {url}")
     if output_path is None or str(output_path).strip() == "":
         output_path = os.getcwd()
     else:
@@ -189,7 +193,7 @@ def _fetch_and_persist_local(
             )
         else:
             raise FileNotFoundError(f"Download failed — {persisted_path}. Parent dir missing: {parent}")
-    print(f"File downloaded and persisted at: {persisted_path}")
+    log("files", f"download: saved to {persisted_path}")
     return persisted_path
 
 
@@ -207,6 +211,7 @@ def get_file_path(
     or None if no input method was provided.
     """
     if input_method is None:
+        log("files", "file input: none provided")
         return None
     elif isinstance(input_method, DownloadFile):
         return fetch_and_persist_file(

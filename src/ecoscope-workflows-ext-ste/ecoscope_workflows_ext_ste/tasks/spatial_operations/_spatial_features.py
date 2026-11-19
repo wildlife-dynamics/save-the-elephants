@@ -14,6 +14,7 @@ from ecoscope.platform.connections import EarthRangerClient
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 from typing_extensions import Self
+from .._log import count, log
 
 RGBA: TypeAlias = list[int]  # [R, G, B, A]
 
@@ -297,10 +298,13 @@ def get_featureset(
     """Retrieve all spatial features belonging to an EarthRanger featureset."""
     response = client._get(f"featureset/{featureset_id}/")  # type: ignore[attr-defined]
     if not isinstance(response, dict):
+        log("maps", f"featureset {featureset_id}: EarthRanger returned no data")
         return cast(EmptyDataFrame, pd.DataFrame())
     if not (features := response.get("features", [])):
+        log("maps", f"featureset {featureset_id}: it has no features")
         return cast(EmptyDataFrame, pd.DataFrame())
     gdf = gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")
+    log("maps", f"featureset {featureset_id}: {count(len(gdf), 'feature')}")
     return cast(AnyGeoDataFrame, gdf)
 
 
@@ -457,6 +461,7 @@ def get_spatial_features(
     so downstream layer creation can render each as an independent map layer.
     """
     if not layers:
+        log("maps", "EarthRanger spatial features: no layers requested")
         return []
     server_url = getattr(client, "server", "").rstrip("/")
     out: list[AnyGeoDataFrame] = []
@@ -464,8 +469,14 @@ def get_spatial_features(
         spec = SpatialFeatureLayer.model_validate(spec)
         styled = spec.load(client, server_url)
         if styled.empty:
+            log("maps", "  EarthRanger layer: no features found, left out")
             continue
+        log("maps", f"  EarthRanger layer: {count(len(styled), 'feature')}")
         out.append(styled)
+    log(
+        "maps",
+        f"EarthRanger spatial features: {len(out)} of {count(len(layers), 'layer')} loaded",
+    )
     return out
 
 
@@ -571,11 +582,17 @@ def load_local_spatial_file(
     group within a file), so downstream layer creation renders each separately.
     """
     if not files:
+        log("maps", "local spatial files: none given")
         return []
     out: list[AnyGeoDataFrame] = []
     for spec in files:
         spec = LocalSpatialLayer.model_validate(spec)
         out.extend(spec.load())
+    log(
+        "maps",
+        f"local spatial files: {count(len(out), 'layer')} from {count(len(files), 'file')}, "
+        f"{sum(len(gdf) for gdf in out):,} features",
+    )
     return out
 
 

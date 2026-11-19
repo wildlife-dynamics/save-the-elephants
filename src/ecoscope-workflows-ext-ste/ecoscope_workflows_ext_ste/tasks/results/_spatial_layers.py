@@ -26,6 +26,7 @@ from ..spatial_operations._spatial_features import (
     LocalSpatialLayer,
     _apply_column_style,
 )
+from .._log import count, log
 
 
 class _UnifiedLegend:
@@ -208,8 +209,17 @@ def geodataframe_from_layers(
         layer.geodataframe for layer in layers if layer.geodataframe is not None and layer.layer_type != "TextLayer"
     ]
     if not gdfs:
+        log(
+            "maps",
+            f"layers to table: none of the {count(len(layers), 'layer')} has features to extract",
+        )
         return cast(AnyGeoDataFrame, gpd.GeoDataFrame())
-    return cast(AnyGeoDataFrame, pd.concat(gdfs, ignore_index=True))
+    combined = pd.concat(gdfs, ignore_index=True)
+    log(
+        "maps",
+        f"layers to table: {count(len(combined), 'feature')} from {len(gdfs)} of {count(len(layers), 'layer')}",
+    )
+    return cast(AnyGeoDataFrame, combined)
 
 
 @register()
@@ -235,6 +245,10 @@ def create_spatial_features_layer(
     layers: list[LayerDefinition] = []
     for gdf in geodataframes or []:
         layers.extend(_layers_for_gdf(gdf))  # type: ignore[arg-type]
+    log(
+        "maps",
+        f"spatial feature layers: {count(len(layers), 'layer')} from {count(len(geodataframes or []), 'source')}",
+    )
     return layers
 
 
@@ -312,6 +326,11 @@ def create_column_styled_layer(
             legend_title=legend_title,
         )
         layers.extend(_layers_for_gdf(styled))  # type: ignore[arg-type]
+    log(
+        "maps",
+        f"styled layers: {count(len(layers), 'layer')} from {count(len(geodataframes or []), 'source')}"
+        + (f", grouped by '{group_by}'" if group_by else ""),
+    )
     return layers
 
 
@@ -537,7 +556,9 @@ def create_categorical_layers(
     client: Annotated[
         Any,
         Field(
-            default=None, description="EarthRanger client, required only for " "layers that use `query`.", exclude=True
+            default=None,
+            description="EarthRanger client, required only for " "layers that use `query`.",
+            exclude=True,
         ),
     ] = None,
 ) -> Annotated[list[LayerDefinition], Field()]:
@@ -546,6 +567,10 @@ def create_categorical_layers(
     for spec in layers or []:
         spec = CategoricalLayer.model_validate(spec)
         out.extend(spec.build(client))
+    log(
+        "maps",
+        f"categorical layers: {count(len(out), 'layer')} from {count(len(layers or []), 'layer spec')}",
+    )
     return out
 
 
@@ -625,6 +650,7 @@ def create_categorical_styled_layer(
 
     gdf = geodataframe.copy()
     if gdf is None or gdf.empty:
+        log("maps", f"layer coloured by '{color_by}': no features, no layer made")
         return []
     if color_by not in gdf.columns:
         raise KeyError(f"color_by column {color_by!r} not found. " f"Available: {sorted(map(str, gdf.columns))}")
@@ -637,6 +663,10 @@ def create_categorical_styled_layer(
     if unmapped == "drop":
         gdf = gdf[gdf["_cat_color"].notna()].reset_index(drop=True)
         if gdf.empty:
+            log(
+                "maps",
+                f"layer coloured by '{color_by}': no feature has a mapped colour, no layer made",
+            )
             return []
     styled = _apply_column_style(
         gdf,
@@ -649,4 +679,10 @@ def create_categorical_styled_layer(
         group_by=group_by or color_by,
         legend_title=legend_title,
     )
-    return list(_layers_for_gdf(styled))  # type: ignore[arg-type]
+    result = list(_layers_for_gdf(styled))  # type: ignore[arg-type]
+    log(
+        "maps",
+        f"layer coloured by '{color_by}': {count(len(gdf), 'feature')}, "
+        f"{count(len(all_values), 'category', 'categories')}, {count(len(result), 'layer')}",
+    )
+    return result

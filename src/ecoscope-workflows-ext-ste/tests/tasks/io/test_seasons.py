@@ -34,6 +34,8 @@ A suspected source bug was found while writing these tests (not fixed here):
    `test_real_fixtures_silently_fail_due_to_datetime_unit_mismatch`.
 """
 
+import threading
+import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -47,8 +49,11 @@ import ecoscope_workflows_ext_ste.tasks.io._seasons as seasons_mod
 from ecoscope.platform.tasks.filter._filter import UTC_TIMEZONEINFO, TimeRange
 from ecoscope_workflows_ext_ste.tasks.io._seasons import (
     MAX_CHUNK_DAYS,
+    MAX_PARALLEL_REQUESTS,
     MODIS_START,
+    NDVI_SCALE_METERS,
     _fetch_ndvi,
+    _ndvi_scale_meters,
     compute_seasons_from_ndvi,
     create_seasonal_labels,
 )
@@ -57,7 +62,7 @@ from ecoscope_workflows_ext_ste.tasks.io._seasons import (
 def _fake_fetch_ndvi(rng_seed=0, n=20):
     rng = np.random.default_rng(rng_seed)
 
-    def _fake(img_coll, nir_band, red_band, aoi, start, end):
+    def _fake(img_coll, nir_band, red_band, aoi, start, end, scale=500):
         dates = pd.date_range(start=start, end=end, periods=n, tz="UTC")
         ndvi = rng.uniform(0, 1, size=n)
         return pd.DataFrame({"img_date": dates, "NDVI": ndvi})
@@ -109,8 +114,10 @@ class TestComputeSeasonsFromNdvi:
             span = pd.Timestamp(call.kwargs["end"]) - pd.Timestamp(call.kwargs["start"])
             assert span <= pd.Timedelta(days=MAX_CHUNK_DAYS)
         # Chunks are contiguous: each one starts where the previous one ended.
-        starts = [c.kwargs["start"] for c in mock_ndvi.call_args_list]
-        ends = [c.kwargs["end"] for c in mock_ndvi.call_args_list]
+        # (Requests run in parallel, so sort them rather than rely on call order.)
+        periods = sorted((c.kwargs["start"], c.kwargs["end"]) for c in mock_ndvi.call_args_list)
+        starts = [start for start, _ in periods]
+        ends = [end for _, end in periods]
         assert starts[1:] == ends[:-1]
 
     def test_ndvi_is_scaled_once_over_all_chunks(self, aois_gdf, time_range):
@@ -123,13 +130,12 @@ class TestComputeSeasonsFromNdvi:
             captured["ndvi"] = vals["NDVI"].to_numpy().copy()
             return real_val_cuts(vals, num_seasons)
 
-        calls = iter(range(1000))
+        first_start = MODIS_START.replace(tzinfo=timezone.utc).isoformat()
 
-        def fake(img_coll, nir_band, red_band, aoi, start, end):
-            i = next(calls)
+        def fake(img_coll, nir_band, red_band, aoi, start, end, scale=500):
             dates = pd.date_range(start=start, end=end, periods=11, tz="UTC")[:-1]
-            # First chunk spans 0.2..0.8; all later chunks sit in a narrow 0.4..0.5 band.
-            ndvi = np.linspace(0.2, 0.8, 10) if i == 0 else np.linspace(0.4, 0.5, 10)
+            # The first chunk spans 0.2..0.8; all later chunks sit in a narrow 0.4..0.5 band.
+            ndvi = np.linspace(0.2, 0.8, 10) if start == first_start else np.linspace(0.4, 0.5, 10)
             return pd.DataFrame({"img_date": dates, "NDVI": ndvi})
 
         with (
@@ -145,8 +151,70 @@ class TestComputeSeasonsFromNdvi:
         assert scaled[10:].min() == pytest.approx(1 / 3)
         assert scaled[10:].max() == pytest.approx(0.5)
 
+    def test_chunks_are_requested_in_parallel_and_kept_in_date_order(self, aois_gdf, time_range):
+        """Chunk requests overlap in time, and the result does not depend on
+        which request finishes first."""
+        first_start = MODIS_START.replace(tzinfo=timezone.utc).isoformat()
+        lock = threading.Lock()
+        state = {"running": 0, "peak": 0}
+        captured = {}
+        real_val_cuts = seasons_mod.val_cuts
+
+        def spy(vals, num_seasons):
+            captured["dates"] = vals["img_date"].tolist()
+            return real_val_cuts(vals, num_seasons)
+
+        def slow(img_coll, nir_band, red_band, aoi, start, end, scale=500):
+            with lock:
+                state["running"] += 1
+                state["peak"] = max(state["peak"], state["running"])
+            # The earliest chunk finishes last.
+            time.sleep(0.2 if start == first_start else 0.05)
+            with lock:
+                state["running"] -= 1
+            dates = pd.date_range(start=start, end=end, periods=11, tz="UTC")[:-1]
+            return pd.DataFrame({"img_date": dates, "NDVI": np.linspace(0.1, 0.9, 10)})
+
+        with (
+            patch.object(seasons_mod, "_fetch_ndvi", side_effect=slow),
+            patch.object(seasons_mod, "val_cuts", side_effect=spy),
+        ):
+            compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=time_range)
+
+        assert 1 < state["peak"] <= MAX_PARALLEL_REQUESTS
+        assert captured["dates"] == sorted(captured["dates"])
+
+    def test_failed_chunk_request_raises(self, aois_gdf, time_range):
+        def failing(img_coll, nir_band, red_band, aoi, start, end, scale=500):
+            raise RuntimeError("Earth Engine is unavailable")
+
+        with patch.object(seasons_mod, "_fetch_ndvi", side_effect=failing):
+            with pytest.raises(RuntimeError, match="Earth Engine is unavailable"):
+                compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=time_range)
+
+    def test_large_region_is_fetched_at_coarser_pixels(self, time_range):
+        """A region too big for 500 m pixels uses coarser ones, a small one keeps 500 m."""
+        fake = _fake_fetch_ndvi()
+        small = gpd.GeoDataFrame(geometry=[box(37.0, -2.9, 37.8, -2.3)], crs="EPSG:4326")  # about 5,900 km2
+        large = gpd.GeoDataFrame(geometry=[box(30.0, -8.0, 40.0, 2.0)], crs="EPSG:4326")  # about 1.2 million km2
+
+        with patch.object(seasons_mod, "_fetch_ndvi", side_effect=fake) as mock_small:
+            compute_seasons_from_ndvi(client=None, roi=small, time_range=time_range)
+        with patch.object(seasons_mod, "_fetch_ndvi", side_effect=fake) as mock_large:
+            compute_seasons_from_ndvi(client=None, roi=large, time_range=time_range)
+
+        assert {c.kwargs["scale"] for c in mock_small.call_args_list} == {NDVI_SCALE_METERS}
+        large_scales = {c.kwargs["scale"] for c in mock_large.call_args_list}
+        assert len(large_scales) == 1
+        assert 4000 < large_scales.pop() < 6000
+
+    def test_pixel_size_never_goes_below_modis_resolution(self):
+        assert _ndvi_scale_meters(1.0) == NDVI_SCALE_METERS
+        assert _ndvi_scale_meters(12_500e6) == NDVI_SCALE_METERS  # exactly 50,000 pixels at 500 m
+        assert _ndvi_scale_meters(50_000e6) == 1000
+
     def test_no_ndvi_values_raises_clear_error(self, aois_gdf, time_range):
-        def empty(img_coll, nir_band, red_band, aoi, start, end):
+        def empty(img_coll, nir_band, red_band, aoi, start, end, scale=500):
             return pd.DataFrame({"img_date": pd.to_datetime([], utc=True), "NDVI": np.array([], dtype=float)})
 
         with patch.object(seasons_mod, "_fetch_ndvi", side_effect=empty):
@@ -160,7 +228,7 @@ class TestComputeSeasonsFromNdvi:
         with patch.object(seasons_mod, "_fetch_ndvi", side_effect=fake) as mock_ndvi:
             compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=time_range, chunk_count=2)
 
-        first_call_start = mock_ndvi.call_args_list[0].kwargs["start"]
+        first_call_start = min(c.kwargs["start"] for c in mock_ndvi.call_args_list)
         assert first_call_start == MODIS_START.replace(tzinfo=timezone.utc).isoformat()
 
     def test_predating_modis_start_is_also_clamped_forward(self, aois_gdf):
@@ -173,7 +241,7 @@ class TestComputeSeasonsFromNdvi:
         with patch.object(seasons_mod, "_fetch_ndvi", side_effect=fake) as mock_ndvi:
             compute_seasons_from_ndvi(client=None, roi=aois_gdf, time_range=tr, chunk_count=2)
 
-        first_call_start = mock_ndvi.call_args_list[0].kwargs["start"]
+        first_call_start = min(c.kwargs["start"] for c in mock_ndvi.call_args_list)
         assert first_call_start == MODIS_START.replace(tzinfo=timezone.utc).isoformat()
 
     def test_passes_band_and_collection_overrides_through(self, aois_gdf, time_range):

@@ -11,6 +11,7 @@ from pydantic.json_schema import SkipJsonSchema
 from ecoscope.platform.annotations import AnyDataFrame
 from ecoscope.platform.tasks.filter import TimezoneInfo
 from ecoscope.platform.connections import EarthRangerClient
+from .._log import count, log, timed
 
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".gif", ".webp"}
 
@@ -44,7 +45,7 @@ def _read_exif(path: Path) -> dict:
         record["make"] = exif.get(_EXIF_MAKE)
         record["model"] = exif.get(_EXIF_MODEL)
     except Exception as exc:
-        print(f"  [warn] EXIF read failed for {path.name}: {exc}")
+        log("aerial", f"  {path.name}: WARNING could not read EXIF data ({exc})")
     return record
 
 
@@ -71,8 +72,8 @@ def process_aerial_images(
     if not folder.exists():
         raise FileNotFoundError(f"Image folder not found: {folder}")
 
-    print(f"Scanning images in: {folder}")
-    records = [_read_exif(p) for p in sorted(folder.rglob("*")) if p.suffix.lower() in _IMAGE_SUFFIXES]
+    with timed("aerial", f"reading image timestamps in {folder}"):
+        records = [_read_exif(p) for p in sorted(folder.rglob("*")) if p.suffix.lower() in _IMAGE_SUFFIXES]
     if not records:
         raise ValueError(f"No supported images found in: {folder}")
 
@@ -82,13 +83,20 @@ def process_aerial_images(
     df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce").dt.tz_localize(tz)
 
     n_valid = df["datetime"].notna().sum()
-    print(f"Processed {len(df)} images — {n_valid} with readable timestamps, {len(df) - n_valid} skipped.")
+    log(
+        "aerial",
+        f"{count(len(df), 'image')} found: {n_valid:,} with a readable timestamp, "
+        f"{len(df) - n_valid:,} without (these cannot be matched to events); camera clock read as {tz}",
+    )
     return df
 
 
 @register()
 def upload_images_to_er_events(
-    client: Annotated[EarthRangerClient, Field(description="EarthRanger client from set_er_connection")],
+    client: Annotated[
+        EarthRangerClient,
+        Field(description="EarthRanger client from set_er_connection"),
+    ],
     matched_df: Annotated[AnyDataFrame, Field(description="Output of match_images_to_events")],
 ) -> AnyDataFrame:
     """
@@ -118,9 +126,16 @@ def upload_images_to_er_events(
             client.post_event_file(event_id=event_id, filepath=str(path))
             record["success"] = True
         except Exception as exc:
-            print(f"  [error] {path.name} → event {serial}: {exc}")
+            log(
+                "aerial",
+                f"  {path.name}: ERROR upload to event {serial} failed ({exc})",
+            )
         return record
 
+    log(
+        "aerial",
+        f"uploading {count(len(uploads), 'image')} to {count(len(matched_df), 'event')}...",
+    )
     with concurrent.futures.ThreadPoolExecutor(max_workers=client.tcp_limit) as executor:
         futures = [executor.submit(_upload, *args) for args in uploads]
 
@@ -133,5 +148,8 @@ def upload_images_to_er_events(
         )
     ]
     uploaded = sum(r["success"] for r in results)
-    print(f"Upload complete: {uploaded} / {len(results)} files succeeded.")
+    log(
+        "aerial",
+        f"upload finished: {uploaded:,} of {count(len(results), 'image')} uploaded, {len(results) - uploaded:,} failed",
+    )
     return pd.DataFrame(results)

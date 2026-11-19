@@ -2,7 +2,13 @@ from pydantic import Field
 from wt_registry import register
 from wt_task.skip import SKIP_SENTINEL
 from typing import Optional, Any, Annotated, Literal
-from ecoscope_workflows_ext_custom.storage import as_readable, exists, normalize_uri, save_document
+from ecoscope_workflows_ext_custom.storage import (
+    as_readable,
+    exists,
+    normalize_uri,
+    save_document,
+)
+from .._log import count, log
 
 
 @register()
@@ -59,9 +65,12 @@ def merge_docx_documents(
     for idx, item in enumerate(context_page_items):
         path = extract_path(item)
         if path is None:
-            print(f"Skipping page item {idx}: no usable path ({item!r})")
+            log(
+                "report",
+                f"  merge: page {idx + 1} left out, it was skipped or has no file",
+            )
         elif not exists(path):
-            print(f"Skipping page item {idx}: file not found: {path}")
+            log("report", f"  merge: page {idx + 1} left out, file not found: {path}")
         else:
             pages.append(path)
 
@@ -89,10 +98,14 @@ def merge_docx_documents(
     composer = Composer(master)
 
     if not pages:
-        print("No valid context pages to merge; saving cover page only")
+        log("report", "merge: no subject pages to add, saving the cover page only")
     else:
         for page_path in pages:
             composer.append(Document(as_readable(page_path)))
     output_path = save_document(composer, output_dir, filename)
-    print(f"Merged {len(pages)} pages into {output_path}")
+    log(
+        "report",
+        f"merge: cover page plus {count(len(pages), 'subject page')} of "
+        f"{len(context_page_items):,} (ordered by {order_by}) saved to {output_path}",
+    )
     return output_path

@@ -13,6 +13,7 @@ from ecoscope.platform.tasks.results._pydeck import (
     PydeckLayerDefinition as LayerDefinition,
 )
 from ecoscope.platform.annotations import AdvancedField, AnyGeoDataFrame
+from .._log import count, log
 
 
 def _flatten(layers) -> list[LayerDefinition]:
@@ -49,7 +50,6 @@ def combine_deckgl_map_layers(
     """
     flat_static = _flatten(static_layers)
     flat_grouped = _flatten(grouped_layers)
-    print(f"[combine_layers] Combining {len(flat_static)} static + {len(flat_grouped)} grouped layers")
 
     static_with_legend = [layer for layer in flat_static if layer.legend is not None]
     static_without_legend = [layer for layer in flat_static if layer.legend is None]
@@ -65,7 +65,11 @@ def combine_deckgl_map_layers(
     text = [layer for layer in all_layers if isinstance(layer.layer_style, TextLayerStyle)]
     other = [layer for layer in all_layers if not isinstance(layer.layer_style, TextLayerStyle)]
     result = other + text
-    print(f"[combine_layers] Final stack: {len(result)} layers ({len(other)} base, {len(text)} text on top)")
+    log(
+        "maps",
+        f"map layers: {len(flat_static)} overlay + {len(flat_grouped)} data = {count(len(result), 'layer')}"
+        + (f" ({len(text)} text on top)" if text else ""),
+    )
     return result
 
 
@@ -77,7 +81,10 @@ def envelope_gdf(
     ],
     expansion_factor: Annotated[
         float,
-        AdvancedField(default=1.50, description="Factor to expand the bounding box (e.g., 1.2 = 20% larger)"),
+        AdvancedField(
+            default=1.50,
+            description="Factor to expand the bounding box (e.g., 1.2 = 20% larger)",
+        ),
     ] = 1.50,
 ) -> Annotated[
     AnyGeoDataFrame,
@@ -97,13 +104,15 @@ def envelope_gdf(
         GeoDataFrame with a single polygon representing the expanded envelope, or an
         empty GeoDataFrame when no feature has a geometry (so downstream steps skip).
     """
-    print(f"[envelope_gdf] Creating {expansion_factor}x expanded bounding box for {len(gdf)} features")
     if expansion_factor <= 0:
         raise ValueError("expansion_factor must be greater than 0")
 
     union = gdf.union_all()
     if union is None or union.is_empty:
-        print("[envelope_gdf] No geometries to bound; returning an empty GeoDataFrame")
+        log(
+            "maps",
+            "map extent: no geometries to bound, so the maps for this group are skipped",
+        )
         return gpd.GeoDataFrame({"geometry": []}, geometry="geometry", crs=gdf.crs)
 
     envelope = union.envelope
@@ -126,7 +135,11 @@ def envelope_gdf(
     expanded_envelope = box(new_minx, new_miny, new_maxx, new_maxy)
     envelope_gdf = gpd.GeoDataFrame({"geometry": [expanded_envelope]}, crs=gdf.crs)
 
-    print(f"[envelope_gdf] Envelope bounds: ({new_minx:.4f}, {new_miny:.4f}) to ({new_maxx:.4f}, {new_maxy:.4f})")
+    log(
+        "maps",
+        f"map extent: {count(len(gdf), 'feature')}, bounds x{expansion_factor:g} = "
+        f"({new_minx:.4f}, {new_miny:.4f}) to ({new_maxx:.4f}, {new_maxy:.4f})",
+    )
     return envelope_gdf
 
 
@@ -184,7 +197,6 @@ def compute_view_state_from_gdf(
         ),
     ] = 18.0,
 ) -> ViewState:
-    print(f"[view_state] Computing map view for {len(gdf)} features (CRS: {gdf.crs})")
     if gdf.empty:
         raise ValueError("GeoDataFrame is empty. Cannot compute ViewState.")
 
@@ -203,5 +215,8 @@ def compute_view_state_from_gdf(
         pitch=pitch,
         bearing=bearing,
     )
-    print(f"[view_state] Centered at ({center_lat:.4f}°N, {center_lon:.4f}°E), zoom={zoom}")
+    log(
+        "maps",
+        f"map view: centre {center_lat:.4f}, {center_lon:.4f} at zoom {zoom:.2f}",
+    )
     return result

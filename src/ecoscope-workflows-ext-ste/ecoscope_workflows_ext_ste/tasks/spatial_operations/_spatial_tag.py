@@ -4,6 +4,7 @@ from pydantic import Field
 from wt_registry import register
 from typing import Annotated, Literal, cast
 from ecoscope.platform.annotations import AnyGeoDataFrame
+from .._log import count, log
 
 
 @register()
@@ -80,19 +81,19 @@ def spatial_tag(
         raise ValueError("`reference_gdf` must have a CRS set.")
 
     if not reference_gdf.crs.equals(df.crs):
-        print(
-            "Reprojecting reference_gdf from %s to %s to match df.",
-            reference_gdf.crs,
-            df.crs,
+        log(
+            "tables",
+            f"spatial tag: reference areas reprojected from {reference_gdf.crs} to {df.crs}",
         )
         reference_gdf = cast(AnyGeoDataFrame, cast(gpd.GeoDataFrame, reference_gdf).to_crs(df.crs))
 
     out = df.copy()
 
     if reference_gdf.empty:
-        print(
-            "reference_gdf is empty; all rows will be tagged as '%s'.",
-            unmatched_label,
+        log(
+            "tables",
+            f"spatial tag: no reference areas, all {count(len(out), 'row')} tagged '{unmatched_label}' "
+            f"in '{output_column}'",
         )
         out[output_column] = unmatched_label
         return cast(AnyGeoDataFrame, out)
@@ -104,4 +105,10 @@ def spatial_tag(
         "contains": out.geometry.contains,
     }
     out[output_column] = np.where(predicate_map[predicate](reference_union), matched_label, unmatched_label)
+    matched = int((out[output_column] == matched_label).sum())
+    log(
+        "tables",
+        f"spatial tag ({predicate}): '{output_column}' is '{matched_label}' for {matched:,} and "
+        f"'{unmatched_label}' for {len(out) - matched:,} of {count(len(out), 'row')}",
+    )
     return cast(AnyGeoDataFrame, out)

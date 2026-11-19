@@ -12,6 +12,7 @@ from ecoscope.platform.tasks.transformation._unit import Quantity
 from ..transformation import safe_string
 from ._report_inputs import file_stem, file_suffix, paths_only, scan_local_dir
 from ecoscope_workflows_ext_custom.storage import as_readable, exists, save_document
+from .._log import log
 
 TIME_FMT = "%d %b %Y %H:%M:%S"
 # Ordered: png is preferred over jpg when both exist.
@@ -63,7 +64,10 @@ def _find_map_file(paths: list[str], safe_name: str, suffix: str) -> Optional[st
         matches = sorted(p for p in candidates if file_stem(p).startswith(name))
         if matches:
             if len(matches) > 1:
-                print(f"Multiple candidates for {name}{ext}: {matches}; using {matches[-1]}.")
+                log(
+                    "report",
+                    f"  {name}{ext}: {len(matches)} files match, using {matches[-1]}",
+                )
             return matches[-1]
     return None
 
@@ -97,12 +101,15 @@ def create_mapbook_context(
         elif len(unique_names) > 1:
             # Grouped by something other than subject_name (e.g. sex/subtype):
             # per-subject file naming does not apply.
-            print(f"{len(unique_names)} subject names in group; " f"cannot resolve per-subject map files.")
+            log(
+                "report",
+                f"mapbook page: WARNING group has {len(unique_names)} subject names, "
+                "so its map files cannot be found by subject name",
+            )
     else:
-        print("df is None or missing 'subject_name'; using grouper_value='All'")
+        log("report", "mapbook page: no subject name for this group, titled 'All'")
 
-    print(f"grouper_value={grouper_value!r}, safe_name={safe_name!r}")
-
+    missing = []
     if map_files is not None:
         paths = paths_only(map_files)
     else:
@@ -112,7 +119,7 @@ def create_mapbook_context(
         path = _find_map_file(paths, safe_name, suffix) if safe_name else None
         mapbook_png_paths[ctx_key] = path if path else "N/A"
         if path is None:
-            print(f"No file found for {ctx_key} ({safe_name}{suffix})")
+            missing.append(ctx_key)
 
     ctx = {
         "time_period": _format_period(current_period),
@@ -124,7 +131,13 @@ def create_mapbook_context(
         **mapbook_png_paths,
     }
 
-    print(f"Context for {grouper_value}: {ctx}")
+    found = len(MAP_SUFFIXES) - len(missing)
+    log(
+        "report",
+        f"mapbook page for {grouper_value}: {found} of {len(MAP_SUFFIXES)} maps found"
+        + (f", missing {', '.join(missing)}" if missing else "")
+        + f"; MCP area {ctx['mcp_area']}, grid area {ctx['grid_area']}",
+    )
     return ctx
 
 
@@ -141,7 +154,10 @@ def _make_inline_image(template: DocxTemplate, path: str, box_w_cm: float, box_h
         w_cm, h_cm = _fit_within_box(path, box_w_cm, box_h_cm)
         return InlineImage(template, as_readable(path), width=Cm(w_cm), height=Cm(h_cm))
     except Exception as exc:  # corrupt/unreadable image shouldn't kill the render
-        print(f"Could not embed image {path}: {exc}")
+        log(
+            "report",
+            f"  WARNING could not place image {path} ({exc}); its slot is left blank",
+        )
         return None
 
 
@@ -227,7 +243,7 @@ def render_mapbook_page(
             msg = f"{field_name}: image not found: {value}"
             if strict_images:
                 raise FileNotFoundError(msg)
-            print(msg)
+            log("report", f"  WARNING {msg}; its slot is left blank")
 
     try:
         tpl = DocxTemplate(as_readable(template_path))
@@ -250,5 +266,8 @@ def render_mapbook_page(
             f"(grouper={context.get('grouper_value', '?')}): {e}"
         ) from e
 
-    print(f"Rendered mapbook page: {output_path}")
+    log(
+        "report",
+        f"mapbook page for {context.get('grouper_value', '?')}: saved to {output_path}",
+    )
     return str(output_path)

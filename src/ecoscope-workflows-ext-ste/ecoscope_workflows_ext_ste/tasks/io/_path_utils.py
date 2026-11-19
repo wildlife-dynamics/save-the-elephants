@@ -3,6 +3,7 @@ from typing import Annotated
 from wt_registry import register
 from pydantic import Field, FilePath, AfterValidator
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
+from .._log import log
 
 _ALL_FORMATS = {
     # Geospatial
@@ -64,5 +65,8 @@ def get_local_file_path(
     if not file_path.is_file():
         raise FileNotFoundError(f"File not found: {file_path}")
     validate_any_file(file_path)
-    print(f"[get_local_file_path] Resolved path: {file_path} (type: {file_path.suffix.lower()})")
+    log(
+        "files",
+        f"local file: using {file_path} ({file_path.suffix.lower()}, {file_path.stat().st_size / 1e6:.1f} MB)",
+    )
     return remove_file_scheme(str(file_path))

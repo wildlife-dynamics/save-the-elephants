@@ -9,6 +9,7 @@ from ecoscope.platform.tasks.filter._filter import TimeRange
 from typing import Any, Dict, Mapping, Optional, Union, Annotated
 from ecoscope_workflows_ext_custom.storage import as_readable, exists, save_document
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
+from .._log import log
 
 
 def get_image_dimensions_from_pixels(
@@ -111,7 +112,10 @@ def create_context_page(
     # Escape the values, so text from event data can't alter the document's XML.
     doc.render(context, autoescape=True)
     output_path = save_document(doc, output_dir, filename)
-    print(f"create_context_page: saved to {output_path}")
+    log(
+        "report",
+        f"cover page: saved to {output_path} ({'with' if 'org_logo' in context else 'no'} logo image)",
+    )
     return output_path
 
 
@@ -156,7 +160,7 @@ def prepare_cover_metadata(
             raise ValueError("org_logo_path is empty after normalization")
 
     fmt = getattr(report_period, "time_format", "%Y-%m-%d")
-    formatted_time_range = f"{report_period.since.strftime(fmt)} to " f"{report_period.until.strftime(fmt)}"
+    formatted_time_range = f"{report_period.since.strftime(fmt)} to {report_period.until.strftime(fmt)}"
 
     ctx: Dict[str, Optional[str]] = {
         "time_generated": datetime.now().strftime(time_generated_format),
@@ -170,7 +174,10 @@ def prepare_cover_metadata(
         for key, value in extra_fields.items():
             ctx[key] = None if value is None else str(value)
 
-    print(f"prepare_cover_metadata: result={ctx}")
+    log(
+        "report",
+        f"cover page details: period {formatted_time_range}, prepared by {prepared_by}",
+    )
     return ctx
 
 
@@ -182,7 +189,6 @@ def build_extra_fields(fields: Mapping[str, Any]) -> Dict[str, Any]:
     `fields` is a mapping of name -> value; each caller supplies whatever
     fields apply to its report. Values are stringified (None preserved).
     """
-    print(f"build_extra_fields: input fields={dict(fields)}")
     result = {key: (None if value is None else str(value)) for key, value in fields.items()}
-    print(f"build_extra_fields: result={result}")
+    log("report", f"extra report fields: {', '.join(result) or 'none'}")
     return result

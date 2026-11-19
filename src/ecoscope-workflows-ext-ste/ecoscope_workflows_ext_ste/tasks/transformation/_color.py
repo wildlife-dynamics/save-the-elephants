@@ -3,6 +3,7 @@ from typing import Optional, cast
 from wt_registry import register
 from ecoscope.base.utils import hex_to_rgba
 from ecoscope.platform.annotations import AnyDataFrame
+from .._log import count, log
 
 
 @register()
@@ -47,6 +48,11 @@ def add_status_color_columns(
     # hex_to_rgba only needs to run once per distinct color.
     rgba_lookup = {h: hex_to_rgba(h) for h in out[hex_col_name].unique()}
     out[rgba_col_name] = out[hex_col_name].map(rgba_lookup)
+    log(
+        "maps",
+        f"track colours: {int(is_current.sum()):,} '{current_status}' and {int((~is_current).sum()):,} other "
+        f"of {count(len(out), 'row')}, {count(len(rgba_lookup), 'colour')}",
+    )
     return out
 
 
@@ -70,11 +76,14 @@ def add_rgba_from_hex(
     Raises:
         ValueError: If `column` is not a column in `df`.
     """
-    print(f"[add_rgba_from_hex] Converting hex colors in '{column}' -> RGBA tuples in '{new_column}'")
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found. Available: {list(df.columns)}")
 
     df = df.copy()
     df[new_column] = df[column].apply(hex_to_rgba)
-    print(f"[add_rgba_from_hex] Converted {df[column].nunique()} unique hex color(s) across {len(df)} rows")
+    log(
+        "maps",
+        f"colours: '{column}' to RGBA in '{new_column}', {count(df[column].nunique(), 'colour')} "
+        f"over {count(len(df), 'row')}",
+    )
     return cast(AnyDataFrame, df)

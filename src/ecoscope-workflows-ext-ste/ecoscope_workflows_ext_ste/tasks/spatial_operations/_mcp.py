@@ -2,6 +2,7 @@ from typing import cast
 import geopandas as gpd
 from wt_registry import register
 from ecoscope.platform.annotations import AnyGeoDataFrame
+from .._log import count, log
 
 
 @register()
@@ -31,7 +32,6 @@ def compute_minimum_convex_polygon(
             contains no valid geometries, or has fewer than 3 unique vertices
             across all geometries.
     """
-    print(f"[mcp] Computing minimum convex polygon for {len(gdf)} input geometries (planar CRS: {planar_crs})")
     if gdf.crs is None:
         raise ValueError("Input GeoDataFrame has no CRS set. Please assign a CRS before computing the MCP.")
 
@@ -66,5 +66,9 @@ def compute_minimum_convex_polygon(
         geometry=[hull_in_original_crs],
         crs=original_crs,
     )
-    print(f"[mcp] MCP area: {area_m2 / 1e6:.2f} km² ({area_m2:,.0f} m²) from {len(coords)} unique vertices")
+    log(
+        "ranges",
+        f"MCP: {area_m2 / 1e6:,.2f} km² from {count(len(valid), 'geometry', 'geometries')} "
+        f"({len(coords):,} points, area measured in {planar_crs})",
+    )
     return cast(AnyGeoDataFrame, result_gdf)

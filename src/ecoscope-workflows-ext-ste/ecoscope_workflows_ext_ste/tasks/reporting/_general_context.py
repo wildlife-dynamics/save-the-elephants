@@ -6,6 +6,7 @@ from docx.shared import Inches
 from wt_registry import register
 from docxtpl import DocxTemplate, InlineImage
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
+from .._log import log
 
 
 def build_report_context(output_dir: str) -> dict:
@@ -98,7 +99,11 @@ def build_panel_rows(images, cols=2):
 
 @register()
 def general_template_context(
-    output_dir: str, template_path: str, filename: Optional[str] = None, width: float = 5.34, height: float = 3.12
+    output_dir: str,
+    template_path: str,
+    filename: Optional[str] = None,
+    width: float = 5.34,
+    height: float = 3.12,
 ) -> str:
     output_dir = remove_file_scheme(output_dir)
     template_path = remove_file_scheme(template_path)
@@ -129,6 +134,7 @@ def general_template_context(
     try:
         tpl.render(ctx)
         tpl.save(output_path)
+        log("report", f"general report: saved to {output_path}")
         return str(output_path)
     except Exception as e:
         raise ValueError(f"Failed to render or save document: {e}")

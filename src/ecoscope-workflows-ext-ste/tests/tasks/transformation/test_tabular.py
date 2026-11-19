@@ -236,7 +236,7 @@ class TestConvertColumnsToString:
     def test_missing_column_is_skipped_not_raised(self, sample_df, capsys):
         result = convert_columns_to_string(sample_df.copy(), ["nonexistent"])
         captured = capsys.readouterr()
-        assert "not found" in captured.out
+        assert "is not in the table" in captured.out
         assert list(result.columns) == list(sample_df.columns)
 
     def test_mutates_input_df_in_place(self, sample_df):

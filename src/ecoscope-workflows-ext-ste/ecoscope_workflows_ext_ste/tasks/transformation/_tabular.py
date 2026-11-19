@@ -6,6 +6,7 @@ from ecoscope.platform.annotations import (  # type: ignore[import-untyped]
     AnyDataFrame,
 )
 from typing import List, Optional, cast, Any, Annotated, Union
+from .._log import count, log
 
 
 @register()
@@ -50,9 +51,10 @@ def subset_columns(
                 raise KeyError(f"Columns not found: {missing}")
             warnings.warn(f"Columns not found, skipping: {missing}", stacklevel=2)
         keep = [c for c in columns if c in existing]
-        print(
-            f"[subset_columns] Keeping {len(keep)} of {len(df.columns)} columns from {len(df)}-row DataFrame"
-            + (f" (skipped {len(missing)} missing: {missing})" if missing else "")
+        log(
+            "tables",
+            f"select columns: kept {len(keep)} of {count(len(df.columns), 'column')} ({count(len(df), 'row')})"
+            + (f"; WARNING not in the table: {missing}" if missing else ""),
         )
         return df[keep].copy()
 
@@ -64,10 +66,17 @@ def subset_columns(
             warnings.warn(f"Columns not found, skipping exclusion: {missing}", stacklevel=2)
         drop = set(exclude)
         keep = [c for c in df.columns if c not in drop]
-        print(f"[subset_columns] Dropped {len(drop)} columns, {len(keep)} remaining from {len(df)}-row DataFrame")
+        log(
+            "tables",
+            f"select columns: dropped {len(df.columns) - len(keep)}, kept {count(len(keep), 'column')} "
+            f"({count(len(df), 'row')})" + (f"; WARNING not in the table: {missing}" if missing else ""),
+        )
         return df[keep].copy()
 
-    print(f"[subset_columns] No filter applied — returning all {len(df.columns)} columns as-is")
+    log(
+        "tables",
+        f"select columns: no selection given, kept all {count(len(df.columns), 'column')}",
+    )
     return df.copy()
 
 
@@ -117,6 +126,12 @@ def add_mapped_column_value(
         mapped = mapped.fillna(default)
 
     df[new_column] = mapped
+    unmapped = int((~df[column].isin(list(mapping))).sum())
+    log(
+        "tables",
+        f"map values: '{column}' to '{new_column}' for {count(len(df), 'row')}"
+        + (f", {unmapped:,} with a value not in the mapping" if unmapped else ""),
+    )
     return cast(AnyDataFrame, df)
 
 
@@ -136,9 +151,12 @@ def add_new_column(df: AnyDataFrame, column_name: str, default_value: int | floa
     df = df.copy()
     if column_name not in df.columns:
         df[column_name] = default_value
-        print(f"[add_new_column] Added column '{column_name}' = {default_value!r} across {len(df)} rows")
+        log(
+            "tables",
+            f"new column: '{column_name}' = {default_value!r} on {count(len(df), 'row')}",
+        )
     else:
-        print(f"[add_new_column] Column '{column_name}' already exists — skipping")
+        log("tables", f"new column: '{column_name}' already exists, left unchanged")
     return df
 
 
@@ -146,7 +164,10 @@ def add_new_column(df: AnyDataFrame, column_name: str, default_value: int | floa
 def column_first_unique_value(
     df: AnyDataFrame,
     column_name: Annotated[str, Field(description="Column to aggregate")],
-) -> Annotated[str, Field(description="The first unique string value in the column (sentence case)")]:
+) -> Annotated[
+    str,
+    Field(description="The first unique string value in the column (sentence case)"),
+]:
     """
     Get the first unique value from a column.
 
@@ -164,6 +185,11 @@ def column_first_unique_value(
     if len(unique_values) == 0:
         raise ValueError(f"No values found in column '{column_name}'")
 
+    if len(unique_values) > 1:
+        log(
+            "setup",
+            f"first value: '{column_name}' has {len(unique_values)} different values, using {unique_values[0]!r}",
+        )
     return str(unique_values[0])
 
 
@@ -177,13 +203,16 @@ def convert_columns_to_string(
 
     for column in columns:
         if column not in df.columns:
-            print(f"Warning: Column '{column}' not found in DataFrame. Skipping.")
+            log(
+                "tables",
+                f"to text: WARNING column '{column}' is not in the table, skipped",
+            )
             continue
 
         try:
             df[column] = df[column].astype(str)
         except Exception as e:
-            print(f"Error converting column '{column}' to int: {e}")
+            log("tables", f"to text: ERROR could not convert column '{column}' ({e})")
 
     return df
 

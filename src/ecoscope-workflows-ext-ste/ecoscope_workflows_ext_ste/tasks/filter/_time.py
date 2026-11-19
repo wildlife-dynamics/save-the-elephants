@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pandas.tseries.offsets import DateOffset
 from dateutil.relativedelta import relativedelta
 from ecoscope.platform.tasks.filter._filter import TimeRange
+from .._log import log
 
 _SECONDS_PER_UNIT = {
     "seconds": 1,
@@ -52,6 +53,10 @@ def _offset_description(n, years, months, weeks, days, hours, minutes, seconds) 
     return desc or "zero offset"
 
 
+def _period_text(since, until) -> str:
+    return f"{since:%Y-%m-%d %H:%M} to {until:%Y-%m-%d %H:%M}"
+
+
 @register()
 def create_date_offset(
     n: int = 1,
@@ -64,7 +69,6 @@ def create_date_offset(
     seconds: int = 0,
 ) -> DateOffsetSchema:
     desc = _offset_description(n, years, months, weeks, days, hours, minutes, seconds)
-    print(f"[create_date_offset] Building offset: {desc}")
     result = DateOffsetSchema(
         n=n,
         years=years,
@@ -75,7 +79,7 @@ def create_date_offset(
         minutes=minutes,
         seconds=seconds,
     )
-    print(f"[create_date_offset] Offset ready: {desc}")
+    log("setup", f"date offset: {desc}")
     return result
 
 
@@ -85,9 +89,15 @@ def shift_period(
     offset: DateOffsetSchema,
 ) -> TimeRange:
     desc = _offset_description(
-        offset.n, offset.years, offset.months, offset.weeks, offset.days, offset.hours, offset.minutes, offset.seconds
+        offset.n,
+        offset.years,
+        offset.months,
+        offset.weeks,
+        offset.days,
+        offset.hours,
+        offset.minutes,
+        offset.seconds,
     )
-    print(f"[shift_period] Shifting {timerange.since} -> {timerange.until} back by {desc}")
     off = offset.to_offset()
     since = (pd.Timestamp(timerange.since) - off).to_pydatetime()
     until = (pd.Timestamp(timerange.until) - off).to_pydatetime()
@@ -97,7 +107,11 @@ def shift_period(
         timezone=timerange.timezone,
         time_format=timerange.time_format,
     )
-    print(f"[shift_period] Shifted period: {result.since} -> {result.until}")
+    log(
+        "setup",
+        f"shift period: {_period_text(timerange.since, timerange.until)} moved back by {desc} "
+        f"gives {_period_text(result.since, result.until)}",
+    )
     return result
 
 
@@ -107,9 +121,15 @@ def previous_period(
     offset: DateOffsetSchema,
 ) -> TimeRange:
     desc = _offset_description(
-        offset.n, offset.years, offset.months, offset.weeks, offset.days, offset.hours, offset.minutes, offset.seconds
+        offset.n,
+        offset.years,
+        offset.months,
+        offset.weeks,
+        offset.days,
+        offset.hours,
+        offset.minutes,
+        offset.seconds,
     )
-    print(f"[previous_period] Computing period prior to {timerange.since}, stepping back {desc}")
     since = (pd.Timestamp(timerange.since) - offset.to_offset()).to_pydatetime()
     until = timerange.since
     result = TimeRange(
@@ -118,7 +138,10 @@ def previous_period(
         timezone=timerange.timezone,
         time_format=timerange.time_format,
     )
-    print(f"[previous_period] Previous period: {result.since} -> {result.until}")
+    log(
+        "setup",
+        f"previous period: {_period_text(result.since, result.until)} ({desc} before the current period)",
+    )
     return result
 
 
@@ -128,11 +151,13 @@ def get_duration(
     time_unit: Literal["seconds", "minutes", "hours", "days", "weeks", "months", "years"] = "months",
 ) -> float:
     since, until = time_range.since, time_range.until
-    print(f"[get_duration] Measuring {since} to {until} in {time_unit}")
     # Fixed-length units
     if time_unit in _SECONDS_PER_UNIT:
         result = (until - since).total_seconds() / _SECONDS_PER_UNIT[time_unit]
-        print(f"[get_duration] Duration: {result:.4f} {time_unit}")
+        log(
+            "setup",
+            f"duration: {_period_text(since, until)} is {result:.2f} {time_unit}",
+        )
         return result
 
     # Calendar units: whole units exact; partial unit measured against its real length.
@@ -145,7 +170,10 @@ def get_duration(
         unit_len = (next_anchor - anchor).total_seconds()
         fraction = (until - anchor).total_seconds() / unit_len if unit_len else 0.0
         result = whole / step + fraction
-        print(f"[get_duration] Duration: {result:.4f} {time_unit}")
+        log(
+            "setup",
+            f"duration: {_period_text(since, until)} is {result:.2f} {time_unit}",
+        )
         return result
 
     raise ValueError(f"`get_duration`: invalid time_unit {time_unit!r}")
@@ -216,6 +244,7 @@ def flexible_previous_period(
     until = timerange.since
 
     if isinstance(offset, CustomPreviousPeriod):
+        mode = "custom offset"
         rd = relativedelta(
             years=offset.years,
             months=offset.months,
@@ -228,14 +257,17 @@ def flexible_previous_period(
         since = until - rd
 
     elif isinstance(offset, PresetPreviousPeriod):
+        mode = f"preset '{offset.preset}'"
         if offset.preset == "Same as current period":
             since = until - relativedelta(timerange.until, timerange.since)
         else:
             since = until - _PRESET_OFFSETS[offset.preset]
 
     else:
+        mode = "calendar start date"
         since = offset.since
 
+    log("setup", f"previous period: {_period_text(since, until)} ({mode})")
     return TimeRange(
         since=since,
         until=until,
