@@ -7,6 +7,7 @@ from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_schem
 from ecoscope.analysis.ecograph import (  # type: ignore[import-untyped]
     get_feature_gdf,
 )
+from .._log import count, log
 
 
 @register()
@@ -26,7 +27,6 @@ def raster_to_gdf(
         ValueError: If `file_path` is empty.
         FileNotFoundError: If the file doesn't exist.
     """
-    print(f"[raster_to_gdf] Loading feature raster from: {file_path}")
     if not file_path or not file_path.strip():
         raise ValueError("'file_path' must be a non-empty string.")
 
@@ -35,5 +35,8 @@ def raster_to_gdf(
         raise FileNotFoundError(f"Feature file not found: {file_path}")
 
     result = get_feature_gdf(file_path)
-    print(f"[raster_to_gdf] Loaded {len(result)} rows with columns: {list(result.columns)}")
+    log(
+        "maps",
+        f"raster to features: {count(len(result), 'cell')} read from {file_path}",
+    )
     return result

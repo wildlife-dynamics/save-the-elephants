@@ -4,6 +4,7 @@ from wt_registry import register
 from typing import Literal, Optional, Sequence
 from wt_task.skip import SkipSentinel
 from ecoscope.platform.annotations import AnyDataFrame
+from .._log import count, log
 
 
 @register()
@@ -41,6 +42,10 @@ def concatenate_dataframes(
     """
     valid_dfs = [df for df in list_df if not isinstance(df, SkipSentinel)]
     if not valid_dfs:
+        log(
+            "tables",
+            f"combine tables: all {len(list_df)} inputs were skipped, returning an empty table",
+        )
         return pd.DataFrame()
     list_df = valid_dfs
 
@@ -57,4 +62,10 @@ def concatenate_dataframes(
     if copy is not None:  # avoid triggering the pandas 3.x deprecation warning
         kwargs["copy"] = copy
 
-    return pd.concat(list_df, **kwargs)
+    result = pd.concat(list_df, **kwargs)
+    log(
+        "tables",
+        f"combine tables: {count(len(valid_dfs), 'table')} ({', '.join(f'{len(df):,}' for df in valid_dfs)} rows) "
+        f"into {count(len(result), 'row')}",
+    )
+    return result

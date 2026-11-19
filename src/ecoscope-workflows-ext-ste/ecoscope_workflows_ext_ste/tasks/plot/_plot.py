@@ -13,6 +13,7 @@ from ecoscope.platform.tasks.results._ecoplot import (
     GroupedPlotStyle,
     PlotStyle,
 )
+from .._log import count, log
 
 
 @register()
@@ -198,4 +199,9 @@ def draw_stacked_percentage_bar_chart(
     if layout_style:
         fig.update_layout(**layout_style.model_dump(exclude_none=True))
 
+    log(
+        "tables",
+        f"stacked percentage chart: '{category_column}' by {group_by}, "
+        f"{count(len(fig.data), 'category', 'categories')} from {count(len(dataframe), 'row')}",
+    )
     return fig.to_html(**ExportArgs(div_id=widget_id).model_dump(exclude_none=True))

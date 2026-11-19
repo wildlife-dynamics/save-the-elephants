@@ -4,6 +4,7 @@ from ecoscope.platform.annotations import AdvancedField
 from ecoscope.platform.tasks.preprocessing._preprocessing import (
     TrajectorySegmentFilter,
 )
+from .._log import log
 
 
 @register()
@@ -57,6 +58,11 @@ def trajectory_segment_filter(
     if min_speed_kmhr > max_speed_kmhr:
         raise ValueError(f"min_speed_kmhr ({min_speed_kmhr}) > max_speed_kmhr ({max_speed_kmhr}).")
 
+    log(
+        "tracks",
+        f"segment filter: length {min_length_meters:g} to {max_length_meters:g} m, "
+        f"duration {min_time_secs:g} to {max_time_secs:g} s, speed {min_speed_kmhr:g} to {max_speed_kmhr:g} km/h",
+    )
     return TrajectorySegmentFilter(
         min_length_meters=min_length_meters,
         max_length_meters=max_length_meters,

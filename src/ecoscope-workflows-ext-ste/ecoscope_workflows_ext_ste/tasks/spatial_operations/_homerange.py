@@ -8,6 +8,7 @@ from ecoscope.platform.tasks.analysis._time_density import (
     CustomGridCellSize,
     calculate_elliptical_time_density,
 )
+from .._log import count, log, timed
 
 
 @register()
@@ -64,7 +65,6 @@ def calculate_elliptical_time_density_grouped(
         Per year:
         >>> calculate_home_range_by_group(gdf, groupby_cols=["year"])
     """
-    print(f"[home_range] Computing elliptical home ranges for {len(gdf)} records grouped by {groupby_cols}")
     missing = [c for c in groupby_cols if c not in gdf.columns]
     if missing:
         raise ValueError(f"Missing groupby columns: {missing}. Available: {list(gdf.columns)}")
@@ -77,30 +77,43 @@ def calculate_elliptical_time_density_grouped(
         gdf = gdf.dropna(subset=groupby_cols).copy()
         dropped = original_count - len(gdf)
         if dropped:
-            print(f"[home_range]Dropped {dropped} rows with null values")
+            log(
+                "ranges",
+                f"home range by {groupby_cols}: left out {count(dropped, 'segment')} with no group value",
+            )
 
     if gdf.empty:
-        print("[home_range] No records remaining after null filter — returning empty result")
+        log(
+            "ranges",
+            f"home range by {groupby_cols}: no segments to use, returning an empty result",
+        )
         return cast(AnyDataFrame, pd.DataFrame())
 
     n_groups = gdf.groupby(groupby_cols).ngroups
-    print(f"[home_range] {n_groups} group(s) to process at percentiles {percentiles}")
+    log(
+        "ranges",
+        f"home range by {groupby_cols}: {count(len(gdf), 'segment')} in {count(n_groups, 'group')}, "
+        f"percentiles {percentiles}",
+    )
 
     results = []
     for group_keys, group in gdf.groupby(groupby_cols, dropna=drop_null_groups):
         if not isinstance(group_keys, tuple):
             group_keys = (group_keys,)
         group_label = ", ".join(f"{k}={v}" for k, v in zip(groupby_cols, group_keys))
-        print(f"[home_range] Processing group: {group_label} ({len(group)} records)")
-        result = calculate_elliptical_time_density(
-            group,  # type: ignore[arg-type]
-            auto_scale_or_custom_cell_size=cell_size,
-            percentiles=percentiles,
-        )
+        with timed("ranges", f"  {group_label} ({count(len(group), 'segment')})"):
+            result = calculate_elliptical_time_density(
+                group,  # type: ignore[arg-type]
+                auto_scale_or_custom_cell_size=cell_size,
+                percentiles=percentiles,
+            )
         annotation: dict[str, Any] = dict(zip(groupby_cols, group_keys))
         result = result.assign(**annotation)
         results.append(result)
 
     final = pd.concat(results, ignore_index=True) if results else pd.DataFrame()
-    print(f"[home_range] Completed {len(results)} home range(s) — {len(final)} total output rows")
+    log(
+        "ranges",
+        f"home range by {groupby_cols}: {count(len(results), 'group')} done, {count(len(final), 'polygon')}",
+    )
     return cast(AnyDataFrame, final)

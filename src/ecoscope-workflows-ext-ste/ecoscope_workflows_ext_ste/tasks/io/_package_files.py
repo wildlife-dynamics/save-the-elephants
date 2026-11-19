@@ -3,10 +3,14 @@ from pydantic import Field
 from wt_registry import register
 from typing import Annotated, Literal, get_args
 from importlib.resources import as_file, files
+from .._log import log
 
 
 MapbookFile = Literal[
-    "mapbook_cover_page.docx", "mapbook_grouper_template.docx", "mapbook_ldx_layers.gpkg", "wd-logo.png"
+    "mapbook_cover_page.docx",
+    "mapbook_grouper_template.docx",
+    "mapbook_ldx_layers.gpkg",
+    "wd-logo.png",
 ]
 
 MAPBOOK_FILES: tuple[str, ...] = get_args(MapbookFile)
@@ -30,4 +34,5 @@ def load_mapbook_file(
         local = Path(path)
     if not local.is_file():
         raise FileNotFoundError(f"Packaged file is missing: {local}")
+    log("files", f"packaged file: {filename} ({local.stat().st_size / 1e6:.1f} MB)")
     return str(local.resolve())

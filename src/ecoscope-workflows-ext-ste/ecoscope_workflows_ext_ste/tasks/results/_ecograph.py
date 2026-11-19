@@ -12,6 +12,7 @@ from ecoscope.analysis.ecograph import (  # type: ignore[import-untyped]
 from ecoscope.trajectory import Trajectory  # type: ignore[import-untyped]
 from ecoscope.platform.annotations import AdvancedField, AnyGeoDataFrame
 from ecoscope_workflows_ext_custom.tasks.io._path_utils import remove_file_scheme
+from .._log import count, log
 
 
 @register()
@@ -47,7 +48,10 @@ def generate_ecograph_raster(
     ] = "dist_meters",
     output_dir: Annotated[
         Optional[str],
-        AdvancedField(default=None, description="Directory to save the output raster. Defaults to CWD."),
+        AdvancedField(
+            default=None,
+            description="Directory to save the output raster. Defaults to CWD.",
+        ),
     ] = None,
     filename: Annotated[
         Optional[str],
@@ -60,7 +64,8 @@ def generate_ecograph_raster(
     resolution: Annotated[
         Optional[float],
         AdvancedField(
-            default=None, description="Raster resolution. If None, uses `step_length` or the mean of `dist_col`."
+            default=None,
+            description="Raster resolution. If None, uses `step_length` or the mean of `dist_col`.",
         ),
     ] = None,
     radius: Annotated[
@@ -77,7 +82,10 @@ def generate_ecograph_raster(
     ] = 3,
     interpolation: Annotated[
         Literal["mean", "min", "max", "median"],
-        AdvancedField(default="mean", description="Aggregation method when multiple values fall in a cell."),
+        AdvancedField(
+            default="mean",
+            description="Aggregation method when multiple values fall in a cell.",
+        ),
     ] = "mean",
     step_length: Annotated[
         Optional[int],
@@ -146,7 +154,10 @@ def generate_ecograph_raster(
 
     raster_path = os.path.join(output_dir, f"{filename}.tif")
     ecograph.to_geotiff(covariate, raster_path, interpolation=interpolation)
-    print(f"[generate_ecograph_raster] Raster saved: {raster_path}")
+    log(
+        "maps",
+        f"movement raster: '{covariate}' from {count(len(gdf), 'segment')} saved to {raster_path}",
+    )
     return raster_path
 
 
@@ -227,7 +238,8 @@ def generate_ecograph_gdf(
     resolution: Annotated[
         Optional[float],
         AdvancedField(
-            default=None, description="Raster resolution. If None, uses `step_length` or the mean of `dist_col`."
+            default=None,
+            description="Raster resolution. If None, uses `step_length` or the mean of `dist_col`.",
         ),
     ] = None,
     radius: Annotated[
@@ -244,7 +256,10 @@ def generate_ecograph_gdf(
     ] = 3,
     interpolation: Annotated[
         Literal["mean", "min", "max", "median"],
-        AdvancedField(default="mean", description="Aggregation method when multiple values fall in a cell."),
+        AdvancedField(
+            default="mean",
+            description="Aggregation method when multiple values fall in a cell.",
+        ),
     ] = "mean",
     step_length: Annotated[
         Optional[int],
@@ -284,5 +299,8 @@ def generate_ecograph_gdf(
     with MemoryFile() as mem:
         ecograph.to_geotiff(covariate, mem.name, interpolation=interpolation)
         result = get_feature_gdf(mem.name)
-    print(f"[generate_ecograph_gdf] Built {len(result)} raster features for '{covariate}'.")
+    log(
+        "maps",
+        f"movement raster: '{covariate}' from {count(len(gdf), 'segment')}, {count(len(result), 'cell')}",
+    )
     return result

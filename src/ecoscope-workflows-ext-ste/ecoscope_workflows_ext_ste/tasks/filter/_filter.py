@@ -3,6 +3,7 @@ from wt_registry import register
 from typing import Annotated, cast, Union
 from ecoscope.platform.annotations import AnyDataFrame
 from ecoscope.platform.tasks.transformation._filter import ComparisonOperator
+from .._log import count, log
 
 
 @register()
@@ -16,7 +17,10 @@ def filter_rows(
     ],
     column_name: Annotated[str, Field(description="The column name to filter on.")],
     op: Annotated[ComparisonOperator, Field(description="The comparison operator")],
-    value: Annotated[Union[bool, float, int, str], Field(description="The comparison operand (numeric or string)")],
+    value: Annotated[
+        Union[bool, float, int, str],
+        Field(description="The comparison operand (numeric or string)"),
+    ],
     reset_index: Annotated[bool, Field(description="If reset index, default is False")] = False,
 ) -> AnyDataFrame:
     match op:
@@ -36,4 +40,8 @@ def filter_rows(
     if reset_index:
         result_df = result_df.reset_index(drop=True)
 
+    log(
+        "tables",
+        f"filter rows: {column_name} {op.value} {value!r} kept {len(result_df):,} of {count(len(df), 'row')}",
+    )
     return cast(AnyDataFrame, result_df)

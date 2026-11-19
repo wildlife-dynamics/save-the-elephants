@@ -3,6 +3,7 @@ from pydantic import Field
 from wt_registry import register
 from typing import Annotated, Literal, cast
 from ecoscope.platform.annotations import AnyGeoDataFrame
+from .._log import count, log
 
 
 @register()
@@ -43,6 +44,11 @@ def spatial_join(
         cast(gpd.GeoDataFrame, right_df),
         how=how,
         predicate=predicate,
+    )
+    log(
+        "tables",
+        f"spatial join ({how}, {predicate}): {count(len(left_df), 'row')} with {count(len(right_df), 'row')} "
+        f"gives {count(len(result), 'row')}",
     )
     return cast(
         AnyGeoDataFrame,

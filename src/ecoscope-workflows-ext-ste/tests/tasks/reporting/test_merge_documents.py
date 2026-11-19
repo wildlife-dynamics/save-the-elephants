@@ -58,7 +58,7 @@ class TestMergeDocxDocuments:
         )
         assert os.path.exists(result)
         assert _paragraphs(result) == ["COVER PAGE"]
-        assert "No valid context pages to merge" in capsys.readouterr().out
+        assert "no subject pages to add" in capsys.readouterr().out
 
     def test_merges_cover_and_context_pages_in_name_order(self, tmp_path):
         cover = _make_doc(tmp_path / "cover.docx", "COVER")
@@ -114,7 +114,7 @@ class TestMergeDocxDocuments:
             output_dir=str(tmp_path / "out"),
         )
         assert _paragraphs(result) == ["COVER", "JAN CONTEXT"]
-        assert "Skipping page item 0" in capsys.readouterr().out
+        assert "page 1 left out" in capsys.readouterr().out
 
     def test_none_items_are_skipped(self, tmp_path):
         cover = _make_doc(tmp_path / "cover.docx", "COVER")

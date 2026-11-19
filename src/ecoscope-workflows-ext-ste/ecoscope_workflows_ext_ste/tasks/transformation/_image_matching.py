@@ -3,6 +3,7 @@ from pydantic import Field
 from wt_registry import register
 from typing import Annotated, List
 from ecoscope.platform.annotations import AnyDataFrame
+from .._log import count, log
 
 
 def _match_window(
@@ -42,9 +43,10 @@ def match_images_to_events(
     window = pd.Timedelta(minutes=time_window_minutes)
     timestamped = images_df.dropna(subset=["datetime"]).copy()
 
-    print(
-        f"Matching {len(timestamped)} timestamped images against "
-        f"{len(events_df)} events (\u00b1{time_window_minutes} min window)..."
+    log(
+        "aerial",
+        f"matching {count(len(timestamped), 'timestamped image')} to {count(len(events_df), 'event')} "
+        f"within \u00b1{time_window_minutes:g} min...",
     )
 
     rows = []
@@ -73,7 +75,10 @@ def match_images_to_events(
 
     result = pd.DataFrame(rows)
     total_images = int(result["image_count"].sum()) if not result.empty else 0
-    print(f"Matched {len(result)} of {len(events_df)} events — {total_images} images queued for upload.")
+    log(
+        "aerial",
+        f"matched {len(result):,} of {count(len(events_df), 'event')}, {count(total_images, 'image')} ready to upload",
+    )
     return result
 
 
@@ -91,4 +96,9 @@ def get_unmatched_images(
     """
     matched_paths = set(p for paths in matched_df["matched_images"] for p in paths)
     timestamped = images_df.dropna(subset=["datetime"])
-    return timestamped[~timestamped["file_path"].isin(matched_paths)].reset_index(drop=True)
+    unmatched = timestamped[~timestamped["file_path"].isin(matched_paths)].reset_index(drop=True)
+    log(
+        "aerial",
+        f"{len(unmatched):,} of {count(len(timestamped), 'timestamped image')} matched no event",
+    )
+    return unmatched

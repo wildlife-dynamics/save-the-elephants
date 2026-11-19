@@ -5,6 +5,7 @@ import pandas as pd
 import geopandas as gpd
 from pydantic import Field
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 from wt_registry import register
 from typing import Annotated, cast, Optional
 from shapely.geometry.base import BaseGeometry
@@ -19,15 +20,26 @@ from ecoscope.platform.annotations import (
 )
 from ecoscope.platform.tasks.filter._filter import TimeRange
 from ecoscope.platform.connections import EarthEngineClient
+from .._log import count, log, timed
 
 MODIS_START = datetime(2000, 2, 24)
 
 # Pixel size the NDVI mean is taken at; MCD43A4 is a 500 m product.
 NDVI_SCALE_METERS = 500
+# Most pixels averaged per image. Larger regions use coarser pixels instead, so the
+# cost of a request stays about the same; a regional NDVI mean does not need more.
+MAX_NDVI_PIXELS = 50_000
 # Longest period fetched in one Earth Engine request, to keep each request quick.
 MAX_CHUNK_DAYS = 730
+# Earth Engine requests sent at the same time; well under its concurrency limit.
+MAX_PARALLEL_REQUESTS = 8
 # About 100 m. Trims the vertices of raster-outline ROIs; far below the pixel size.
 ROI_SIMPLIFY_DEGREES = 0.001
+
+
+def _ndvi_scale_meters(area_m2: float) -> int:
+    """Pixel size for a region: 500 m, or coarser so it holds at most MAX_NDVI_PIXELS pixels."""
+    return max(NDVI_SCALE_METERS, math.ceil(math.sqrt(area_m2 / MAX_NDVI_PIXELS)))
 
 
 def _fetch_ndvi(
@@ -112,7 +124,7 @@ def compute_seasons_from_ndvi(
     Compute seasonal time windows from MODIS NDVI within an ROI.
 
     Fetches the mean NDVI of every image over the ROI from Earth Engine, in
-    chunks of at most two years, clusters the values into two seasons (low/high
+    chunks of at most two years requested in parallel, clusters the values into two seasons (low/high
     NDVI), and returns the seasonal windows.
 
     The NDVI history always starts at the beginning of MODIS coverage
@@ -136,17 +148,36 @@ def compute_seasons_from_ndvi(
     )
     chunk_strings = [d.isoformat() for d in chunk_dates]
 
-    ndvi_chunks = [
-        _fetch_ndvi(
+    # The chunks are independent Earth Engine requests, so send them together
+    # instead of waiting for each one in turn. `map` keeps them in date order
+    # and re-raises the first failure.
+    def fetch_chunk(period: tuple[str, str]) -> pd.DataFrame:
+        start, end = period
+        return _fetch_ndvi(
             img_coll=img_collection,
             nir_band=nir_band,
             red_band=red_band,
             aoi=merged_roi,
             start=start,
             end=end,
+            scale=scale,
         )
-        for start, end in zip(chunk_strings[:-1], chunk_strings[1:])
-    ]
+
+    chunk_periods = list(zip(chunk_strings[:-1], chunk_strings[1:]))
+    workers = min(MAX_PARALLEL_REQUESTS, len(chunk_periods))
+    area_km2 = gpd.GeoSeries([merged_roi], crs=4326).to_crs("ESRI:54034").area.iloc[0] / 1e6
+    scale = _ndvi_scale_meters(area_km2 * 1e6)
+    log(
+        "seasons",
+        f"region of {area_km2:,.0f} km² from {count(len(roi), 'feature')}; NDVI from {img_collection} "
+        f"at {scale:,} m pixels, {time_range.since:%Y-%m-%d} to {time_range.until:%Y-%m-%d}",
+    )
+    with timed(
+        "seasons",
+        f"NDVI from Earth Engine ({count(len(chunk_periods), 'request')}, {workers} at a time)",
+    ):
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            ndvi_chunks = list(pool.map(fetch_chunk, chunk_periods))
     ndvi_vals = pd.concat(ndvi_chunks, ignore_index=True).dropna().sort_values("img_date", ignore_index=True)
     if ndvi_vals.empty:
         raise ValueError(
@@ -157,7 +188,15 @@ def compute_seasons_from_ndvi(
     ndvi = ndvi_vals["NDVI"].to_numpy()
     ndvi_vals["NDVI"] = (ndvi - ndvi.min()) / (ndvi.max() - ndvi.min())
     cuts = val_cuts(ndvi_vals, 2)
-    return cast(AnyDataFrame, seasonal_windows(ndvi_vals, cuts, season_labels=["Dry", "Wet"]))
+    windows = seasonal_windows(ndvi_vals, cuts, season_labels=["Dry", "Wet"])
+    wet = int((windows["season"] == "Wet").sum())
+    log(
+        "seasons",
+        f"{count(len(ndvi_vals), 'NDVI value')} gave {count(len(windows), 'seasonal window')} "
+        f"({wet:,} wet, {len(windows) - wet:,} dry), {windows['start'].min():%Y-%m-%d} to "
+        f"{windows['end'].max():%Y-%m-%d}",
+    )
+    return cast(AnyDataFrame, windows)
 
 
 @register()
@@ -212,7 +251,10 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
         for col in ["segment_start", "segment_end"]:
             null_count = trajectories[col].isnull().sum()
             if null_count > 0:
-                print(f"Found {null_count} NULL values in {col}. These rows will be skipped.")
+                log(
+                    "seasons",
+                    f"season labels: WARNING {count(null_count, 'segment')} with no {col}, left out",
+                )
 
         seasonal_wins = seasons_df.copy()
         traj_start = trajectories["segment_start"].min()
@@ -222,11 +264,18 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
             (seasonal_wins["end"] >= traj_start) & (seasonal_wins["start"] <= traj_end)
         ].reset_index(drop=True)
 
-        print(f"Filtered seasonal windows: {len(seasonal_wins)} periods")
-        print(f"Seasonal Windows:\n{seasonal_wins[['start', 'end', 'season']]}")
+        for _, win in seasonal_wins.iterrows():
+            log(
+                "seasons",
+                f"  {win['season']}: {win['start']:%Y-%m-%d} to {win['end']:%Y-%m-%d}",
+            )
 
         if seasonal_wins.empty:
-            print("No seasonal windows overlap with trajectory timeframe.")
+            log(
+                "seasons",
+                f"season labels: no seasonal window overlaps the tracks ({traj_start:%Y-%m-%d} to "
+                f"{traj_end:%Y-%m-%d}); no segment gets a season",
+            )
             trajectories["season"] = None
             return trajectories
 
@@ -234,10 +283,11 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
         seasonal_wins = seasonal_wins.sort_values("start").reset_index(drop=True)
         for i in range(len(seasonal_wins) - 1):
             if seasonal_wins.loc[i, "end"] > seasonal_wins.loc[i + 1, "start"]:
-                print(
-                    f"Overlapping seasonal windows detected: "
+                log(
+                    "seasons",
+                    f"season labels: WARNING overlapping seasonal windows: "
                     f"[{seasonal_wins.loc[i, 'start']} - {seasonal_wins.loc[i, 'end']}] and "
-                    f"[{seasonal_wins.loc[i+1, 'start']} - {seasonal_wins.loc[i+1, 'end']}]"
+                    f"[{seasonal_wins.loc[i + 1, 'start']} - {seasonal_wins.loc[i + 1, 'end']}]",
                 )
 
         # Align season window timezone to match trajectory timezone to avoid pd.cut IntervalIndex mismatch
@@ -255,12 +305,24 @@ def create_seasonal_labels(trajectories: AnyGeoDataFrame, seasons_df: AnyDataFra
 
         null_count = trajectories["season"].isnull().sum()
         if null_count > 0:
-            print(f"{null_count} trajectory segments couldn't be assigned to any season")
+            log(
+                "seasons",
+                f"season labels: {count(null_count, 'segment')} outside every seasonal window, left out",
+            )
 
         trajectories = trajectories.dropna(subset=["season"])
+        per_season = ", ".join(f"{n:,} {season}" for season, n in trajectories["season"].value_counts().items())
+        log(
+            "seasons",
+            f"season labels: {count(len(trajectories), 'segment')} labelled ({per_season or 'none'}) "
+            f"using {count(len(seasonal_wins), 'window')}",
+        )
         return trajectories
 
     except Exception as e:
-        print(f"Failed to apply seasonal label to trajectories: {e}")
+        log(
+            "seasons",
+            f"season labels: ERROR {type(e).__name__}: {e}; no segment gets a season",
+        )
         trajectories["season"] = None
         return trajectories

@@ -20,6 +20,7 @@ from ..results._spatial_layers import (
     create_categorical_styled_layer,
 )
 from ..io import load_mapbook_file
+from .._log import count, log
 
 
 _LDX_COLOR_MAPPING = {
@@ -185,11 +186,23 @@ def select_map_overlay(
     """
     if isinstance(option, LandDxOverlayOption):
         gdf = load_df(file_path=ldx_path or load_mapbook_file(_LDX_FILE))
-        return _build_ldx_layers(gdf)
+        layers = _build_ldx_layers(gdf)
+        log(
+            "maps",
+            f"map overlay: LandDx, {count(len(gdf), 'area')} in {count(len(layers), 'layer')}",
+        )
+        return layers
 
     if isinstance(option, ERSpatialFeatureGroupOverlayOption):
         if client is None:
             raise ValueError("An EarthRanger `client` is required for the EarthRanger overlay option.")
         style = option.style[0] if option.style else LayerStyle()
-        return _build_er_group_layers(client, option.spatial_feature_groups, style)
+        layers = _build_er_group_layers(client, option.spatial_feature_groups, style)
+        log(
+            "maps",
+            f"map overlay: {count(len(layers), 'layer')} from EarthRanger spatial feature "
+            f"groups {list(option.spatial_feature_groups)}",
+        )
+        return layers
+    log("maps", "map overlay: none selected")
     return []

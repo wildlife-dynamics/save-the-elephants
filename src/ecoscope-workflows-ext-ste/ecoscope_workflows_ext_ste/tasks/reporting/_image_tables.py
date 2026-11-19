@@ -4,6 +4,7 @@ from pydantic import Field
 from typing import Annotated
 from wt_registry import register
 from ecoscope.platform.annotations import AnyDataFrame
+from .._log import count, log
 
 _CSS = """
 <style>
@@ -42,6 +43,7 @@ def build_matched_table(
     Includes a summary line with total events matched and images queued.
     """
     if matched_df.empty:
+        log("aerial", "matched images table: no images matched any events")
         return f"{_CSS}<p class='aerial' style='color:#888;padding:12px 0'>No images matched any events.</p>"
 
     def _row(r: pd.Series) -> str:
@@ -71,6 +73,11 @@ def build_matched_table(
         f"<span><span class='dot dot-green'></span> {int(matched_df['image_count'].sum())} images queued</span>"
         "</div>"
     )
+    log(
+        "aerial",
+        f"matched images table: {count(len(matched_df), 'event')} with "
+        f"{count(int(matched_df['image_count'].sum()), 'image')}",
+    )
     return f"{_CSS}<div class='aerial'><div class='scroll-wrap'>{table}</div>{summary}</div>"
 
 
@@ -84,6 +91,7 @@ def build_unmatched_table(
     Shows filename and EXIF timestamp for each unmatched image.
     """
     if unmatched_df.empty:
+        log("aerial", "unmatched images table: all images were matched")
         return f"{_CSS}<p class='aerial' style='color:#888;padding:12px 0'>All images were matched to events.</p>"
 
     # fmt: off
@@ -102,5 +110,9 @@ def build_unmatched_table(
         "<div class='summary'>"
         f"<span><span class='dot dot-grey'></span> {len(unmatched_df)} images unmatched</span>"
         "</div>"
+    )
+    log(
+        "aerial",
+        f"unmatched images table: {count(len(unmatched_df), 'image')} not matched to any event",
     )
     return f"{_CSS}<div class='aerial'><div class='scroll-wrap'>{table}</div>{summary}</div>"

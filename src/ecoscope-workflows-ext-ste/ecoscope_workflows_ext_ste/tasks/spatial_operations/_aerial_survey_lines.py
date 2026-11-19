@@ -7,6 +7,7 @@ from shapely.geometry import LineString, MultiPolygon
 from ecoscope.platform.annotations import (  # type: ignore[import-untyped]
     AnyGeoDataFrame,
 )
+from .._log import count, log
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +19,13 @@ def ensure_polygon_type(gdf: AnyGeoDataFrame) -> AnyGeoDataFrame:  # assert_poly
     Polygon or MultiPolygon.
     """
     geom_types = set(gdf.geometry.geom_type.unique())
-    print(f"[ensure_polygon_type] Validating {len(gdf)} geometries — types found: {geom_types}")
     invalid = geom_types - {"Polygon", "MultiPolygon"}
     if invalid:
         raise ValueError(f"Invalid geometry types: {invalid}. " f"Only Polygon and MultiPolygon are supported.")
-    print(f"[ensure_polygon_type] All {len(gdf)} geometries are valid polygons.")
+    log(
+        "aerial",
+        f"survey area: {count(len(gdf), 'polygon')} ({', '.join(sorted(geom_types))})",
+    )
     return gdf
 
 
@@ -77,10 +80,13 @@ def create_survey_transects(  # generate_survey_transects
     else:
         raise ValueError("direction must be 'North South' or 'East West'.")
 
-    print(f"[create_survey_transects] Generated {len(lines)} candidate lines — clipping to polygon boundaries...")
     lines_gdf = gpd.GeoDataFrame(geometry=lines, crs=projected.crs)
     lines_gdf = gpd.overlay(lines_gdf, projected, how="intersection")
 
     result = cast(AnyGeoDataFrame, lines_gdf.to_crs(original_crs.to_wkt()))
-    print(f"[create_survey_transects] {len(result)} transects after clipping")
+    log(
+        "aerial",
+        f"transects: {count(len(result), 'line')} running {direction}, {spacing:g} m apart "
+        f"(from {len(lines):,} drawn across the area, clipped to its boundary; CRS {projected.crs.name})",
+    )
     return result
